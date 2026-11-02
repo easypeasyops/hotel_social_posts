@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ hotel.name }} — aicansolveit{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="/dashboard/hotels" class="text-sm text-gray-600 hover:text-gray-900">← All hotels</a>
+  <div class="flex items-start justify-between gap-4 mt-3">
+    <div>
+      <h1 class="text-2xl font-semibold">{{ hotel.name }}</h1>
+      <p class="text-sm text-gray-600 mt-1">{{ hotel.location }} · /{{ hotel.slug }}</p>
+    </div>
+    <a href="/dashboard/hotels/{{ hotel.id }}/edit"
+       class="border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50">Edit hotel</a>
+  </div>
+</div>
+
+<section class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+  <h2 class="font-semibold">Hotel settings</h2>
+  <dl class="grid sm:grid-cols-2 gap-4 mt-4 text-sm">
+    <div><dt class="text-gray-500">Contact</dt><dd class="mt-1">{{ hotel.contact_email }}</dd></div>
+    <div><dt class="text-gray-500">Tier</dt><dd class="mt-1">{{ hotel.tier|capitalize }}</dd></div>
+    <div class="sm:col-span-2"><dt class="text-gray-500">Channels</dt>
+      <dd class="mt-1">{{ hotel.channels|join(", ") }}</dd></div>
+    {% if hotel.description %}
+    <div class="sm:col-span-2"><dt class="text-gray-500">Description</dt><dd class="mt-1">{{ hotel.description }}</dd></div>
+    {% endif %}
+  </dl>
+</section>
+
+<section class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 class="font-semibold">Media</h2>
+      <p class="text-sm text-gray-600 mt-1">Create a hotel-scoped upload link that expires in {{ upload_link_expires_hours }} hours.</p>
+    </div>
+    <form method="post" action="/dashboard/hotels/{{ hotel.id }}/upload-link">
+      <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">
+        Create upload link
+      </button>
+    </form>
+  </div>
+  {% if upload_link %}
+  <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+    <label for="upload-link" class="block text-sm font-medium">Share this link with the hotel</label>
+    <input id="upload-link" readonly value="{{ upload_link }}"
+           class="mt-2 w-full border border-blue-200 bg-white rounded px-3 py-2 text-sm" />
+    <p class="text-xs text-blue-900 mt-2">Anyone with this link can upload media for this hotel until it expires. Treat it like a password.</p>
+  </div>
+  {% endif %}
+  {% if assets %}
+  <div class="mt-5 divide-y divide-gray-200 border-t border-gray-200">
+    {% for asset in assets %}
+    <div class="py-3 flex items-center justify-between gap-4 text-sm">
+      <div class="min-w-0">
+        <p class="font-medium truncate">{{ asset.filename }}</p>
+        <p class="text-gray-500">{{ asset.category|capitalize }}</p>
+      </div>
+      <span class="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs">{{ asset.status|capitalize }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-600 mt-5 border-t border-gray-200 pt-4">No media uploaded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

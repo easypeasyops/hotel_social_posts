@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{% if hotel %}Edit hotel{% else %}Add hotel{% endif %} — aicansolveit{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{% if hotel %}/dashboard/hotels/{{ hotel.id }}{% else %}/dashboard/hotels{% endif %}"
+     class="text-sm text-gray-600 hover:text-gray-900">← Back to hotels</a>
+  <h1 class="text-2xl font-semibold mt-3">{% if hotel %}Edit hotel{% else %}Add hotel{% endif %}</h1>
+</div>
+
+{% if error %}
+<div role="alert" class="bg-red-100 text-red-800 rounded px-4 py-3 mb-4 text-sm">{{ error }}</div>
+{% endif %}
+
+<form method="post"
+      action="{% if hotel %}/dashboard/hotels/{{ hotel.id }}{% else %}/dashboard/hotels{% endif %}"
+      class="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
+  <div>
+    <label for="name" class="block text-sm font-medium mb-1">Hotel name</label>
+    <input id="name" name="name" required value="{{ hotel.name if hotel else '' }}"
+           class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+  </div>
+  {% if not hotel %}
+  <div>
+    <label for="slug" class="block text-sm font-medium mb-1">Upload page slug</label>
+    <input id="slug" name="slug" required pattern="[a-z0-9-]+"
+           class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+    <p class="text-xs text-gray-500 mt-1">Lowercase letters, numbers, and hyphens only.</p>
+  </div>
+  {% endif %}
+  <div>
+    <label for="location" class="block text-sm font-medium mb-1">Location</label>
+    <input id="location" name="location" required value="{{ hotel.location if hotel else '' }}"
+           class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+  </div>
+  <div>
+    <label for="description" class="block text-sm font-medium mb-1">Description</label>
+    <textarea id="description" name="description" rows="4"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm">{{ hotel.description if hotel and hotel.description else '' }}</textarea>
+  </div>
+  <div>
+    <label for="contact_email" class="block text-sm font-medium mb-1">Contact email</label>
+    <input id="contact_email" name="contact_email" type="email" required
+           value="{{ hotel.contact_email if hotel else '' }}"
+           class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+  </div>
+  <div>
+    <label for="tier" class="block text-sm font-medium mb-1">Subscription tier</label>
+    <select id="tier" name="tier" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+      {% for tier in tiers %}
+      <option value="{{ tier }}" {% if hotel and hotel.tier == tier or not hotel and tier == "standard" %}selected{% endif %}>
+        {{ tier|capitalize }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <fieldset>
+    <legend class="block text-sm font-medium mb-2">Channels</legend>
+    <div class="grid grid-cols-2 gap-2">
+      {% for channel in channels %}
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="channels" value="{{ channel }}"
+               {% if hotel and channel in hotel.channels or not hotel and channel in ["instagram", "facebook"] %}checked{% endif %} />
+        {{ channel|replace("_", " ")|capitalize }}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="flex gap-3">
+    <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">Save hotel</button>
+    <a href="{% if hotel %}/dashboard/hotels/{{ hotel.id }}{% else %}/dashboard/hotels{% endif %}"
+       class="border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50">Cancel</a>
+  </div>
+</form>
+{% endblock %}

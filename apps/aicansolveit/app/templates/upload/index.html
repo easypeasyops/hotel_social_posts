@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ hotel.name }} — Medya Yükle</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center px-4">
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-lg p-8">
+    <h1 class="text-xl font-semibold mb-1">{{ hotel.name }}</h1>
+    <p class="text-sm text-gray-500 mb-6">Fotoğraf ve video yükleyin</p>
+    <p id="access-error" role="alert" class="hidden text-sm text-red-700 bg-red-50 rounded p-3 mb-4">
+      Yükleme bağlantısı geçersiz veya süresi dolmuş. Otel yetkilisinden yeni bir bağlantı isteyin.
+    </p>
+
+    <form id="upload-form" class="space-y-4">
+      <!-- Category -->
+      <div>
+        <label class="block text-sm font-medium mb-1">Kategori</label>
+        <select name="category" id="category"
+                class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="room">Oda</option>
+          <option value="pool">Havuz</option>
+          <option value="food">Yemek</option>
+          <option value="exterior">Dış Cephe</option>
+          <option value="lobby">Lobi</option>
+          <option value="beach">Sahil</option>
+          <option value="other">Diğer</option>
+        </select>
+      </div>
+
+      <!-- File picker -->
+      <div>
+        <label class="block text-sm font-medium mb-1">Dosyalar</label>
+        <input type="file" id="files" name="files" multiple accept="image/*,video/*"
+               class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+      </div>
+
+      <button id="upload-button" type="submit"
+              class="w-full bg-black text-white rounded py-2 text-sm font-medium hover:bg-gray-800">
+        Yükle
+      </button>
+    </form>
+
+    <div id="status" class="mt-4 text-sm text-gray-600 hidden"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const status = document.getElementById('status');
+    const hotelId = "{{ hotel.id }}";
+    const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
+    const accessError = document.getElementById('access-error');
+    const uploadButton = document.getElementById('upload-button');
+    history.replaceState(null, '', window.location.pathname);
+
+    if (!token) {
+      accessError.classList.remove('hidden');
+      uploadButton.disabled = true;
+      uploadButton.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+
+    async function readResponse(response) {
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`Request failed (${response.status}): ${detail}`);
+      }
+      return response.json();
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!token) return;
+      const files = document.getElementById('files').files;
+      const category = document.getElementById('category').value;
+      if (!files.length) return;
+
+      status.classList.remove('hidden');
+      uploadButton.disabled = true;
+
+      for (const file of files) {
+        try {
+          status.textContent = `${file.name}: yükleme bağlantısı alınıyor...`;
+          const result = await readResponse(await fetch(`/api/v1/upload-capabilities/${hotelId}/upload-url`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ filename: file.name, category, content_type: file.type }),
+          }));
+
+          status.textContent = `${file.name}: yükleniyor...`;
+          const uploadResponse = await fetch(result.upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type },
+            body: file,
+          });
+          if (!uploadResponse.ok) {
+            throw new Error(`Storage upload failed (${uploadResponse.status})`);
+          }
+
+          await readResponse(await fetch(
+            `/api/v1/upload-capabilities/${hotelId}/assets/${result.asset_id}/confirm`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}` },
+            }
+          ));
+          status.textContent = `✓ ${file.name} yüklendi`;
+        } catch (err) {
+          status.textContent = `✗ ${file.name} yüklenemedi: ${err.message}`;
+        }
+      }
+      uploadButton.disabled = false;
+    });
+  </script>
+
+</body>
+</html>

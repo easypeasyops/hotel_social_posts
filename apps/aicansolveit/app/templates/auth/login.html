@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — aicansolveit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex items-center justify-center px-4">
+  <main class="bg-white border border-gray-200 rounded-xl shadow-sm w-full max-w-md p-8">
+    <h1 class="text-xl font-semibold">Sign in to aicansolveit</h1>
+    <p class="text-sm text-gray-600 mt-1 mb-6">Operator access</p>
+    {% if error %}
+    <div role="alert" class="bg-red-100 text-red-800 rounded px-4 py-3 mb-4 text-sm">{{ error }}</div>
+    {% endif %}
+    {% if magic_link_sent %}
+    <div role="status" class="bg-green-100 text-green-800 rounded px-4 py-3 mb-4 text-sm">
+      If an operator account exists for {{ magic_link_email }}, a sign-in link has been sent.
+    </div>
+    {% endif %}
+    {% if magic_link_error %}
+    <div role="alert" class="bg-red-100 text-red-800 rounded px-4 py-3 mb-4 text-sm">{{ magic_link_error }}</div>
+    {% endif %}
+    {% if password_reset_sent %}
+    <div role="status" class="bg-green-100 text-green-800 rounded px-4 py-3 mb-4 text-sm">
+      If an account exists for {{ password_reset_email }}, a password reset link has been sent.
+    </div>
+    {% endif %}
+    {% if password_reset_error %}
+    <div role="alert" class="bg-red-100 text-red-800 rounded px-4 py-3 mb-4 text-sm">{{ password_reset_error }}</div>
+    {% endif %}
+    {% if request.query_params.get("error") == "session" %}
+    <div role="alert" class="bg-amber-100 text-amber-900 rounded px-4 py-3 mb-4 text-sm">
+      The session could not be revoked because the session store is unavailable. The browser cookie was cleared.
+    </div>
+    {% endif %}
+    {% if request.query_params.get("error") == "reset" %}
+    <div role="alert" class="bg-amber-100 text-amber-900 rounded px-4 py-3 mb-4 text-sm">
+      The password reset link is invalid or expired. Request a new one.
+    </div>
+    {% endif %}
+    <form method="post" action="/login" class="space-y-4">
+      <div>
+        <label for="email" class="block text-sm font-medium mb-1">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required
+               class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label for="password" class="block text-sm font-medium mb-1">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required
+               class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+      </div>
+      <button type="submit" class="w-full bg-black text-white rounded py-2 text-sm font-medium hover:bg-gray-800">
+        Sign in
+      </button>
+    </form>
+    <div class="my-6 flex items-center gap-3 text-xs text-gray-400">
+      <span class="h-px flex-1 bg-gray-200"></span>
+      OR
+      <span class="h-px flex-1 bg-gray-200"></span>
+    </div>
+    <form method="post" action="/login/magic-link" class="space-y-3">
+      <label for="magic-email" class="block text-sm font-medium">Sign in with an email link</label>
+      <input id="magic-email" name="email" type="email" autocomplete="email" required
+             class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+      <button type="submit" class="w-full border border-gray-300 rounded py-2 text-sm font-medium hover:bg-gray-50">
+        Email me a sign-in link
+      </button>
+    </form>
+    <details class="mt-5">
+      <summary class="cursor-pointer text-sm text-gray-600 hover:text-gray-900">Forgot your password?</summary>
+      <form method="post" action="/login/forgot-password" class="space-y-3 mt-3">
+        <label for="reset-email" class="block text-sm font-medium">Email address</label>
+        <input id="reset-email" name="email" type="email" autocomplete="email" required
+               class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+        <button type="submit" class="w-full border border-gray-300 rounded py-2 text-sm font-medium hover:bg-gray-50">
+          Send password reset link
+        </button>
+      </form>
+    </details>
+  </main>
+</body>
+</html>

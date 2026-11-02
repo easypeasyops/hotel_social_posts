@@ -1,0 +1,179 @@
+# Architecture
+
+## Purpose and scope
+
+`aicansolveit` is a FastAPI application for managing hotel profiles and media, generating Turkish social posts, translating drafts, reviewing them, and submitting approved posts to Buffer for scheduling. PostgreSQL and object storage are provided by Supabase; Redis and Celery handle background work.
+
+This document describes the implementation in the repository today. It distinguishes implemented behavior from planned or incomplete behavior.
+
+## System context
+
+```mermaid
+flowchart LR
+    Operator[Operator / API client]
+    Guest[Hotel media uploader]
+    API[FastAPI service]
+    Worker[Celery worker]
+    Redis[(Redis broker, result backend, sessions)]
+    DB[(Supabase Postgres)]
+    Storage[(Supabase Storage)]
+    Claude[Anthropic Claude API]
+    DeepL[DeepL API]
+    Buffer[Buffer API]
+    Cron[Railway cron]
+
+    Operator -->|Supabase bearer JWT or HttpOnly session cookie| API
+    Guest -->|upload page| API
+    API --> DB
+    API --> Storage
+    API -->|enqueue tasks| Redis
+    Redis --> Worker
+    Worker --> DB
+    Worker --> Storage
+    Worker --> Claude
+    Worker --> DeepL
+    Worker --> Buffer
+    Cron -->|POST /internal/jobs/generate + secret| API
+```
+
+## Runtime components
+
+| Component | Responsibility | Implementation |
+|---|---|---|
+| HTTP API | Hotel, asset, and draft endpoints; upload page; job triggers; liveness endpoint | FastAPI application in `app/main.py` |
+| Operator UI | Sign-in, hotel dashboard/profile management, and scoped upload-link creation | FastAPI routes and Jinja templates |
+| Persistence | Hotel profiles, assets metadata, drafts, translations, and publish log | Supabase Postgres via the Supabase Python client |
+| Media storage | Uploaded hotel images and videos | Supabase Storage bucket named `hotel-assets` |
+| Background work | Asset status updates, generation, translation, publishing | Celery tasks in `app/jobs/tasks.py` |
+| Broker/backend and web sessions | Celery queue/task results and operator session records | Redis, configured by `REDIS_URL` |
+| Text generation | Turkish post drafts | Anthropic Claude; model selected by hotel tier |
+| Translation | Draft translations | DeepL API Free endpoint; enabled languages vary by tier |
+| Social scheduling | Queue approved Turkish drafts | Buffer API |
+| Deployment | Containerized API on Railway; cron endpoint is intended for scheduled generation | `Dockerfile` and `railway.toml` |
+
+The API and worker are separate processes but use the same source image and environment. The container's default command starts the API; the worker needs its own service/start command. The API also requires Redis for browser sessions.
+
+## Operator authentication and dashboard
+
+1. Operators sign in with email/password or request an email magic link through Supabase Auth. Operator accounts are provisioned in Supabase; the application does not implement sign-up.
+2. The API stores access and refresh tokens in Redis behind a random, HttpOnly cookie (`aicansolveit_session`). The cookie is `SameSite=Strict`, has a seven-day lifetime, and uses `Secure` by default; local HTTP development can set `SESSION_COOKIE_SECURE=false`.
+3. Magic-link and password-recovery requests direct Supabase email links to `/auth/callback`. The callback page receives tokens in the URL fragment, removes the fragment from browser history, and posts tokens to the server.
+4. Magic-link tokens are validated and saved in Redis as an operator session. Recovery tokens are saved in a separate, 15-minute Redis record accessible only through a dedicated reset cookie; the reset form changes the password using the recovery session, then removes the temporary record.
+5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie. Session access tokens are refreshed near expiry.
+6. The dashboard supports listing, creating, and editing hotel profiles, and displaying hotel asset records.
+7. Session records are server-side in Redis; Redis availability is therefore required for operator sign-in and authenticated browser requests.
+
+Hotel-level isolation is not yet implemented for operator accounts: any authenticated operator can access all hotel records because the backend uses its Supabase service-role client.
+
+## Request and job flows
+
+### Hotel media intake
+
+1. An operator generates a hotel upload link from the dashboard. The link carries a signed capability in the URL fragment; the token is scoped to one hotel and expires after 24 hours.
+2. The hotel opens `/upload/{hotel_slug}`. The browser reads the fragment token and removes it from the visible URL. The fragment is not sent in the initial HTTP request.
+3. The browser requests a signed upload URL from `POST /api/v1/upload-capabilities/{hotel_id}/upload-url`, passing the capability as a bearer token.
+4. The API creates an `assets` row with `pending` status and returns an upload URL for Supabase Storage.
+5. The client uploads directly to Storage, then calls `POST /api/v1/upload-capabilities/{hotel_id}/assets/{asset_id}/confirm` with the same capability.
+6. The API verifies that the asset belongs to the capability's hotel, changes it to `processing`, and enqueues `process_asset`.
+7. The current task marks the asset `ready`; it does not resize, inspect, or transcode media.
+
+The operator asset API remains bearer/session protected. The upload capability can only create and confirm uploads; it cannot list or delete assets. Treat upload links as passwords until their 24-hour expiry. The page response uses `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+
+### Generation and translation
+
+1. A caller with the cron secret posts to `/internal/jobs/generate`, which enqueues generation for each hotel. `/internal/jobs/generate/{hotel_id}` enqueues one hotel's job.
+2. The generation task loads the hotel and up to ten most recent `ready` assets.
+3. It builds a Turkish prompt and selects the draft model for `standard`, or the premium model for `growth` and `premium`.
+4. Claude returns JSON posts. Each post is stored as a `content_drafts` row in `pending_review`.
+5. A translation task is enqueued for each draft. Standard tier translates to English; growth and premium translate to English, German, Russian, and Arabic.
+6. Translation rows are upserted by `(draft_id, language)`.
+
+The translation task tolerates individual language failures by logging and skipping those translations, so the task can finish while a draft has incomplete translations.
+
+### Review and publishing
+
+1. An authenticated operator reads drafts in `pending_review`.
+2. Approving a draft changes its status to `approved` and enqueues a publish task. Rejecting changes its status to `rejected` and optionally stores feedback.
+3. The publish task sends the Turkish body to the Buffer profile configured for the draft's channel, then writes a `publish_log` row and marks the draft `scheduled`.
+
+Publishing currently sends one Turkish post per draft; translations are not sent to Buffer. Buffer scheduling outcomes are not synchronized back into draft status by a webhook or polling process in this repository.
+
+## API surface
+
+All API route prefixes below are registered in `app/main.py`.
+
+| Route | Authentication | Purpose |
+|---|---|---|
+| `GET /health` | None | Process liveness response (`{"status":"ok"}`); does not probe dependencies |
+| `GET /login`, `POST /login`, `POST /login/magic-link`, `POST /login/forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or magic-link sign-in, password recovery, sign-out |
+| `/dashboard/*` | Operator session or Supabase bearer JWT | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
+| `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
+| `/api/v1/hotels` | Supabase bearer JWT or operator session | List, create, retrieve, update, and delete hotel profiles |
+| `/api/v1/assets` | Supabase bearer JWT or operator session | List assets, create operator upload URLs, confirm uploads, and delete assets |
+| `/api/v1/upload-capabilities/{hotel_id}/*` | 24-hour hotel-scoped signed capability | Create upload URL and confirm an asset upload |
+| `/api/v1/content` | Supabase bearer JWT or operator session | List/retrieve drafts, approve/reject drafts, and retrieve translations |
+| `/internal/jobs/generate` | `X-Cron-Secret` | Enqueue generation for all hotels |
+| `/internal/jobs/generate/{hotel_id}` | `X-Cron-Secret` | Enqueue generation for one hotel |
+| `/docs` | None, debug mode only | Interactive OpenAPI docs; disabled when `DEBUG` is false |
+
+## Data model
+
+The initial schema is defined in `supabase/migrations/001_initial_schema.sql`.
+
+- `hotels`: hotel profile, subscription tier, channels, contact, and Buffer profile IDs.
+- `assets`: hotel-owned metadata, Storage path, category, and processing state.
+- `content_drafts`: Turkish source text, channel, review/publishing status, and associated asset IDs.
+- `content_translations`: translated text keyed uniquely by draft and language.
+- `publish_log`: Buffer update ID and scheduling status.
+
+Assets, drafts, translations, and publish-log records use foreign keys with cascading deletion from their owning hotel or draft. `hotels` and `content_drafts` have `updated_at` triggers. The migration does not define row-level security policies, indexes beyond primary/unique constraints, or Storage bucket policies.
+
+## Configuration and trust boundaries
+
+Settings are loaded from environment variables (and `.env` for local use) by `app/config.py`. Required values are:
+
+| Variable | Use |
+|---|---|
+| `SECRET_KEY` | Internal token signing configuration |
+| `PUBLIC_BASE_URL` | Optional; public app origin used for Supabase magic-link redirects (defaults to `http://localhost:8000`) |
+| `SUPABASE_URL` | Supabase project endpoint |
+| `SUPABASE_ANON_KEY` | Publishable/anon Supabase key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase operations; bypasses RLS |
+| `ANTHROPIC_API_KEY` | Claude API |
+| `DEEPL_API_KEY` | DeepL API |
+| `BUFFER_ACCESS_TOKEN` | Buffer API |
+| `CRON_SECRET` | Protects internal job-trigger routes |
+| `REDIS_URL` | Optional; defaults to local Redis URL |
+| `SESSION_COOKIE_SECURE` | Optional; defaults to true, set false only for local HTTP development |
+
+`CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional overrides. API bearer tokens and browser-session access tokens are validated through Supabase Auth. Browser refresh tokens are stored in Redis, not in the cookie. The database dependency uses the service-role key for application queries, so route authentication verifies an identity but does not itself enforce hotel-level tenancy; all authenticated API users currently share the same application data access. Upload capabilities are HMAC-signed with `SECRET_KEY`, scoped to one hotel and one purpose, and expire after 24 hours.
+
+## Reliability and current design limits
+
+- Celery uses JSON task/result serialization and `Europe/Istanbul` timezone. Tasks retry with finite retry limits and fixed countdowns.
+- `GET /health` is liveness-only. It can return success while Redis, Supabase, or external providers are unavailable.
+- Operator sessions and authenticated browser API requests depend on Redis; there is no session failover.
+- A task retry is not equivalent to an idempotent external operation. For example, Buffer may schedule a post even if the subsequent database write fails; retrying could schedule a duplicate.
+- Asset processing is a placeholder status transition, not media validation or transformation.
+- A hotel-generation task creates drafts before queuing translation. A retry after partial completion may create duplicate drafts.
+- Translation failures can leave a partial set of translation rows without failing the overall task.
+- No periodic Celery beat schedule is configured here. Weekly generation requires an external Railway cron schedule to call the protected endpoint.
+- Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
+- Operator authentication has no sign-up, MFA, or role management UI. Magic links and password recovery are supported for existing users only.
+- No automated tests or observability/alerting configuration are included in the repository.
+
+## Source map
+
+- Application setup and route registration: `app/main.py`
+- Operator dashboard, sessions, and upload capabilities: `app/dashboard.py`, `app/auth/`
+- Settings and Supabase client: `app/config.py`, `app/database.py`
+- API routers and services: `app/hotels/`, `app/assets/`, `app/content/`
+- Authentication and cron authorization: `app/auth/dependencies.py`
+- Celery tasks: `app/jobs/tasks.py`
+- Provider integrations: `app/generation/`, `app/translation/`, `app/publishing/`
+- Database schema: `supabase/migrations/001_initial_schema.sql`
+- Deployment configuration: `Dockerfile`, `docker-compose.yml`, `railway.toml`
+
+## Related documentation
+
+- Operational procedures: [Runbook](./RUNBOOK.md)

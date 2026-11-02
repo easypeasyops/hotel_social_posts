@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Signing in — aicansolveit</title>
+  <style>
+    body { font: 16px system-ui, sans-serif; color: #111827; background: #f9fafb; }
+    main { box-sizing: border-box; width: min(100% - 2rem, 28rem); margin: 20vh auto; padding: 2rem; background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; }
+    .muted { color: #4b5563; }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 id="heading">Email sign-in</h1>
+    <p id="status" role="status" class="muted">Verifying your sign-in link…</p>
+    <a id="login-link" hidden href="/login">Return to sign in</a>
+  </main>
+  <script>
+    const status = document.getElementById('status');
+    const loginLink = document.getElementById('login-link');
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const expiresInValue = params.get('expires_in');
+    const expiresAtValue = params.get('expires_at');
+    const expiresIn = expiresInValue ? Number(expiresInValue) : NaN;
+    const expiresAt = expiresAtValue ? Number(expiresAtValue) : NaN;
+    const flowType = params.get('type');
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const error = params.get('error_description') || params.get('error');
+    if (flowType === 'recovery') {
+      document.getElementById('heading').textContent = 'Password recovery';
+    }
+
+    history.replaceState(null, '', window.location.pathname);
+
+    async function completeSignIn() {
+      if (error || !accessToken || !refreshToken) {
+        throw new Error('This sign-in link is invalid or has expired.');
+      }
+
+      const callbackPath = flowType === 'recovery'
+        ? '/auth/callback/recovery'
+        : '/auth/callback/session';
+      const response = await fetch(callbackPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          flow_type: flowType,
+          expires_at: Number.isFinite(expiresAt) && expiresAt > 0
+            ? expiresAt
+            : Number.isFinite(expiresIn) ? issuedAt + expiresIn : null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(response.status === 401
+          ? 'This sign-in link is invalid or has expired.'
+          : 'Sign-in is temporarily unavailable. Please try again.');
+      }
+
+      window.location.assign(response.url || '/dashboard/hotels');
+    }
+
+    completeSignIn().catch((err) => {
+      status.textContent = err.message;
+      status.classList.remove('muted');
+      status.classList.add('error');
+      loginLink.hidden = false;
+    });
+  </script>
+</body>
+</html>

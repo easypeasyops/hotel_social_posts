@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
         db = get_supabase()
         hotel = get_hotel_by_slug(db, hotel_slug)
         response = templates.TemplateResponse(
+            request,
             "upload/index.html", {"request": request, "hotel": hotel}
         )
         response.headers["Cache-Control"] = "no-store"

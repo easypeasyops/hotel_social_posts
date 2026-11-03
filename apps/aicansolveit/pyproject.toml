@@ -27,6 +27,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "fakeredis>=2.40.0",
+    "respx>=0.23.1",
 ]
 
 [tool.uv]

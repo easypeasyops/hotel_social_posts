@@ -79,7 +79,7 @@ Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docke
 | Format and lint | `uv run ruff format .` and `uv run ruff check .` |
 | Type check | `uv run mypy app tests` |
 | Tests (no `.env` needed: they use placeholders) | `uv run pytest` |
-| The image, black-box | `docker build -t aicansolveit:dev . && scripts/smoke.sh` |
+| The image, black-box (non-root, probes, JSON logs, metrics, clean SIGTERM exit) | `docker build -t aicansolveit:dev . && scripts/smoke.sh` |
 
 Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`, then `uv lock`) and commit both files. CI runs the same commands on every pull request (`.github/workflows/ci.yml` at the repo root, through the platform's reusable workflows); a pull request is ready to merge when its `ci` check is green. Code that came in with the import still has inline `noqa` markers and modules listed under mypy's overrides in `pyproject.toml`: they come off as the code is fixed and typed.
 

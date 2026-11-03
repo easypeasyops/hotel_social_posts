@@ -35,6 +35,10 @@ done
 [[ "$code" == 200 ]] || fail "/healthz returned ${code:-nothing} after 30 s"
 pass "/healthz 200"
 
+uid=$(docker exec "$NAME" id -u)
+[[ "$uid" != 0 ]] || fail "the app runs as root"
+pass "runs as non-root (uid $uid)"
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 http://127.0.0.1:8000/readyz)
 [[ "$code" == 503 ]] || fail "/readyz returned $code without Redis (want 503)"
 pass "/readyz 503 without Redis"
@@ -60,4 +64,11 @@ metrics=$(curl -s http://127.0.0.1:9100/metrics) # captured: grep -q would SIGPI
 grep -q 'http_requests_total{method="GET",route="unmatched",status="404"}' <<<"$metrics" \
   || fail "no request metrics on :9100"
 pass "metrics on :9100"
+
+# SIGTERM (what Kubernetes sends) stops it cleanly: uvicorn is PID 1, not behind a shell.
+docker stop -t 25 "$NAME" >/dev/null
+code=$(docker inspect -f '{{.State.ExitCode}}' "$NAME")
+[[ "$code" == 0 ]] || fail "exited $code on SIGTERM (want 0)"
+pass "clean exit on SIGTERM"
+
 echo "smoke test passed"

@@ -1,6 +1,6 @@
 # Dependencies from uv.lock, the project's one source of truth (platform plan 5.2). The
 # platform's image rules (pinned digests, non-root, two stages) come in 5.3.
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /bin/uv
 # The virtualenv lives outside /app, so compose's source mount (.:/app) doesn't hide it.

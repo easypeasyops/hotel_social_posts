@@ -1,6 +1,10 @@
+from typing import Any
+
 from celery import Celery
+from celery.signals import setup_logging
 
 from app.config import get_settings
+from app.observability import configure_logging
 
 settings = get_settings()
 celery_app = Celery("aicansolveit", broker=settings.redis_url, backend=settings.redis_url)
@@ -12,6 +16,12 @@ celery_app.conf.update(
     timezone="Europe/Istanbul",
     enable_utc=True,
 )
+
+
+@setup_logging.connect
+def _json_logs(**_: Any) -> None:
+    """The worker logs JSON on stdout like the API (Celery otherwise installs its own)."""
+    configure_logging(settings.log_level, json_output=settings.log_json)
 
 
 @celery_app.task(name="tasks.process_asset", bind=True, max_retries=3)

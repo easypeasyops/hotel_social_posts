@@ -43,11 +43,15 @@ def test_each_language_of_the_tier_is_requested_and_stored() -> None:
 
 
 @respx.mock
-def test_a_failed_language_does_not_block_the_others() -> None:
+def test_a_failed_language_does_not_block_the_others(caplog: pytest.LogCaptureFixture) -> None:
     respx.post(DEEPL_API_URL).mock(side_effect=deepl)
     db = FakeDB(content_drafts=[draft("growth")])
 
     asyncio.run(translate_draft(db, "draft-1"))  # type: ignore[arg-type]
+
+    (failure,) = [r for r in caplog.records if r.msg == "translation failed"]
+    assert failure.levelname == "WARNING"
+    assert (failure.draft_id, failure.language) == ("draft-1", "ru")  # type: ignore[attr-defined]
 
     stored = {row["language"]: row["body"] for row in db.written("content_translations")}
     assert stored == {"en": "EN: Merhaba", "de": "DE: Merhaba", "ar": "AR: Merhaba"}

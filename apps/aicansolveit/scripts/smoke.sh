@@ -45,4 +45,13 @@ pass "no .env in the image"
 code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/docs)
 [[ "$code" == 404 ]] || fail "/docs returned $code (API docs must be off outside debug)"
 pass "/docs hidden"
+
+# Logs: every stdout line is JSON (stderr aside), the /docs request among them as an
+# access line with its status.
+docker logs "$NAME" 2>/dev/null | python3 -c '
+import json, sys
+lines = [json.loads(line) for line in sys.stdin if line.strip()]
+assert any(e.get("logger") == "aicansolveit.access" and e.get("status") == 404 for e in lines), lines
+' || fail "stdout is not JSON log lines with an access line"
+pass "JSON logs on stdout"
 echo "smoke test passed"

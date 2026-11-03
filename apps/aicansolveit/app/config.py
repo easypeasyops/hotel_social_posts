@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     # App
     app_name: str = "aicansolveit"
     debug: bool = False
+    log_level: str = "INFO"
+    log_json: bool = True  # LOG_JSON=false: plain lines for local reading
     secret_key: str  # used for signing internal tokens (upload links etc.)
     public_base_url: str = "http://localhost:8000"
 

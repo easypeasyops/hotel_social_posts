@@ -14,6 +14,7 @@ from app.content.router import router as content_router
 from app.dashboard import router as dashboard_router
 from app.hotels.router import router as hotels_router
 from app.jobs.router import router as jobs_router
+from app.observability import RequestContextMiddleware, configure_logging
 
 
 @asynccontextmanager
@@ -31,6 +32,7 @@ READY_TIMEOUT_SECONDS = 2.0  # under the kubelet's readiness probe timeout
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging(settings.log_level, json_output=settings.log_json)
 
     app = FastAPI(
         title="aicansolveit",
@@ -105,6 +107,9 @@ def create_app() -> FastAPI:
         response.headers["Cache-Control"] = "no-store"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
+
+    # Outermost, so every request gets an ID and an access log line, even one the app fails.
+    app.add_middleware(RequestContextMiddleware)
 
     return app
 

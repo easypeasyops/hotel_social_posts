@@ -22,10 +22,3 @@ def get_supabase_anon() -> Client:
     """
     settings = get_settings()
     return create_client(settings.supabase_url, settings.supabase_anon_key)
-
-
-if __name__ == "__main__":
-    s = get_settings()
-    print("URL:", s.supabase_url)
-    print("ANON:", s.supabase_anon_key[:20])
-    print("SERVICE:", s.supabase_service_role_key[:20])

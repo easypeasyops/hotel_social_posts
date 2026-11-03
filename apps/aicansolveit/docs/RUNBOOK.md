@@ -110,6 +110,19 @@ Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`
 - Review draft statuses in `content_drafts`, asset statuses in `assets`, and Buffer submission records in `publish_log`.
 - For multilingual hotels, verify each expected row exists in `content_translations`; translation tasks can succeed with some languages missing.
 
+## Reading the logs
+
+The API and the worker log one JSON object per line to stdout (set `LOG_JSON=false` locally for plain lines). Every line a request logs carries its `request_id`, which is also the response's `X-Request-ID` header: ask a user for it, or take it from the access line (`"logger": "aicansolveit.access"`, with `route`, `status` and `duration_ms`).
+
+```sh
+# Everything one request logged
+docker compose logs api | grep '"request_id": "<id>"'
+# Server errors with their routes
+docker compose logs api | grep -o '{.*' | jq -c 'select(.status >= 500) | {ts, route, status, request_id}'
+# Translations that failed, by language
+docker compose logs worker | grep -o '{.*' | jq -c 'select(.msg == "translation failed") | {draft_id, language, error}'
+```
+
 ## Incident procedures
 
 ### API health check fails

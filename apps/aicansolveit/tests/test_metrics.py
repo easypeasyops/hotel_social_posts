@@ -63,5 +63,7 @@ def test_the_app_starts_and_stops_its_metrics_server(monkeypatch: pytest.MonkeyP
         client.get("/login")
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/metrics", timeout=5) as response:
             assert 'route="/login"' in response.read().decode()
-    with socket.socket() as s:  # the port is free again: the server stopped with the app
-        s.bind(("127.0.0.1", port))
+    # The server stopped with the app: nothing answers on the port any more. (Not "the port
+    # can be bound again": the closed scrape connection can hold it in TIME_WAIT.)
+    with pytest.raises(ConnectionRefusedError), socket.create_connection(("127.0.0.1", port), 1):
+        pass

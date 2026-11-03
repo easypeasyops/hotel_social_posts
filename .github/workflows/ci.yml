@@ -42,7 +42,7 @@ jobs:
       # Where the imported code's tests start (platform plan 5.2); raised as tests come,
       # up to the platform's 90. (Python 3.15 stopped counting annotation-only lines, all
       # covered, as statements: the same tests read 3 points lower than on 3.12.)
-      coverage-min: 46
+      coverage-min: 56
 
   image:
     needs: scope

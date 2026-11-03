@@ -23,7 +23,7 @@ for var in SECRET_KEY SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY ANTHROPIC_API_
   DEEPL_API_KEY BUFFER_ACCESS_TOKEN CRON_SECRET; do
   env_args+=(-e "$var=smoke-placeholder")
 done
-docker run -d --name "$NAME" -p 127.0.0.1:8000:8000 "${env_args[@]}" \
+docker run -d --name "$NAME" -p 127.0.0.1:8000:8000 -p 127.0.0.1:9100:9100 "${env_args[@]}" \
   -e SUPABASE_URL=https://supabase.invalid -e REDIS_URL=redis://redis.invalid:6379/0 \
   "$IMAGE" >/dev/null
 
@@ -54,4 +54,10 @@ lines = [json.loads(line) for line in sys.stdin if line.strip()]
 assert any(e.get("logger") == "aicansolveit.access" and e.get("status") == 404 for e in lines), lines
 ' || fail "stdout is not JSON log lines with an access line"
 pass "JSON logs on stdout"
+
+# Metrics on their own port, with the /docs request counted by route template.
+metrics=$(curl -s http://127.0.0.1:9100/metrics) # captured: grep -q would SIGPIPE curl
+grep -q 'http_requests_total{method="GET",route="unmatched",status="404"}' <<<"$metrics" \
+  || fail "no request metrics on :9100"
+pass "metrics on :9100"
 echo "smoke test passed"

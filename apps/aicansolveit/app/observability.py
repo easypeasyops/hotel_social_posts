@@ -1,6 +1,12 @@
-"""Logs (platform plan 5.3): one JSON object per line on stdout, each carrying the request
-ID of the request it belongs to, so a request's lines can be found together. The platform
-collects stdout; nothing writes log files. Modelled on shortly's observability module.
+"""Logs and metrics (platform plan 5.3), modelled on shortly's observability module.
+
+* Logs: one JSON object per line on stdout, each carrying the request ID of the request it
+  belongs to, so a request's lines can be found together. The platform collects stdout;
+  nothing writes log files.
+* Metrics: request counts and latencies (RED), labelled by route template, never the raw
+  path: raw paths would make one time series per hotel or draft ID. Served on their own
+  port (9100), so the public port carries none of it. The names are shortly's, so the
+  platform's SLO rules and dashboards read aicansolveit the same way.
 """
 
 import json
@@ -9,10 +15,12 @@ import re
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any, Final
 
+from prometheus_client import CollectorRegistry, Counter, Histogram, start_http_server
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 REQUEST_ID_HEADER: Final = "x-request-id"
@@ -72,6 +80,40 @@ def configure_logging(level: str = "INFO", *, json_output: bool = True) -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
+class Metrics:
+    """The app's metrics, on a registry of their own (one per app keeps tests isolated)."""
+
+    def __init__(self, registry: CollectorRegistry | None = None) -> None:
+        self.registry = registry or CollectorRegistry()
+        self.requests = Counter(
+            "http_requests",
+            "HTTP requests by route template and status.",
+            ["method", "route", "status"],
+            registry=self.registry,
+        )
+        self.latency = Histogram(
+            "http_request_duration_seconds",
+            "HTTP request latency.",
+            ["method", "route"],
+            # Pages render in tens of milliseconds; Supabase round trips push some to 1 s.
+            buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+            registry=self.registry,
+        )
+
+
+def serve_metrics(metrics: Metrics, port: int) -> Callable[[], None]:
+    """Serve /metrics on its own port, in its own thread; returns the function that stops it.
+    Its own thread also means a scrape never waits behind request work."""
+    server, thread = start_http_server(port, registry=metrics.registry)
+
+    def stop() -> None:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    return stop
+
+
 def _route_template(scope: Scope) -> str:
     # The route's template (/api/v1/hotels/{hotel_id}), never the raw path: raw paths would
     # put IDs in every line's route field and make lines impossible to group.
@@ -81,10 +123,11 @@ def _route_template(scope: Scope) -> str:
 
 class RequestContextMiddleware:
     """Pure ASGI middleware: a request ID for every request (echoed in the response's
-    X-Request-ID header) and one access log line when it ends."""
+    X-Request-ID header), and when it ends its RED metrics and one access log line."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, metrics: Metrics) -> None:
         self.app = app
+        self.metrics = metrics
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -109,14 +152,18 @@ class RequestContextMiddleware:
         try:
             await self.app(scope, receive, send_with_id)
         finally:
+            elapsed = time.perf_counter() - start
+            method, route = scope["method"], _route_template(scope)
+            self.metrics.requests.labels(method, route, str(status)).inc()
+            self.metrics.latency.labels(method, route).observe(elapsed)
             access_log.log(
                 logging.DEBUG if scope["path"] in QUIET_PATHS else logging.INFO,
                 "request",
                 extra={
-                    "method": scope["method"],
-                    "route": _route_template(scope),
+                    "method": method,
+                    "route": route,
                     "status": status,
-                    "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+                    "duration_ms": round(elapsed * 1000, 2),
                 },
             )
             request_id_var.reset(token)

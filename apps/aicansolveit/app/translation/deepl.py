@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import httpx
 
@@ -11,6 +12,8 @@ TIER_LANGUAGES = {
     "growth": ["en", "de", "ru", "ar"],
     "premium": ["en", "de", "ru", "ar"],
 }
+
+log = logging.getLogger(__name__)
 
 DEEPL_API_URL = "https://api-free.deepl.com/v2/translate"  # free tier endpoint
 
@@ -68,7 +71,10 @@ async def translate_draft(db: Client, draft_id: str) -> None:
     for lang, result in translations.items():
         if isinstance(result, Exception):
             # Log and skip failed translations — don't block the whole draft
-            print(f"Translation failed for {draft_id} → {lang}: {result}")
+            log.warning(
+                "translation failed",
+                extra={"draft_id": draft_id, "language": lang, "error": repr(result)},
+            )
             continue
 
         db.table("content_translations").upsert(

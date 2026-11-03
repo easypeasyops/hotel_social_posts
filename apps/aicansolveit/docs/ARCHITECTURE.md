@@ -146,6 +146,8 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 | `DEEPL_API_KEY` | DeepL API |
 | `BUFFER_ACCESS_TOKEN` | Buffer GraphQL API key (Buffer → Settings → API), sent as `Authorization: Bearer`. A legacy REST OAuth token doesn't work |
 | `CRON_SECRET` | Protects internal job-trigger routes |
+| `LOG_LEVEL` | Optional; `INFO` by default |
+| `LOG_JSON` | Optional; `true` by default: one JSON object per log line. `false` for plain lines when reading locally |
 | `REDIS_URL` | Optional; defaults to local Redis URL |
 | `SESSION_COOKIE_SECURE` | Optional; defaults to true, set false only for local HTTP development |
 
@@ -164,7 +166,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - No periodic Celery beat schedule is configured here. Weekly generation requires an external Railway cron schedule to call the protected endpoint.
 - Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
 - Operator authentication has no sign-up, MFA, or role management UI. Magic links and password recovery are supported for existing users only.
-- No observability/alerting configuration is included in the repository (it comes with the platform, plan 5.3).
+- Logs (plan 5.3): the API and the worker write one JSON object per line to stdout (`app/observability.py`): `ts`, `level`, `logger`, `msg`, and the fields a call adds (a failed translation's `draft_id`, `language`, `error`). Every request gets a request ID, kept from a plain `X-Request-ID` header or generated, echoed in the response and on every line the request logs; one access line per request names its route template (`/api/v1/hotels/{hotel_id}`), never the raw path. Probes are logged at DEBUG. No metrics or alerting yet: the next 5.3 step.
 
 ## Source map
 

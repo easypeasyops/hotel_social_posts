@@ -18,10 +18,12 @@ DEEPL_API_URL = "https://api-free.deepl.com/v2/translate"  # free tier endpoint
 async def _translate_text(
     client: httpx.AsyncClient, text: str, target_lang: str, api_key: str
 ) -> str:
+    # The key goes in the Authorization header: DeepL refuses `auth_key` in the body or the
+    # query (403) since 2026-01-15.
     response = await client.post(
         DEEPL_API_URL,
+        headers={"Authorization": f"DeepL-Auth-Key {api_key}"},
         data={
-            "auth_key": api_key,
             "text": text,
             "source_lang": "TR",
             "target_lang": target_lang.upper(),

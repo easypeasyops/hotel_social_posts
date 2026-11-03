@@ -32,8 +32,10 @@ def test_each_language_of_the_tier_is_requested_and_stored() -> None:
 
     asyncio.run(translate_draft(db, "draft-1"))  # type: ignore[arg-type]
 
-    form = parse_qs(route.calls.last.request.content.decode())
-    assert form["auth_key"] == ["test-deepl-key"]
+    request = route.calls.last.request
+    form = parse_qs(request.content.decode())
+    assert request.headers["authorization"] == "DeepL-Auth-Key test-deepl-key"
+    assert "auth_key" not in form  # refused by DeepL since 2026-01-15
     assert form["source_lang"] == ["TR"]
     assert db.written("content_translations") == [
         {"draft_id": "draft-1", "language": "en", "body": "EN: Merhaba"}

@@ -1,10 +1,10 @@
-from pydantic import BaseModel
-from typing import Optional
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+
+from pydantic import BaseModel
 
 
-class AssetCategory(str, Enum):
+class AssetCategory(str, Enum):  # noqa: UP042
     room = "room"
     pool = "pool"
     food = "food"
@@ -14,10 +14,10 @@ class AssetCategory(str, Enum):
     other = "other"
 
 
-class AssetStatus(str, Enum):
-    pending = "pending"       # uploaded, not yet processed
+class AssetStatus(str, Enum):  # noqa: UP042
+    pending = "pending"  # uploaded, not yet processed
     processing = "processing"
-    ready = "ready"           # processed, available for generation
+    ready = "ready"  # processed, available for generation
     failed = "failed"
 
 
@@ -34,10 +34,10 @@ class Asset(BaseModel):
     filename: str
     category: AssetCategory
     storage_path: str
-    storage_url: Optional[str]  # public or signed URL
+    storage_url: str | None  # public or signed URL
     status: AssetStatus
     created_at: datetime
-    processed_at: Optional[datetime]
+    processed_at: datetime | None
 
 
 class UploadUrlRequest(BaseModel):
@@ -47,6 +47,6 @@ class UploadUrlRequest(BaseModel):
 
 
 class UploadUrlResponse(BaseModel):
-    upload_url: str       # presigned URL for direct upload
-    storage_path: str     # path to record after upload completes
-    asset_id: str         # pre-created asset ID to confirm after upload
+    upload_url: str  # presigned URL for direct upload
+    storage_path: str  # path to record after upload completes
+    asset_id: str  # pre-created asset ID to confirm after upload

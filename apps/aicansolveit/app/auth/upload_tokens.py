@@ -17,9 +17,11 @@ def create_upload_token(hotel_id: str) -> str:
         "expires_at": int(time.time()) + UPLOAD_TOKEN_TTL_SECONDS,
         "nonce": secrets.token_urlsafe(12),
     }
-    encoded_payload = base64.urlsafe_b64encode(
-        json.dumps(payload, separators=(",", ":")).encode()
-    ).rstrip(b"=").decode()
+    encoded_payload = (
+        base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode())
+        .rstrip(b"=")
+        .decode()
+    )
     signature = hmac.new(
         get_settings().secret_key.encode(),
         encoded_payload.encode(),

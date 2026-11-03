@@ -1,0 +1,14 @@
+# Never in the image: secrets (.env holds the provider keys), tests, caches, local tooling.
+.env
+.env.*
+.venv/
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+tests/
+docs/
+scripts/
+.vscode/
+.DS_Store

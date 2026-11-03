@@ -8,5 +8,8 @@ Each app lives in its own folder under `apps/`, with its code, deploy values, sc
 | --- | --- | --- |
 | [aicansolveit](apps/aicansolveit/) | Hotel content: Claude drafts, DeepL translations, Buffer publishing; FastAPI with a Celery worker, data in Supabase | [Architecture](apps/aicansolveit/docs/ARCHITECTURE.md) · [Runbook](apps/aicansolveit/docs/RUNBOOK.md) |
 
+CI (`.github/workflows/ci.yml`) runs the platform's reusable checks on every pull request;
+`ci` is the one check a merge needs.
+
 Secrets never go into git: an app reads its keys from the environment (locally a `.env` that
 `.gitignore` keeps out; in the cluster, the platform's secret store).

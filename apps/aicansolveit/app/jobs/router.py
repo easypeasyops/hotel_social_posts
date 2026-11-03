@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+
 from app.auth.dependencies import verify_cron_secret
 from app.jobs import tasks
 

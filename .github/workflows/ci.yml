@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: the default GITHUB_TOKEN can write to the repo; CI only needs to read.
+permissions:
+  contents: read
+
+# A new push to the same PR/branch cancels the now-stale run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Docs-only PRs skip the work in every job (apps/aicansolveit/scripts/ci-scope.sh).
+  scope:
+    name: change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2 # the PR merge commit and its first parent
+      - name: Does this change need the checks?
+        id: scope
+        run: apps/aicansolveit/scripts/ci-scope.sh
+
+  # The platform's reusable workflows, pinned to platform.lock's commit (keep them equal).
+  check:
+    needs: scope
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@6acaf57b22fe2ae9b101db3846c148f93e325354 # platform.lock
+    with:
+      run: ${{ needs.scope.outputs.full == 'true' }}
+      working-directory: apps/aicansolveit
+      typecheck-paths: app tests
+      # Where the imported code's tests start (platform plan 5.2); raised as tests come,
+      # up to the platform's 90.
+      coverage-min: 45
+
+  image:
+    needs: scope
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@6acaf57b22fe2ae9b101db3846c148f93e325354 # platform.lock
+    with:
+      run: ${{ needs.scope.outputs.full == 'true' }}
+      context: apps/aicansolveit
+      smoke-command: AICANSOLVEIT_IMAGE="$IMAGE" apps/aicansolveit/scripts/smoke.sh
+
+  # The one required check: green only when every job above passed (or was skipped as
+  # docs-only by its own input, which still reports success).
+  gate:
+    name: ci
+    if: always()
+    needs: [scope, check, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          jq -e 'all(.[]; .result == "success")' <<<"$NEEDS" >/dev/null

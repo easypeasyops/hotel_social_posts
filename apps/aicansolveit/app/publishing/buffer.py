@@ -1,6 +1,7 @@
 import httpx
-from supabase import Client
+
 from app.config import get_settings
+from supabase import Client
 
 BUFFER_API_URL = "https://api.bufferapp.com/1"
 
@@ -22,7 +23,9 @@ def publish_draft(db: Client, draft_id: str) -> None:
     """
     settings = get_settings()
 
-    draft = db.table("content_drafts").select("*, hotels(*)").eq("id", draft_id).single().execute().data
+    draft = (
+        db.table("content_drafts").select("*, hotels(*)").eq("id", draft_id).single().execute().data
+    )
     if not draft:
         raise ValueError(f"Draft {draft_id} not found")
 
@@ -31,13 +34,15 @@ def publish_draft(db: Client, draft_id: str) -> None:
     profile_id = _get_profile_id(channel, hotel)
 
     if not profile_id:
-        raise ValueError(f"No Buffer profile configured for channel '{channel}' on hotel '{hotel['id']}'")
+        raise ValueError(
+            f"No Buffer profile configured for channel '{channel}' on hotel '{hotel['id']}'"
+        )
 
     payload = {
         "profile_ids[]": profile_id,
         "text": draft["body_tr"],
-        "now": False,          # let Buffer schedule it at the optimal time
-        "top": True,           # add to top of queue
+        "now": False,  # let Buffer schedule it at the optimal time
+        "top": True,  # add to top of queue
         "access_token": settings.buffer_access_token,
     }
 
@@ -48,10 +53,12 @@ def publish_draft(db: Client, draft_id: str) -> None:
     result = response.json()
 
     # Record the Buffer update ID for webhook correlation
-    db.table("publish_log").insert({
-        "draft_id": draft_id,
-        "hotel_id": hotel["id"],
-        "channel": channel,
-        "buffer_update_id": result.get("updates", [{}])[0].get("id"),
-        "status": "scheduled",
-    }).execute()
+    db.table("publish_log").insert(
+        {
+            "draft_id": draft_id,
+            "hotel_id": hotel["id"],
+            "channel": channel,
+            "buffer_update_id": result.get("updates", [{}])[0].get("id"),
+            "status": "scheduled",
+        }
+    ).execute()

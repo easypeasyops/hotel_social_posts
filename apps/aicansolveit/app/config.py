@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -18,8 +19,8 @@ class Settings(BaseSettings):
 
     # Claude
     anthropic_api_key: str
-    claude_draft_model: str = "claude-haiku-4-5-20251001"   # bulk drafts
-    claude_premium_model: str = "claude-sonnet-4-6"          # premium tier
+    claude_draft_model: str = "claude-haiku-4-5-20251001"  # bulk drafts
+    claude_premium_model: str = "claude-sonnet-4-6"  # premium tier
 
     # DeepL
     deepl_api_key: str

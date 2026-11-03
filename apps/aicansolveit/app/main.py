@@ -1,16 +1,17 @@
-from fastapi import FastAPI, Request
-from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
-from fastapi.responses import RedirectResponse
 
-from app.config import get_settings
-from app.hotels.router import router as hotels_router
-from app.assets.router import router as assets_router
-from app.content.router import router as content_router
-from app.jobs.router import router as jobs_router
-from app.auth.router import router as auth_router
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
+
 from app.assets.public_router import router as public_upload_router
+from app.assets.router import router as assets_router
+from app.auth.router import router as auth_router
+from app.config import get_settings
+from app.content.router import router as content_router
 from app.dashboard import router as dashboard_router
+from app.hotels.router import router as hotels_router
+from app.jobs.router import router as jobs_router
 
 
 @asynccontextmanager
@@ -62,11 +63,11 @@ def create_app() -> FastAPI:
     async def upload_page(hotel_slug: str, request: Request):
         from app.database import get_supabase
         from app.hotels.service import get_hotel_by_slug
+
         db = get_supabase()
         hotel = get_hotel_by_slug(db, hotel_slug)
         response = templates.TemplateResponse(
-            request,
-            "upload/index.html", {"request": request, "hotel": hotel}
+            request, "upload/index.html", {"request": request, "hotel": hotel}
         )
         response.headers["Cache-Control"] = "no-store"
         response.headers["Referrer-Policy"] = "no-referrer"

@@ -1,6 +1,6 @@
-from supabase import Client
 from fastapi import HTTPException
-from typing import Optional
+
+from supabase import Client
 
 
 def list_drafts(db: Client, hotel_id: str, status: str) -> list[dict]:
@@ -33,33 +33,24 @@ def approve_draft(db: Client, draft_id: str) -> dict:
         .execute()
     )
     if not response.data:
-        raise HTTPException(status_code=404, detail="Draft not found or not in pending_review state")
+        raise HTTPException(
+            status_code=404, detail="Draft not found or not in pending_review state"
+        )
 
     publish_content_task.delay(draft_id)
     return response.data[0]
 
 
-def reject_draft(db: Client, draft_id: str, feedback: Optional[str]) -> dict:
+def reject_draft(db: Client, draft_id: str, feedback: str | None) -> dict:
     update_data = {"status": "rejected"}
     if feedback:
         update_data["operator_feedback"] = feedback
 
-    response = (
-        db.table("content_drafts")
-        .update(update_data)
-        .eq("id", draft_id)
-        .execute()
-    )
+    response = db.table("content_drafts").update(update_data).eq("id", draft_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Draft not found")
     return response.data[0]
 
 
 def get_translations(db: Client, draft_id: str) -> list[dict]:
-    return (
-        db.table("content_translations")
-        .select("*")
-        .eq("draft_id", draft_id)
-        .execute()
-        .data
-    )
+    return db.table("content_translations").select("*").eq("draft_id", draft_id).execute().data

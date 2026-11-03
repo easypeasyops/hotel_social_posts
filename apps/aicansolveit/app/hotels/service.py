@@ -1,6 +1,7 @@
-from supabase import Client
-from app.hotels.models import HotelCreate, HotelUpdate
 from fastapi import HTTPException
+
+from app.hotels.models import HotelCreate, HotelUpdate
+from supabase import Client
 
 
 def list_hotels(db: Client) -> list[dict]:

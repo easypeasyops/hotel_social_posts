@@ -1,10 +1,9 @@
 import time
 
-from fastapi import HTTPException, Security, Header, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Header, HTTPException, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase_auth.errors import AuthApiError
-from app.database import get_supabase_anon
-from app.config import get_settings
+
 from app.auth.sessions import (
     SESSION_COOKIE,
     RedisError,
@@ -12,6 +11,8 @@ from app.auth.sessions import (
     update_session,
 )
 from app.auth.upload_tokens import verify_upload_token
+from app.config import get_settings
+from app.database import get_supabase_anon
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -46,7 +47,9 @@ async def get_current_user(
             except AuthApiError as exc:
                 raise HTTPException(status_code=401, detail="Session expired") from exc
             except Exception as exc:
-                raise HTTPException(status_code=502, detail="Authentication service unavailable") from exc
+                raise HTTPException(
+                    status_code=502, detail="Authentication service unavailable"
+                ) from exc
             if refreshed is None:
                 raise HTTPException(status_code=401, detail="Session expired")
             access_token = refreshed.access_token

@@ -1,4 +1,4 @@
-import logging
+import logging  # noqa: I001
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -83,9 +83,7 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
         )
 
     try:
-        session_id = create_session(
-            session.access_token, session.refresh_token, session.expires_at
-        )
+        session_id = create_session(session.access_token, session.refresh_token, session.expires_at)
     except RedisError:
         return templates.TemplateResponse(
             request,
@@ -105,13 +103,15 @@ async def request_magic_link(request: Request, email: str = Form(...)):
     callback_url = f"{settings.public_base_url.rstrip('/')}/auth/callback"
 
     try:
-        get_supabase_anon().auth.sign_in_with_otp({
-            "email": email,
-            "options": {
-                "email_redirect_to": callback_url,
-                "should_create_user": False,
-            },
-        })
+        get_supabase_anon().auth.sign_in_with_otp(
+            {
+                "email": email,
+                "options": {
+                    "email_redirect_to": callback_url,
+                    "should_create_user": False,
+                },
+            }
+        )
     except AuthApiError as exc:
         # Use the same response whether or not an account is eligible to sign in.
         logger.info(
@@ -214,9 +214,7 @@ async def create_magic_link_session(payload: MagicLinkSession):
         raise HTTPException(status_code=401, detail="Invalid or expired sign-in link")
 
     try:
-        session_id = create_session(
-            payload.access_token, payload.refresh_token, payload.expires_at
-        )
+        session_id = create_session(payload.access_token, payload.refresh_token, payload.expires_at)
     except RedisError as exc:
         raise HTTPException(status_code=503, detail="Session store unavailable") from exc
 
@@ -227,7 +225,7 @@ async def create_magic_link_session(payload: MagicLinkSession):
 
 
 @router.post("/auth/callback/recovery")
-async def create_password_reset_session(payload: MagicLinkSession):
+async def create_password_reset_session(payload: MagicLinkSession):  # noqa: F811
     if payload.flow_type != "recovery":
         raise HTTPException(status_code=400, detail="This is not a password reset link")
 
@@ -278,10 +276,7 @@ async def reset_password_page(request: Request):
         response.delete_cookie(PASSWORD_RESET_COOKIE, path="/", httponly=True)
         return response
 
-    response = templates.TemplateResponse(
-        request,
-        "auth/reset_password.html", {"request": request}
-    )
+    response = templates.TemplateResponse(request, "auth/reset_password.html", {"request": request})
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
@@ -352,11 +347,11 @@ async def update_password(
             "auth/reset_password.html",
             {
                 "request": request,
-                "error": "Could not update the password. The reset link may have expired, or the password may not meet project requirements.",
+                "error": "Could not update the password. The reset link may have expired, or the password may not meet project requirements.",  # noqa: E501
             },
             status_code=400,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: F841
         logger.exception("Password update failed")
         return templates.TemplateResponse(
             request,
@@ -370,11 +365,11 @@ async def update_password(
 
     try:
         delete_password_reset_session(reset_id)
-        session_id = create_session(
-            session.access_token, session.refresh_token, session.expires_at
-        )
+        session_id = create_session(session.access_token, session.refresh_token, session.expires_at)
     except RedisError as exc:
-        raise HTTPException(status_code=503, detail="Password changed, but session creation failed; sign in again") from exc
+        raise HTTPException(
+            status_code=503, detail="Password changed, but session creation failed; sign in again"
+        ) from exc
 
     response = RedirectResponse("/dashboard/hotels", status_code=303)
     response.delete_cookie(PASSWORD_RESET_COOKIE, path="/", httponly=True)

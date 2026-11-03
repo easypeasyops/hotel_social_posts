@@ -1,18 +1,68 @@
+from typing import Any
+
 import httpx
 
 from app.config import get_settings
 from supabase import Client
 
-BUFFER_API_URL = "https://api.bufferapp.com/1"
+# Buffer's GraphQL API. The legacy REST API (api.bufferapp.com/1) has brownouts from
+# 2026-11-11 and stops on 2027-02-01: https://buffer.com/resources/legacy-rest-api-retired/
+BUFFER_API_URL = "https://api.buffer.com"
+
+# One post per channel. shareNext puts it at the top of the channel's queue, as the REST
+# call's top=true did. MutationError is the catch-all for every typed error Buffer returns.
+CREATE_POST = """
+mutation CreatePost($input: CreatePostInput!) {
+  createPost(input: $input) {
+    ... on PostActionSuccess { post { id } }
+    ... on MutationError { message }
+  }
+}
+"""
 
 
-def _get_profile_id(channel: str, hotel: dict) -> str | None:
+class BufferError(RuntimeError):
+    """Buffer refused the post. GraphQL answers HTTP 200 either way: the error is in the body."""
+
+
+def _get_channel_id(channel: str, hotel: dict[str, Any]) -> str | None:
     """
-    Returns the Buffer profile ID for a given channel stored on the hotel record.
-    Expected hotel schema: buffer_profiles = {"instagram": "profile_id", ...}
+    Returns the Buffer channel ID for a given channel stored on the hotel record.
+    Expected hotel schema: buffer_profiles = {"instagram": "channel_id", ...}
+    (Buffer's REST API called channels profiles; the column keeps that name.)
     """
     profiles = hotel.get("buffer_profiles") or {}
-    return profiles.get(channel)
+    channel_id: str | None = profiles.get(channel)
+    return channel_id
+
+
+def _create_post(channel_id: str, text: str, api_key: str) -> str:
+    variables = {
+        "input": {
+            "channelId": channel_id,
+            "text": text,
+            "schedulingType": "automatic",
+            "mode": "shareNext",
+        }
+    }
+    with httpx.Client(timeout=15) as client:
+        response = client.post(
+            BUFFER_API_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={"query": CREATE_POST, "variables": variables},
+        )
+        response.raise_for_status()  # 429 when the rate limit is exceeded
+    body = response.json()
+    if body.get("errors"):  # auth, permissions, not found, server: not fixable by input
+        error = body["errors"][0]
+        code = (error.get("extensions") or {}).get("code", "UNKNOWN")
+        raise BufferError(f"{code}: {error.get('message')}")
+    result = (body.get("data") or {}).get("createPost") or {}
+    post = result.get("post")
+    if not post:  # a typed MutationError: invalid input, limit reached, ...
+        raise BufferError(result.get("message") or "Buffer did not create the post")
+    post_id: str = post["id"]
+    return post_id
 
 
 def publish_draft(db: Client, draft_id: str) -> None:
@@ -31,34 +81,22 @@ def publish_draft(db: Client, draft_id: str) -> None:
 
     hotel = draft["hotels"]
     channel = draft["channel"]
-    profile_id = _get_profile_id(channel, hotel)
+    channel_id = _get_channel_id(channel, hotel)
 
-    if not profile_id:
+    if not channel_id:
         raise ValueError(
-            f"No Buffer profile configured for channel '{channel}' on hotel '{hotel['id']}'"
+            f"No Buffer channel configured for channel '{channel}' on hotel '{hotel['id']}'"
         )
 
-    payload = {
-        "profile_ids[]": profile_id,
-        "text": draft["body_tr"],
-        "now": False,  # let Buffer schedule it at the optimal time
-        "top": True,  # add to top of queue
-        "access_token": settings.buffer_access_token,
-    }
+    post_id = _create_post(channel_id, draft["body_tr"], settings.buffer_access_token)
 
-    with httpx.Client(timeout=15) as client:
-        response = client.post(f"{BUFFER_API_URL}/updates/create.json", data=payload)
-        response.raise_for_status()
-
-    result = response.json()
-
-    # Record the Buffer update ID for webhook correlation
+    # Record the Buffer post ID for correlation
     db.table("publish_log").insert(
         {
             "draft_id": draft_id,
             "hotel_id": hotel["id"],
             "channel": channel,
-            "buffer_update_id": result.get("updates", [{}])[0].get("id"),
+            "buffer_update_id": post_id,
             "status": "scheduled",
         }
     ).execute()

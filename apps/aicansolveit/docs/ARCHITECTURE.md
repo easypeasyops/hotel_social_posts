@@ -94,7 +94,7 @@ The translation task tolerates individual language failures by logging and skipp
 
 1. An authenticated operator reads drafts in `pending_review`.
 2. Approving a draft changes its status to `approved` and enqueues a publish task. Rejecting changes its status to `rejected` and optionally stores feedback.
-3. The publish task sends the Turkish body to the Buffer profile configured for the draft's channel, then writes a `publish_log` row and marks the draft `scheduled`.
+3. The publish task sends the Turkish body to the Buffer channel configured for the draft's network (`hotels.buffer_profiles`), through Buffer's GraphQL API (`createPost` at `https://api.buffer.com`, mode `shareNext`: the top of that channel's queue), then writes a `publish_log` row with Buffer's post ID and marks the draft `scheduled`. Buffer answers HTTP 200 even when it refuses a post; the refusal (`MutationError` or the `errors` array) raises `BufferError`, so nothing is logged and the task retries.
 
 Publishing currently sends one Turkish post per draft; translations are not sent to Buffer. Buffer scheduling outcomes are not synchronized back into draft status by a webhook or polling process in this repository.
 
@@ -120,11 +120,11 @@ All API route prefixes below are registered in `app/main.py`.
 
 The initial schema is defined in `supabase/migrations/001_initial_schema.sql`.
 
-- `hotels`: hotel profile, subscription tier, channels, contact, and Buffer profile IDs.
+- `hotels`: hotel profile, subscription tier, channels, contact, and Buffer channel IDs per network (`buffer_profiles`, named for the REST API's profiles).
 - `assets`: hotel-owned metadata, Storage path, category, and processing state.
 - `content_drafts`: Turkish source text, channel, review/publishing status, and associated asset IDs.
 - `content_translations`: translated text keyed uniquely by draft and language.
-- `publish_log`: Buffer update ID and scheduling status.
+- `publish_log`: Buffer post ID (`buffer_update_id`, named for the REST API's updates) and scheduling status.
 
 Assets, drafts, translations, and publish-log records use foreign keys with cascading deletion from their owning hotel or draft. `hotels` and `content_drafts` have `updated_at` triggers. The migration does not define row-level security policies, indexes beyond primary/unique constraints, or Storage bucket policies.
 
@@ -141,7 +141,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase operations; bypasses RLS |
 | `ANTHROPIC_API_KEY` | Claude API |
 | `DEEPL_API_KEY` | DeepL API |
-| `BUFFER_ACCESS_TOKEN` | Buffer API |
+| `BUFFER_ACCESS_TOKEN` | Buffer GraphQL API key (Buffer → Settings → API), sent as `Authorization: Bearer`. A legacy REST OAuth token doesn't work |
 | `CRON_SECRET` | Protects internal job-trigger routes |
 | `REDIS_URL` | Optional; defaults to local Redis URL |
 | `SESSION_COOKIE_SECURE` | Optional; defaults to true, set false only for local HTTP development |

@@ -150,11 +150,11 @@ The hotel upload page uses a short-lived, hotel-scoped capability instead of an 
 ### Buffer scheduling failure or possible duplicate
 
 1. Inspect the draft status, its `publish_log` rows, worker logs, and Buffer queue before retrying.
-2. Verify the hotel has a `buffer_profiles` entry for the draft's channel and that the Buffer token/profile is valid.
+2. Verify the hotel has a `buffer_profiles` entry for the draft's network and that it is a Buffer **channel ID** (list them with the `channels` query in the [Buffer API Explorer](https://developers.buffer.com/explorer.html)). Verify `BUFFER_ACCESS_TOKEN` is a current Buffer API key (Settings → API; keys expire). The worker log's `BufferError` names the cause: `UNAUTHORIZED` (key), `NOT_FOUND` (channel ID), or Buffer's message for a typed error such as a full queue.
 3. If Buffer accepted the post but the database write failed, a Celery retry may submit it again. Confirm provider-side state and remove/resolve duplicates through Buffer before triggering another publish attempt.
 4. After confirming the external action, reconcile `content_drafts` and `publish_log` through the approved database procedure.
 
-The application currently schedules Turkish text only and has no Buffer webhook/polling process to update a draft to `published`.
+The application currently schedules Turkish text only and has no Buffer webhook/polling process to update a draft to `published`. It uses Buffer's GraphQL API since 2026-11; Buffer's legacy REST API (`api.bufferapp.com/1`) has brownouts on 2026-11-11 and 2026-12-09 and stops on 2027-02-01.
 
 ### Cron did not enqueue generation
 

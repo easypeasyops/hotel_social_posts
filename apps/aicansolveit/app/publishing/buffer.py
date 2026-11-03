@@ -1,7 +1,9 @@
+from pathlib import PurePosixPath
 from typing import Any
 
 import httpx
 
+from app.assets.service import STORAGE_BUCKET
 from app.config import get_settings
 from supabase import Client
 
@@ -21,6 +23,16 @@ mutation CreatePost($input: CreatePostInput!) {
 """
 
 
+# Buffer fetches a post's media when the post goes out, which for a queued post can be days
+# later, so the URL must not expire (Buffer warns against signed URLs). Images being posted
+# are copied from the private upload bucket into this public one
+# (supabase/migrations/002_published_media_bucket.sql). They're public on the network anyway.
+PUBLISHED_BUCKET = "published-media"
+IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
+MAX_IMAGES = 10  # Instagram's carousel limit
+NEEDS_IMAGE = {"instagram"}  # Instagram refuses text-only posts
+
+
 class BufferError(RuntimeError):
     """Buffer refused the post. GraphQL answers HTTP 200 either way: the error is in the body."""
 
@@ -36,15 +48,47 @@ def _get_channel_id(channel: str, hotel: dict[str, Any]) -> str | None:
     return channel_id
 
 
-def _create_post(channel_id: str, text: str, api_key: str) -> str:
-    variables = {
-        "input": {
-            "channelId": channel_id,
-            "text": text,
-            "schedulingType": "automatic",
-            "mode": "shareNext",
-        }
+def _publish_images(db: Client, hotel_id: str, draft_id: str, asset_ids: list[str]) -> list[str]:
+    """Public URLs for the draft's images, in the draft's order, at most MAX_IMAGES.
+    Videos and other files are skipped: posts carry images only, for now."""
+    if not asset_ids:
+        return []
+    rows = (
+        db.table("assets")
+        .select("id, filename, storage_path")
+        .in_("id", asset_ids)
+        .eq("status", "ready")
+        .execute()
+        .data
+    )
+    by_id = {row["id"]: row for row in rows}
+    urls: list[str] = []
+    for asset_id in asset_ids:
+        asset = by_id.get(asset_id)
+        suffix = PurePosixPath(asset["filename"]).suffix.lower() if asset else ""
+        if not asset or suffix not in IMAGE_TYPES:
+            continue
+        data = db.storage.from_(STORAGE_BUCKET).download(asset["storage_path"])
+        path = f"{hotel_id}/{draft_id}/{asset_id}{suffix}"
+        published = db.storage.from_(PUBLISHED_BUCKET)
+        # upsert: a retried task writes the same path again
+        published.upload(path, data, {"content-type": IMAGE_TYPES[suffix], "upsert": "true"})
+        urls.append(published.get_public_url(path))
+        if len(urls) == MAX_IMAGES:
+            break
+    return urls
+
+
+def _create_post(channel_id: str, text: str, api_key: str, image_urls: list[str]) -> str:
+    post_input: dict[str, Any] = {
+        "channelId": channel_id,
+        "text": text,
+        "schedulingType": "automatic",
+        "mode": "shareNext",
     }
+    if image_urls:
+        post_input["assets"] = [{"image": {"url": url}} for url in image_urls]
+    variables = {"input": post_input}
     with httpx.Client(timeout=15) as client:
         response = client.post(
             BUFFER_API_URL,
@@ -88,7 +132,13 @@ def publish_draft(db: Client, draft_id: str) -> None:
             f"No Buffer channel configured for channel '{channel}' on hotel '{hotel['id']}'"
         )
 
-    post_id = _create_post(channel_id, draft["body_tr"], settings.buffer_access_token)
+    image_urls = _publish_images(db, hotel["id"], draft_id, draft.get("asset_ids") or [])
+    if channel in NEEDS_IMAGE and not image_urls:
+        raise ValueError(
+            f"Draft {draft_id} has no ready image, and {channel} refuses text-only posts"
+        )
+
+    post_id = _create_post(channel_id, draft["body_tr"], settings.buffer_access_token, image_urls)
 
     # Record the Buffer post ID for correlation
     db.table("publish_log").insert(

@@ -43,7 +43,8 @@ flowchart LR
 | HTTP API | Hotel, asset, and draft endpoints; upload page; job triggers; liveness endpoint | FastAPI application in `app/main.py` |
 | Operator UI | Sign-in, hotel dashboard/profile management, and scoped upload-link creation | FastAPI routes and Jinja templates |
 | Persistence | Hotel profiles, assets metadata, drafts, translations, and publish log | Supabase Postgres via the Supabase Python client |
-| Media storage | Uploaded hotel images and videos | Supabase Storage bucket named `hotel-assets` |
+| Media storage | Uploaded hotel images and videos | Supabase Storage bucket named `hotel-assets` (private) |
+| Published media | Copies of the images a post carries, at URLs that don't expire | Supabase Storage bucket named `published-media` (public reads) |
 | Background work | Asset status updates, generation, translation, publishing | Celery tasks in `app/jobs/tasks.py` |
 | Broker/backend and web sessions | Celery queue/task results and operator session records | Redis, configured by `REDIS_URL` |
 | Text generation | Turkish post drafts | Anthropic Claude; model selected by hotel tier |
@@ -94,7 +95,7 @@ The translation task tolerates individual language failures by logging and skipp
 
 1. An authenticated operator reads drafts in `pending_review`.
 2. Approving a draft changes its status to `approved` and enqueues a publish task. Rejecting changes its status to `rejected` and optionally stores feedback.
-3. The publish task sends the Turkish body to the Buffer channel configured for the draft's network (`hotels.buffer_profiles`), through Buffer's GraphQL API (`createPost` at `https://api.buffer.com`, mode `shareNext`: the top of that channel's queue), then writes a `publish_log` row with Buffer's post ID and marks the draft `scheduled`. Buffer answers HTTP 200 even when it refuses a post; the refusal (`MutationError` or the `errors` array) raises `BufferError`, so nothing is logged and the task retries.
+3. The publish task sends the Turkish body to the Buffer channel configured for the draft's network (`hotels.buffer_profiles`), through Buffer's GraphQL API (`createPost` at `https://api.buffer.com`, mode `shareNext`: the top of that channel's queue), with the draft's images: each ready JPEG or PNG among its `asset_ids`, in order and at most 10 (Instagram's carousel limit), copied from `hotel-assets` into the public `published-media` bucket (`<hotel>/<draft>/<asset>.<ext>`). Buffer fetches media when the post goes out, possibly days later, so it gets those permanent public URLs, not signed ones that would expire. Instagram refuses text-only posts: an Instagram draft without a ready image fails before Buffer is called. Videos are not sent yet. The task then writes a `publish_log` row with Buffer's post ID and marks the draft `scheduled`. Buffer answers HTTP 200 even when it refuses a post; the refusal (`MutationError` or the `errors` array) raises `BufferError`, so nothing is logged and the task retries.
 
 Publishing currently sends one Turkish post per draft; translations are not sent to Buffer. Buffer scheduling outcomes are not synchronized back into draft status by a webhook or polling process in this repository.
 
@@ -118,7 +119,7 @@ All API route prefixes below are registered in `app/main.py`.
 
 ## Data model
 
-The initial schema is defined in `supabase/migrations/001_initial_schema.sql`.
+The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket.
 
 - `hotels`: hotel profile, subscription tier, channels, contact, and Buffer channel IDs per network (`buffer_profiles`, named for the REST API's profiles).
 - `assets`: hotel-owned metadata, Storage path, category, and processing state.
@@ -171,7 +172,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Authentication and cron authorization: `app/auth/dependencies.py`
 - Celery tasks: `app/jobs/tasks.py`
 - Provider integrations: `app/generation/`, `app/translation/`, `app/publishing/`
-- Database schema: `supabase/migrations/001_initial_schema.sql`
+- Database schema and Storage buckets: `supabase/migrations/`
 - Dependencies and tool settings: `pyproject.toml`, `uv.lock`, `.python-version`
 - Tests and checks: `tests/`, `scripts/smoke.sh`, `scripts/ci-scope.sh`, the repo's `.github/workflows/ci.yml`
 - Deployment configuration: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `railway.toml`

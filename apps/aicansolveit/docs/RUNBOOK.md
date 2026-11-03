@@ -9,13 +9,13 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 - **API:** FastAPI/Uvicorn web service. Railway's `railway.toml` uses `GET /health` as its health check.
 - **Worker:** Celery process using the same application image; must be deployed as a separate Railway service with a worker start command.
 - **Redis:** Celery broker/result backend and operator session store.
-- **Supabase:** Postgres, Auth, and the `hotel-assets` Storage bucket.
+- **Supabase:** Postgres, Auth, the private `hotel-assets` Storage bucket (uploads) and the public `published-media` bucket (images being posted).
 - **External providers:** Anthropic, DeepL, and Buffer.
 - **Cron:** External Railway cron schedule calling the internal generation endpoint. The schedule itself is not defined in this repository.
 
 ## Prerequisites and configuration
 
-Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the schema in `supabase/migrations/001_initial_schema.sql`, and configure provider credentials.
+Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket), and configure provider credentials.
 
 Set the following environment variables in the local `.env` or the appropriate Railway service settings:
 
@@ -86,7 +86,7 @@ Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`
 
 1. Confirm required settings exist for both the API and worker services; the worker needs `REDIS_URL` and all provider/Supabase settings used by its tasks.
 2. Apply any new Supabase migration deliberately before deploying code that depends on it. The application does not migrate the database at startup.
-3. Ensure the `hotel-assets` bucket exists and its upload policies match the signed-upload flow.
+3. Ensure the `hotel-assets` bucket exists and its upload policies match the signed-upload flow, and that the `published-media` bucket exists and is public (migration `002`); without it, publishing fails on the image copy.
 4. Deploy the API from the repository's Dockerfile and preserve the `GET /health` Railway check.
 5. Deploy a separate worker using:
 
@@ -150,7 +150,7 @@ The hotel upload page uses a short-lived, hotel-scoped capability instead of an 
 ### Buffer scheduling failure or possible duplicate
 
 1. Inspect the draft status, its `publish_log` rows, worker logs, and Buffer queue before retrying.
-2. Verify the hotel has a `buffer_profiles` entry for the draft's network and that it is a Buffer **channel ID** (list them with the `channels` query in the [Buffer API Explorer](https://developers.buffer.com/explorer.html)). Verify `BUFFER_ACCESS_TOKEN` is a current Buffer API key (Settings → API; keys expire). The worker log's `BufferError` names the cause: `UNAUTHENTICATED: Access token is not valid` (the key is wrong, expired or revoked, or isn't a GraphQL API key: create one under Settings → API → Personal Access, with posting permission), `UNAUTHORIZED` or `FORBIDDEN` (the key lacks a permission), `NOT_FOUND` (channel ID), or Buffer's message for a typed error such as a full queue. To test a key from a shell, without printing it: `curl -s https://api.buffer.com -H "Authorization: Bearer $BUFFER_ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"query":"query { account { organizations { id name } } }"}'`.
+2. Verify the hotel has a `buffer_profiles` entry for the draft's network and that it is a Buffer **channel ID** (list them with the `channels` query in the [Buffer API Explorer](https://developers.buffer.com/explorer.html)). Verify `BUFFER_ACCESS_TOKEN` is a current Buffer API key (Settings → API; keys expire). The worker log's `BufferError` names the cause: `UNAUTHENTICATED: Access token is not valid` (the key is wrong, expired or revoked, or isn't a GraphQL API key: create one under Settings → API → Personal Access, with posting permission), `UNAUTHORIZED` or `FORBIDDEN` (the key lacks a permission), `NOT_FOUND` (channel ID), or Buffer's message for a typed error such as a full queue. To test a key from a shell, without printing it: `curl -s https://api.buffer.com -H "Authorization: Bearer $BUFFER_ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"query":"query { account { organizations { id name } } }"}'`. An Instagram draft whose `asset_ids` hold no ready JPEG or PNG fails with `ValueError: … refuses text-only posts` before Buffer is called: upload an image for the hotel and regenerate, or edit the draft's `asset_ids`.
 3. If Buffer accepted the post but the database write failed, a Celery retry may submit it again. Confirm provider-side state and remove/resolve duplicates through Buffer before triggering another publish attempt.
 4. After confirming the external action, reconcile `content_drafts` and `publish_log` through the approved database procedure.
 

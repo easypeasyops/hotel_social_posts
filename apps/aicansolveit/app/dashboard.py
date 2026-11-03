@@ -35,6 +35,7 @@ async def dashboard_home():
 async def list_hotels(request: Request, db: Client = Depends(get_supabase)):
     hotels = hotel_service.list_hotels(db)
     return templates.TemplateResponse(
+        request,
         "dashboard/hotels.html", {"request": request, "hotels": hotels}
     )
 
@@ -42,6 +43,7 @@ async def list_hotels(request: Request, db: Client = Depends(get_supabase)):
 @router.get("/hotels/new")
 async def new_hotel_page(request: Request):
     return templates.TemplateResponse(
+        request,
         "dashboard/hotel_form.html", _hotel_form_context(request)
     )
 
@@ -70,6 +72,7 @@ async def create_hotel(
         )
     except ValueError as exc:
         return templates.TemplateResponse(
+            request,
             "dashboard/hotel_form.html",
             _hotel_form_context(request, error=str(exc)),
             status_code=422,
@@ -88,6 +91,7 @@ async def hotel_detail(
     hotel = hotel_service.get_hotel(db, hotel_id)
     assets = asset_service.list_assets(db, hotel_id)
     return templates.TemplateResponse(
+        request,
         "dashboard/hotel_detail.html",
         {
             "request": request,
@@ -107,6 +111,7 @@ async def edit_hotel_page(
 ):
     hotel = hotel_service.get_hotel(db, hotel_id)
     return templates.TemplateResponse(
+        request,
         "dashboard/hotel_form.html", _hotel_form_context(request, hotel)
     )
 
@@ -134,6 +139,7 @@ async def update_hotel(
         )
     except ValueError as exc:
         return templates.TemplateResponse(
+            request,
             "dashboard/hotel_form.html",
             _hotel_form_context(request, current, str(exc)),
             status_code=422,
@@ -158,6 +164,7 @@ async def create_hotel_upload_link(
     )
     assets = asset_service.list_assets(db, hotel_id)
     response = templates.TemplateResponse(
+        request,
         "dashboard/hotel_detail.html",
         {
             "request": request,

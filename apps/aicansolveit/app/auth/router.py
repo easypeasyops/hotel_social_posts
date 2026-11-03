@@ -48,7 +48,7 @@ def _set_session_cookie(response, session_id: str) -> None:
 
 @router.get("/login", name="login_page")
 async def login_page(request: Request):
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+    return templates.TemplateResponse(request, "auth/login.html", {"request": request})
 
 
 @router.post("/login")
@@ -59,6 +59,7 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
         )
     except AuthApiError:
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {"request": request, "error": "Email or password is incorrect."},
             status_code=401,
@@ -66,6 +67,7 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
     except Exception:
         logger.exception("Password sign-in failed")
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {"request": request, "error": "Sign-in is temporarily unavailable."},
             status_code=502,
@@ -74,6 +76,7 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
     session = auth_response.session
     if session is None:
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {"request": request, "error": "Sign-in did not return a session."},
             status_code=502,
@@ -85,6 +88,7 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
         )
     except RedisError:
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {"request": request, "error": "Sign-in is temporarily unavailable."},
             status_code=503,
@@ -118,6 +122,7 @@ async def request_magic_link(request: Request, email: str = Form(...)):
     except Exception:
         logger.exception("Magic-link request failed")
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {
                 "request": request,
@@ -127,6 +132,7 @@ async def request_magic_link(request: Request, email: str = Form(...)):
         )
 
     return templates.TemplateResponse(
+        request,
         "auth/login.html",
         {
             "request": request,
@@ -155,6 +161,7 @@ async def request_password_reset(request: Request, email: str = Form(...)):
     except Exception:
         logger.exception("Password-reset email request failed")
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {
                 "request": request,
@@ -164,6 +171,7 @@ async def request_password_reset(request: Request, email: str = Form(...)):
         )
 
     return templates.TemplateResponse(
+        request,
         "auth/login.html",
         {
             "request": request,
@@ -175,7 +183,7 @@ async def request_password_reset(request: Request, email: str = Form(...)):
 
 @router.get("/auth/callback", name="auth_callback")
 async def auth_callback(request: Request):
-    response = templates.TemplateResponse("auth/callback.html", {"request": request})
+    response = templates.TemplateResponse(request, "auth/callback.html", {"request": request})
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
@@ -271,6 +279,7 @@ async def reset_password_page(request: Request):
         return response
 
     response = templates.TemplateResponse(
+        request,
         "auth/reset_password.html", {"request": request}
     )
     response.headers["Cache-Control"] = "no-store"
@@ -286,12 +295,14 @@ async def update_password(
 ):
     if len(password) < 8:
         return templates.TemplateResponse(
+            request,
             "auth/reset_password.html",
             {"request": request, "error": "Password must be at least 8 characters."},
             status_code=422,
         )
     if password != password_confirmation:
         return templates.TemplateResponse(
+            request,
             "auth/reset_password.html",
             {"request": request, "error": "The passwords do not match."},
             status_code=422,
@@ -323,6 +334,7 @@ async def update_password(
         if session is None:
             delete_password_reset_session(reset_id)
             response = templates.TemplateResponse(
+                request,
                 "auth/reset_password.html",
                 {
                     "request": request,
@@ -336,6 +348,7 @@ async def update_password(
     except AuthApiError as exc:
         logger.info("Supabase rejected password reset (status=%s, code=%s)", exc.status, exc.code)
         return templates.TemplateResponse(
+            request,
             "auth/reset_password.html",
             {
                 "request": request,
@@ -346,6 +359,7 @@ async def update_password(
     except Exception as exc:
         logger.exception("Password update failed")
         return templates.TemplateResponse(
+            request,
             "auth/reset_password.html",
             {
                 "request": request,

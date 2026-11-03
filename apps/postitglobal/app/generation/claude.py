@@ -8,13 +8,19 @@ from app.generation.prompts import SYSTEM_PROMPT, build_generation_prompt
 from supabase import Client
 
 
+def _client(api_key: str) -> anthropic.Anthropic:
+    """The Claude client. A function of its own so tests can give it a mock transport:
+    anthropic 2.x makes its calls with httpx2, which respx (httpx only) doesn't intercept."""
+    return anthropic.Anthropic(api_key=api_key)
+
+
 def generate_drafts_for_hotel(db: Client, hotel_id: str) -> list[str]:
     """
     Generates content drafts for a hotel using Claude API.
     Returns a list of created draft IDs.
     """
     settings = get_settings()
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = _client(settings.anthropic_api_key)
 
     # Load hotel profile
     hotel = db.table("hotels").select("*").eq("id", hotel_id).single().execute().data

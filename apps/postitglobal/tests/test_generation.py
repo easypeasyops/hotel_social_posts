@@ -1,14 +1,18 @@
 """Drafts from Claude: the request the app sends to the Messages API and what it stores.
-The HTTP exchange is mocked at the wire (respx), so these tests hold across SDK upgrades."""
+The HTTP exchange is mocked at the wire: anthropic 2.x makes its calls with httpx2, so the
+client gets an httpx2 MockTransport (respx only intercepts httpx). These tests check the
+request itself, so they hold across SDK upgrades."""
 
 import json
+from collections.abc import Callable
 from typing import Any
 
-import httpx
+import anthropic
+import httpx2
 import pytest
-import respx
 
 from app.config import get_settings
+from app.generation import claude
 from app.generation.claude import generate_drafts_for_hotel
 from app.generation.prompts import SYSTEM_PROMPT, build_generation_prompt
 from tests.fakes import FakeDB
@@ -25,8 +29,8 @@ HOTEL = {
 ASSETS = [{"id": "asset-1", "filename": "pool.jpg", "category": "pool"}]
 
 
-def claude_says(text: str) -> httpx.Response:
-    return httpx.Response(
+def claude_says(text: str) -> httpx2.Response:
+    return httpx2.Response(
         200,
         json={
             "id": "msg_1",
@@ -41,21 +45,52 @@ def claude_says(text: str) -> httpx.Response:
     )
 
 
+Calls = list[httpx2.Request]
+
+
+@pytest.fixture
+def claude_replies(monkeypatch: pytest.MonkeyPatch) -> Callable[[str], Calls]:
+    """Make Claude answer with `text`; returns the list the requests sent to it land in."""
+
+    def reply_with(text: str) -> Calls:
+        calls: Calls = []
+
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            calls.append(request)
+            return claude_says(text)
+
+        transport = httpx2.MockTransport(handler)
+        monkeypatch.setattr(
+            claude,
+            "_client",
+            lambda key: anthropic.Anthropic(
+                api_key=key, http_client=httpx2.Client(transport=transport)
+            ),
+        )
+        return calls
+
+    return reply_with
+
+
 POSTS = [
     {"channel": "instagram", "body": "Merhaba #bodrum"},
     {"channel": "facebook", "body": "Hoş geldiniz #ege"},
 ]
 
 
-@respx.mock
-def test_drafts_are_generated_and_stored_for_review() -> None:
-    route = respx.post(MESSAGES_URL).mock(return_value=claude_says(json.dumps(POSTS)))
+def test_drafts_are_generated_and_stored_for_review(
+    claude_replies: Callable[[str], Calls],
+) -> None:
+    calls = claude_replies(json.dumps(POSTS))
     db = FakeDB(hotels=[HOTEL], assets=ASSETS)
 
     ids = generate_drafts_for_hotel(db, "hotel-1")  # type: ignore[arg-type]
 
-    sent: dict[str, Any] = json.loads(route.calls.last.request.content)
-    assert route.calls.last.request.headers["x-api-key"] == "test-anthropic-key"
+    (request,) = calls
+    sent: dict[str, Any] = json.loads(request.content)
+    assert str(request.url) == MESSAGES_URL
+    # anthropic 2.x sends the API key as a bearer token (0.x used x-api-key).
+    assert request.headers["authorization"] == "Bearer test-anthropic-key"
     assert sent["model"] == get_settings().claude_draft_model
     assert sent["system"] == SYSTEM_PROMPT
     assert sent["messages"][0]["content"] == build_generation_prompt(
@@ -70,10 +105,8 @@ def test_drafts_are_generated_and_stored_for_review() -> None:
     assert all(d["status"] == "pending_review" and d["asset_ids"] == ["asset-1"] for d in drafts)
 
 
-@respx.mock
-def test_prose_around_the_json_is_ignored() -> None:
-    reply = f"Here are your posts:\n{json.dumps(POSTS[:1])}\nEnjoy!"
-    respx.post(MESSAGES_URL).mock(return_value=claude_says(reply))
+def test_prose_around_the_json_is_ignored(claude_replies: Callable[[str], Calls]) -> None:
+    claude_replies(f"Here are your posts:\n{json.dumps(POSTS[:1])}\nEnjoy!")
     db = FakeDB(hotels=[HOTEL], assets=[])
 
     generate_drafts_for_hotel(db, "hotel-1")  # type: ignore[arg-type]
@@ -82,22 +115,20 @@ def test_prose_around_the_json_is_ignored() -> None:
 
 
 @pytest.mark.parametrize("tier", ["growth", "premium"])
-@respx.mock
-def test_paid_tiers_get_the_premium_model(tier: str) -> None:
-    route = respx.post(MESSAGES_URL).mock(return_value=claude_says("[]"))
+def test_paid_tiers_get_the_premium_model(
+    claude_replies: Callable[[str], Calls], tier: str
+) -> None:
+    calls = claude_replies("[]")
     generate_drafts_for_hotel(FakeDB(hotels=[{**HOTEL, "tier": tier}]), "hotel-1")  # type: ignore[arg-type]
 
-    assert json.loads(route.calls.last.request.content)["model"] == (
-        get_settings().claude_premium_model
-    )
+    assert json.loads(calls[0].content)["model"] == get_settings().claude_premium_model
 
 
-@respx.mock
-def test_an_unknown_hotel_calls_nobody() -> None:
-    route = respx.post(MESSAGES_URL)
+def test_an_unknown_hotel_calls_nobody(claude_replies: Callable[[str], Calls]) -> None:
+    calls = claude_replies("[]")
     with pytest.raises(ValueError, match="not found"):
         generate_drafts_for_hotel(FakeDB(), "missing")  # type: ignore[arg-type]
-    assert not route.called
+    assert calls == []
 
 
 def test_the_prompt_names_the_hotel_and_its_assets() -> None:

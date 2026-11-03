@@ -6,7 +6,7 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 
 ## Service topology
 
-- **API:** FastAPI/Uvicorn web service. Railway's `railway.toml` uses `GET /health` as its health check.
+- **API:** FastAPI/Uvicorn web service. Liveness is `GET /healthz`, readiness `GET /readyz` (Redis answers); Railway's `railway.toml` uses `GET /health`, the same as `/healthz`.
 - **Worker:** Celery process using the same application image; must be deployed as a separate Railway service with a worker start command.
 - **Redis:** Celery broker/result backend and operator session store.
 - **Supabase:** Postgres, Auth, the private `hotel-assets` Storage bucket (uploads) and the public `published-media` bucket (images being posted).
@@ -55,7 +55,8 @@ docker compose up --build
 This starts the API, worker, and Redis. The API listens on port `8000`; its code reloads as the source directory is mounted. Confirm basic process liveness:
 
 ```sh
-curl --fail http://localhost:8000/health
+curl --fail http://localhost:8000/healthz
+curl --fail http://localhost:8000/readyz   # 503 until Redis answers
 ```
 
 Expected response:
@@ -119,7 +120,7 @@ Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`
 4. Roll back to the last known-good deployment if the failure began with a release and rollback is the established project procedure.
 5. After recovery, check `/health` and perform a safe authenticated read.
 
-Because `/health` is liveness-only, a successful response is not proof that dependencies are healthy.
+Because `/healthz` (and `/health`) are liveness-only, a successful response is not proof that dependencies are healthy. `/readyz` returns 503 `not ready: Redis` when Redis doesn't answer within 2 s: check Redis first. It doesn't cover Supabase or the providers.
 
 ### Jobs are not progressing
 

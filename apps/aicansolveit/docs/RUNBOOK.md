@@ -79,7 +79,7 @@ Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docke
 | Format and lint | `uv run ruff format .` and `uv run ruff check .` |
 | Type check | `uv run mypy app tests` |
 | Tests (no `.env` needed: they use placeholders) | `uv run pytest` |
-| The image, black-box (non-root, probes, JSON logs, metrics, clean SIGTERM exit) | `docker build -t aicansolveit:dev . && scripts/smoke.sh` |
+| The image, black-box (non-root, probes, JSON logs, metrics, clean SIGTERM exit) | `docker build -t postitglobal:dev . && scripts/smoke.sh` |
 
 Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`, then `uv lock`) and commit both files. CI runs the same commands on every pull request (`.github/workflows/ci.yml` at the repo root, through the platform's reusable workflows); a pull request is ready to merge when its `ci` check is green. Code that came in with the import still has inline `noqa` markers and modules listed under mypy's overrides in `pyproject.toml`: they come off as the code is fixed and typed.
 
@@ -112,7 +112,7 @@ Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`
 
 ## Reading the logs
 
-The API and the worker log one JSON object per line to stdout (set `LOG_JSON=false` locally for plain lines). Every line a request logs carries its `request_id`, which is also the response's `X-Request-ID` header: ask a user for it, or take it from the access line (`"logger": "aicansolveit.access"`, with `route`, `status` and `duration_ms`).
+The API and the worker log one JSON object per line to stdout (set `LOG_JSON=false` locally for plain lines). Every line a request logs carries its `request_id`, which is also the response's `X-Request-ID` header: ask a user for it, or take it from the access line (`"logger": "postitglobal.access"`, with `route`, `status` and `duration_ms`).
 
 ```sh
 # Everything one request logged

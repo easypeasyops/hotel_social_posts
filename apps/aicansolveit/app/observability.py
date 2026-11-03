@@ -6,7 +6,7 @@
 * Metrics: request counts and latencies (RED), labelled by route template, never the raw
   path: raw paths would make one time series per hotel or draft ID. Served on their own
   port (9100), so the public port carries none of it. The names are shortly's, so the
-  platform's SLO rules and dashboards read aicansolveit the same way.
+  platform's SLO rules and dashboards read postitglobal the same way.
 """
 
 import json
@@ -32,7 +32,7 @@ QUIET_PATHS: Final = frozenset({"/healthz", "/health", "/readyz", "/metrics"})
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
-access_log = logging.getLogger("aicansolveit.access")
+access_log = logging.getLogger("postitglobal.access")
 
 _STANDARD_ATTRS: Final = frozenset(
     vars(logging.LogRecord("", 0, "", 0, "", None, None)).keys()

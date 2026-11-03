@@ -7,8 +7,12 @@ updates:
     schedule:
       interval: weekly
     groups:
-      python-deps: # one PR per week instead of one per package
+      # Minor and patch updates together, one PR a week. A major update (anthropic 0.x to
+      # 2.x, redis 5 to 8) arrives in a PR of its own: it can break the code, and in a group
+      # it blocked six harmless updates with it (#16).
+      python-deps:
         patterns: ["*"]
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions # bumps the pinned SHAs (and their # vX comments)
     directory: /

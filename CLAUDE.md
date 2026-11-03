@@ -1,7 +1,7 @@
 # Working on hotel_social_posts
 
 This repo holds the hotel social posts domain's apps under `apps/<app>/` (platform plan 3.5);
-aicansolveit is `apps/aicansolveit/`. Run an app's commands from its folder. `.github/`,
+postitglobal is `apps/postitglobal/`. Run an app's commands from its folder. `.github/`,
 `platform.lock` and this file are at the repo root.
 
 ## Docs are part of the change

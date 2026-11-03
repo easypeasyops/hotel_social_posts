@@ -3,10 +3,10 @@
 # is alive (/healthz), and says it isn't ready without Redis (/readyz). Placeholder secrets
 # and an unreachable Redis: nothing here reaches a real service.
 #
-#   AICANSOLVEIT_IMAGE=postitglobal:dev scripts/smoke.sh
+#   POSTITGLOBAL_IMAGE=postitglobal:dev scripts/smoke.sh
 set -euo pipefail
 
-IMAGE="${AICANSOLVEIT_IMAGE:-postitglobal:dev}"
+IMAGE="${POSTITGLOBAL_IMAGE:-postitglobal:dev}"
 NAME="postitglobal-smoke-$$"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "ok   $*"; }

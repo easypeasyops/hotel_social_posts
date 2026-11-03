@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Docs-only PRs skip the work in every job (apps/aicansolveit/scripts/ci-scope.sh).
+  # Docs-only PRs skip the work in every job (apps/postitglobal/scripts/ci-scope.sh).
   scope:
     name: change scope
     runs-on: ubuntu-latest
@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 2 # the PR merge commit and its first parent
       - name: Does this change need the checks?
         id: scope
-        run: apps/aicansolveit/scripts/ci-scope.sh
+        run: apps/postitglobal/scripts/ci-scope.sh
 
   # The platform's reusable workflows, pinned to platform.lock's commit (keep them equal).
   check:
@@ -37,7 +37,7 @@ jobs:
     uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@6acaf57b22fe2ae9b101db3846c148f93e325354 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
-      working-directory: apps/aicansolveit
+      working-directory: apps/postitglobal
       typecheck-paths: app tests
       # Where the imported code's tests start (platform plan 5.2); raised as tests come,
       # up to the platform's 90. (Python 3.15 stopped counting annotation-only lines, all
@@ -49,8 +49,8 @@ jobs:
     uses: easypeasyops/platform/.github/workflows/reusable-image.yml@6acaf57b22fe2ae9b101db3846c148f93e325354 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
-      context: apps/aicansolveit
-      smoke-command: AICANSOLVEIT_IMAGE="$IMAGE" apps/aicansolveit/scripts/smoke.sh
+      context: apps/postitglobal
+      smoke-command: POSTITGLOBAL_IMAGE="$IMAGE" apps/postitglobal/scripts/smoke.sh
 
   # The one required check: green only when every job above passed (or was skipped as
   # docs-only by its own input, which still reports success).

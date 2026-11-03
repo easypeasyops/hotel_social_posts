@@ -3,7 +3,7 @@
 version: 2
 updates:
   - package-ecosystem: uv
-    directory: /apps/aicansolveit
+    directory: /apps/postitglobal
     schedule:
       interval: weekly
     groups:
@@ -19,6 +19,6 @@ updates:
       - dependency-name: easypeasyops/platform
 
   - package-ecosystem: docker # bumps the base image digests in the Dockerfile
-    directory: /apps/aicansolveit
+    directory: /apps/postitglobal
     schedule:
       interval: weekly

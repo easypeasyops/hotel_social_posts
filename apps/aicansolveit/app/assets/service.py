@@ -50,7 +50,7 @@ def create_upload_url(db: Client, hotel_id: str, request: UploadUrlRequest) -> U
     signed = db.storage.from_(STORAGE_BUCKET).create_signed_upload_url(storage_path)
 
     return UploadUrlResponse(
-        upload_url=signed["signedURL"],
+        upload_url=signed["signed_url"],
         storage_path=storage_path,
         asset_id=asset_id,
     )

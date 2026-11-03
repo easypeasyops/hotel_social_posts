@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
-from supabase import Client
 
 from app.assets import service
 from app.assets.models import UploadUrlRequest
 from app.auth.dependencies import verify_hotel_upload_token
 from app.database import get_supabase
+from supabase import Client
 
 router = APIRouter(
     prefix="/api/v1/upload-capabilities",

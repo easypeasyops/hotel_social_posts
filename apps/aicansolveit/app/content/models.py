@@ -1,10 +1,10 @@
-from pydantic import BaseModel
-from typing import Optional
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+
+from pydantic import BaseModel
 
 
-class ContentStatus(str, Enum):
+class ContentStatus(str, Enum):  # noqa: UP042
     pending_review = "pending_review"
     approved = "approved"
     rejected = "rejected"
@@ -13,7 +13,7 @@ class ContentStatus(str, Enum):
     failed = "failed"
 
 
-class Language(str, Enum):
+class Language(str, Enum):  # noqa: UP042
     tr = "tr"
     en = "en"
     de = "de"
@@ -26,9 +26,9 @@ class ContentDraft(BaseModel):
     hotel_id: str
     channel: str
     status: ContentStatus
-    body_tr: str                       # primary body in Turkish
+    body_tr: str  # primary body in Turkish
     asset_ids: list[str]
-    scheduled_at: Optional[datetime]
+    scheduled_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -42,4 +42,4 @@ class ContentTranslation(BaseModel):
 
 
 class ReviewAction(BaseModel):
-    feedback: Optional[str] = None    # operator notes for rejected drafts
+    feedback: str | None = None  # operator notes for rejected drafts

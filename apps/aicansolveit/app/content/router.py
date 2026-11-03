@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
-from supabase import Client
-from app.database import get_supabase
+
 from app.auth.dependencies import get_current_user
 from app.content import service
 from app.content.models import ReviewAction
+from app.database import get_supabase
+from supabase import Client
 
 router = APIRouter()
 

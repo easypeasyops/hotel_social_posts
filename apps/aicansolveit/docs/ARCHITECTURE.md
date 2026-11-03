@@ -172,7 +172,9 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Celery tasks: `app/jobs/tasks.py`
 - Provider integrations: `app/generation/`, `app/translation/`, `app/publishing/`
 - Database schema: `supabase/migrations/001_initial_schema.sql`
-- Deployment configuration: `Dockerfile`, `docker-compose.yml`, `railway.toml`
+- Dependencies and tool settings: `pyproject.toml`, `uv.lock`, `.python-version`
+- Tests and checks: `tests/`, `scripts/smoke.sh`, `scripts/ci-scope.sh`, the repo's `.github/workflows/ci.yml`
+- Deployment configuration: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `railway.toml`
 
 ## Related documentation
 

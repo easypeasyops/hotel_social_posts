@@ -1,9 +1,11 @@
 import json
 import uuid
+
 import anthropic
-from supabase import Client
+
 from app.config import get_settings
 from app.generation.prompts import SYSTEM_PROMPT, build_generation_prompt
+from supabase import Client
 
 
 def generate_drafts_for_hotel(db: Client, hotel_id: str) -> list[str]:
@@ -62,14 +64,16 @@ def generate_drafts_for_hotel(db: Client, hotel_id: str) -> list[str]:
     draft_ids = []
     for post in posts:
         draft_id = str(uuid.uuid4())
-        db.table("content_drafts").insert({
-            "id": draft_id,
-            "hotel_id": hotel_id,
-            "channel": post.get("channel", "instagram"),
-            "body_tr": post["body"],
-            "asset_ids": [a["id"] for a in assets],
-            "status": "pending_review",
-        }).execute()
+        db.table("content_drafts").insert(
+            {
+                "id": draft_id,
+                "hotel_id": hotel_id,
+                "channel": post.get("channel", "instagram"),
+                "body_tr": post["body"],
+                "asset_ids": [a["id"] for a in assets],
+                "status": "pending_review",
+            }
+        ).execute()
         draft_ids.append(draft_id)
 
     return draft_ids

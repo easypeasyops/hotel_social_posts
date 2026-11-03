@@ -1,0 +1,67 @@
+[project]
+name = "aicansolveit"
+version = "0.1.0"
+description = "Hotel content: Claude drafts, DeepL translations, Buffer publishing"
+requires-python = ">=3.12,<3.13"
+# The versions requirements.txt pinned (platform plan 5.2), except two that the image scan
+# refuses: FastAPI 0.115 brought Starlette 0.38.6, and python-multipart 0.0.9; both had
+# fixable HIGH vulnerabilities. uv.lock pins the rest.
+dependencies = [
+    "fastapi==0.162.0",
+    "uvicorn[standard]==0.30.6",
+    "jinja2==3.1.4",
+    "python-multipart==0.0.33",
+    "pydantic-settings==2.4.0",
+    "supabase==2.28.3",
+    "celery==5.4.0",
+    "redis==5.0.8",
+    "anthropic==0.34.2",
+    "httpx==0.27.2",
+    "python-dotenv==1.0.1",
+]
+
+[dependency-groups]
+dev = ["ruff", "mypy", "pytest", "pytest-cov"]
+
+[tool.uv]
+package = false # an app, not a library: `app/` runs from the project directory
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S", "ASYNC", "DTZ"]
+ignore = ["B008"] # FastAPI's Depends()/Form()/File() defaults are the framework's idiom
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"] # assert is how pytest checks
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+# Not strict yet: the imported code wasn't type-checked. New modules and tests are checked;
+# the modules below carried errors on import (platform plan 5.2) and come off this list as
+# they are typed. Supabase returns JSON, not the dicts these modules promise.
+[[tool.mypy.overrides]]
+module = [
+    "app.assets.service",
+    "app.auth.dependencies",
+    "app.auth.router",
+    "app.auth.sessions",
+    "app.content.service",
+    "app.generation.claude",
+    "app.hotels.service",
+    "app.jobs.tasks",
+    "app.publishing.buffer",
+    "app.translation.deepl",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"] # no type hints published
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing"

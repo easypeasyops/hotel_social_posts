@@ -1,6 +1,7 @@
-from supabase import create_client, Client
 from functools import lru_cache
+
 from app.config import get_settings
+from supabase import Client, create_client
 
 
 @lru_cache
@@ -21,6 +22,7 @@ def get_supabase_anon() -> Client:
     """
     settings = get_settings()
     return create_client(settings.supabase_url, settings.supabase_anon_key)
+
 
 if __name__ == "__main__":
     s = get_settings()

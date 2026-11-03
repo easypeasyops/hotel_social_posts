@@ -68,6 +68,20 @@ This check does **not** verify Supabase, Redis, or provider connectivity. In loc
 
 Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password or email magic link. Use **Forgot your password?** to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
 
+## Development checks
+
+Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docker image installs exactly the lock. From `apps/aicansolveit/`, with [uv](https://docs.astral.sh/uv/):
+
+| Step | Command |
+| --- | --- |
+| Install exactly the locked dependencies | `uv sync --locked` |
+| Format and lint | `uv run ruff format .` and `uv run ruff check .` |
+| Type check | `uv run mypy app tests` |
+| Tests (no `.env` needed: they use placeholders) | `uv run pytest` |
+| The image, black-box | `docker build -t aicansolveit:dev . && scripts/smoke.sh` |
+
+Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`, then `uv lock`) and commit both files. CI runs the same commands on every pull request (`.github/workflows/ci.yml` at the repo root, through the platform's reusable workflows); a pull request is ready to merge when its `ci` check is green. Code that came in with the import still has inline `noqa` markers and modules listed under mypy's overrides in `pyproject.toml`: they come off as the code is fixed and typed.
+
 ## Deployment and release checklist
 
 1. Confirm required settings exist for both the API and worker services; the worker needs `REDIS_URL` and all provider/Supabase settings used by its tasks.

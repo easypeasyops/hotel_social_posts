@@ -1,4 +1,4 @@
-from urllib.parse import quote
+from urllib.parse import quote  # noqa: I001
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -35,16 +35,14 @@ async def dashboard_home():
 async def list_hotels(request: Request, db: Client = Depends(get_supabase)):
     hotels = hotel_service.list_hotels(db)
     return templates.TemplateResponse(
-        request,
-        "dashboard/hotels.html", {"request": request, "hotels": hotels}
+        request, "dashboard/hotels.html", {"request": request, "hotels": hotels}
     )
 
 
 @router.get("/hotels/new")
 async def new_hotel_page(request: Request):
     return templates.TemplateResponse(
-        request,
-        "dashboard/hotel_form.html", _hotel_form_context(request)
+        request, "dashboard/hotel_form.html", _hotel_form_context(request)
     )
 
 
@@ -111,8 +109,7 @@ async def edit_hotel_page(
 ):
     hotel = hotel_service.get_hotel(db, hotel_id)
     return templates.TemplateResponse(
-        request,
-        "dashboard/hotel_form.html", _hotel_form_context(request, hotel)
+        request, "dashboard/hotel_form.html", _hotel_form_context(request, hotel)
     )
 
 
@@ -159,8 +156,7 @@ async def create_hotel_upload_link(
     capability = create_upload_token(hotel_id)
     page_url = f"/upload/{quote(hotel['slug'], safe='')}"
     upload_link = (
-        f"{str(request.base_url).rstrip('/')}{page_url}"
-        f"#token={quote(capability, safe='')}"
+        f"{str(request.base_url).rstrip('/')}{page_url}#token={quote(capability, safe='')}"
     )
     assets = asset_service.list_assets(db, hotel_id)
     response = templates.TemplateResponse(

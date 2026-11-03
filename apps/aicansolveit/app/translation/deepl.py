@@ -1,19 +1,23 @@
 import asyncio
+
 import httpx
-from supabase import Client
+
 from app.config import get_settings
+from supabase import Client
 
 # Languages enabled per subscription tier
 TIER_LANGUAGES = {
-    "standard": ["en"],           # TR is the source; EN is translated
-    "growth":   ["en", "de", "ru", "ar"],
-    "premium":  ["en", "de", "ru", "ar"],
+    "standard": ["en"],  # TR is the source; EN is translated
+    "growth": ["en", "de", "ru", "ar"],
+    "premium": ["en", "de", "ru", "ar"],
 }
 
 DEEPL_API_URL = "https://api-free.deepl.com/v2/translate"  # free tier endpoint
 
 
-async def _translate_text(client: httpx.AsyncClient, text: str, target_lang: str, api_key: str) -> str:
+async def _translate_text(
+    client: httpx.AsyncClient, text: str, target_lang: str, api_key: str
+) -> str:
     response = await client.post(
         DEEPL_API_URL,
         data={
@@ -34,7 +38,14 @@ async def translate_draft(db: Client, draft_id: str) -> None:
     """
     settings = get_settings()
 
-    draft = db.table("content_drafts").select("*, hotels(tier)").eq("id", draft_id).single().execute().data
+    draft = (
+        db.table("content_drafts")
+        .select("*, hotels(tier)")
+        .eq("id", draft_id)
+        .single()
+        .execute()
+        .data
+    )
     if not draft:
         raise ValueError(f"Draft {draft_id} not found")
 
@@ -49,7 +60,7 @@ async def translate_draft(db: Client, draft_id: str) -> None:
         }
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
-    translations = dict(zip(tasks.keys(), results))
+    translations = dict(zip(tasks.keys(), results))  # noqa: B905
 
     # Persist translations
     for lang, result in translations.items():
@@ -58,8 +69,11 @@ async def translate_draft(db: Client, draft_id: str) -> None:
             print(f"Translation failed for {draft_id} → {lang}: {result}")
             continue
 
-        db.table("content_translations").upsert({
-            "draft_id": draft_id,
-            "language": lang,
-            "body": result,
-        }, on_conflict="draft_id,language").execute()
+        db.table("content_translations").upsert(
+            {
+                "draft_id": draft_id,
+                "language": lang,
+                "body": result,
+            },
+            on_conflict="draft_id,language",
+        ).execute()

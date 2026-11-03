@@ -3,11 +3,11 @@
 # is alive (/healthz), and says it isn't ready without Redis (/readyz). Placeholder secrets
 # and an unreachable Redis: nothing here reaches a real service.
 #
-#   AICANSOLVEIT_IMAGE=aicansolveit:dev scripts/smoke.sh
+#   AICANSOLVEIT_IMAGE=postitglobal:dev scripts/smoke.sh
 set -euo pipefail
 
-IMAGE="${AICANSOLVEIT_IMAGE:-aicansolveit:dev}"
-NAME="aicansolveit-smoke-$$"
+IMAGE="${AICANSOLVEIT_IMAGE:-postitglobal:dev}"
+NAME="postitglobal-smoke-$$"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "ok   $*"; }
 cleanup() {
@@ -55,7 +55,7 @@ pass "/docs hidden"
 docker logs "$NAME" 2>/dev/null | python3 -c '
 import json, sys
 lines = [json.loads(line) for line in sys.stdin if line.strip()]
-assert any(e.get("logger") == "aicansolveit.access" and e.get("status") == 404 for e in lines), lines
+assert any(e.get("logger") == "postitglobal.access" and e.get("status") == 404 for e in lines), lines
 ' || fail "stdout is not JSON log lines with an access line"
 pass "JSON logs on stdout"
 

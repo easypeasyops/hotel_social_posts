@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-`aicansolveit` is a FastAPI application for managing hotel profiles and media, generating Turkish social posts, translating drafts, reviewing them, and submitting approved posts to Buffer for scheduling. PostgreSQL and object storage are provided by Supabase; Redis and Celery handle background work.
+`postitglobal` is a FastAPI application for managing hotel profiles and media, generating Turkish social posts, translating drafts, reviewing them, and submitting approved posts to Buffer for scheduling. PostgreSQL and object storage are provided by Supabase; Redis and Celery handle background work.
 
 This document describes the implementation in the repository today. It distinguishes implemented behavior from planned or incomplete behavior.
 
@@ -59,7 +59,7 @@ The API and worker are separate processes but use the same source image and envi
 ## Operator authentication and dashboard
 
 1. Operators sign in with email/password or request an email magic link through Supabase Auth. Operator accounts are provisioned in Supabase; the application does not implement sign-up.
-2. The API stores access and refresh tokens in Redis behind a random, HttpOnly cookie (`aicansolveit_session`). The cookie is `SameSite=Strict`, has a seven-day lifetime, and uses `Secure` by default; local HTTP development can set `SESSION_COOKIE_SECURE=false`.
+2. The API stores access and refresh tokens in Redis behind a random, HttpOnly cookie (`postitglobal_session`). The cookie is `SameSite=Strict`, has a seven-day lifetime, and uses `Secure` by default; local HTTP development can set `SESSION_COOKIE_SECURE=false`.
 3. Magic-link and password-recovery requests direct Supabase email links to `/auth/callback`. The callback page receives tokens in the URL fragment, removes the fragment from browser history, and posts tokens to the server.
 4. Magic-link tokens are validated and saved in Redis as an operator session. Recovery tokens are saved in a separate, 15-minute Redis record accessible only through a dedicated reset cookie; the reset form changes the password using the recovery session, then removes the temporary record.
 5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie. Session access tokens are refreshed near expiry.

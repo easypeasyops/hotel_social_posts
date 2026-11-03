@@ -7,8 +7,8 @@ from redis.exceptions import RedisError
 
 from app.config import get_settings
 
-SESSION_COOKIE = "aicansolveit_session"
-PASSWORD_RESET_COOKIE = "aicansolveit_password_reset"  # noqa: S105
+SESSION_COOKIE = "postitglobal_session"
+PASSWORD_RESET_COOKIE = "postitglobal_password_reset"  # noqa: S105
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 PASSWORD_RESET_TTL_SECONDS = 15 * 60
 

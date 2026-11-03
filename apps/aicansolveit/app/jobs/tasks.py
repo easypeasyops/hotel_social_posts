@@ -7,7 +7,7 @@ from app.config import get_settings
 from app.observability import configure_logging
 
 settings = get_settings()
-celery_app = Celery("aicansolveit", broker=settings.redis_url, backend=settings.redis_url)
+celery_app = Celery("postitglobal", broker=settings.redis_url, backend=settings.redis_url)
 
 celery_app.conf.update(
     task_serializer="json",

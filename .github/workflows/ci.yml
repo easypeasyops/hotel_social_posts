@@ -41,7 +41,7 @@ jobs:
       typecheck-paths: app tests
       # Where the imported code's tests start (platform plan 5.2); raised as tests come,
       # up to the platform's 90.
-      coverage-min: 45
+      coverage-min: 48
 
   image:
     needs: scope

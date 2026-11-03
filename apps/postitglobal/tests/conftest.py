@@ -1,10 +1,13 @@
 """Settings for tests: placeholder values for every required variable, so the app imports
-without a .env and no test can reach a real provider by accident."""
+without a .env; and no network: a test that reaches beyond this machine fails at once
+(tests/network_guard.py)."""
 
 import os
 from collections.abc import Iterator
 
 import pytest
+
+from tests import network_guard
 
 TEST_ENV = {
     "SECRET_KEY": "test-secret-key",
@@ -19,6 +22,8 @@ TEST_ENV = {
     "METRICS_PORT": "0",  # no metrics server in tests; tests/test_metrics.py starts its own
 }
 os.environ.update(TEST_ENV)
+
+network_guard.install()
 
 
 @pytest.fixture(autouse=True)

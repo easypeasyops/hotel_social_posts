@@ -2,7 +2,7 @@
 name = "aicansolveit"
 version = "0.1.0"
 description = "Hotel content: Claude drafts, DeepL translations, Buffer publishing"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.15,<3.16"
 # The versions requirements.txt pinned (platform plan 5.2), except two that the image scan
 # refuses: FastAPI 0.115 brought Starlette 0.38.6, and python-multipart 0.0.9; both had
 # fixable HIGH vulnerabilities. uv.lock pins the rest.
@@ -12,7 +12,7 @@ dependencies = [
     "jinja2==3.1.4",
     "python-multipart==0.0.33",
     "pydantic-settings==2.4.0",
-    "supabase==2.28.3",
+    "supabase==2.33.0",
     "celery==5.4.0",
     "redis==5.0.8",
     "anthropic==0.34.2",
@@ -34,7 +34,7 @@ package = false # an app, not a library: `app/` runs from the project directory
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "S", "ASYNC", "DTZ"]
@@ -44,7 +44,7 @@ ignore = ["B008"] # FastAPI's Depends()/Form()/File() defaults are the framework
 "tests/**" = ["S101"] # assert is how pytest checks
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.15"
 plugins = ["pydantic.mypy"]
 # Not strict yet: the imported code wasn't type-checked. New modules and tests are checked;
 # the modules below carried errors on import (platform plan 5.2) and come off this list as

@@ -55,5 +55,5 @@ def verify_upload_token(token: str, hotel_id: str) -> bool:
             and isinstance(payload.get("expires_at"), int)
             and payload["expires_at"] > int(time.time())
         )
-    except (ValueError, TypeError, json.JSONDecodeError):
+    except ValueError, TypeError, json.JSONDecodeError:
         return False

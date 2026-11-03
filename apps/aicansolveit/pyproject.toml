@@ -21,7 +21,13 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ruff", "mypy", "pytest", "pytest-cov"]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "fakeredis>=2.40.0",
+]
 
 [tool.uv]
 package = false # an app, not a library: `app/` runs from the project directory

@@ -225,7 +225,7 @@ async def create_magic_link_session(payload: MagicLinkSession):
 
 
 @router.post("/auth/callback/recovery")
-async def create_password_reset_session(payload: MagicLinkSession):  # noqa: F811
+async def start_password_reset(payload: MagicLinkSession):
     if payload.flow_type != "recovery":
         raise HTTPException(status_code=400, detail="This is not a password reset link")
 

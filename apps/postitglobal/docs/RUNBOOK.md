@@ -71,7 +71,7 @@ Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth o
 
 ## Development checks
 
-Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docker image installs exactly the lock. From `apps/aicansolveit/`, with [uv](https://docs.astral.sh/uv/):
+Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docker image installs exactly the lock. From `apps/postitglobal/`, with [uv](https://docs.astral.sh/uv/):
 
 | Step | Command |
 | --- | --- |

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "INFO"
     log_json: bool = True  # LOG_JSON=false: plain lines for local reading
+    metrics_port: int = 9100  # /metrics on its own port; 0: not served (tests)
     secret_key: str  # used for signing internal tokens (upload links etc.)
     public_base_url: str = "http://localhost:8000"
 

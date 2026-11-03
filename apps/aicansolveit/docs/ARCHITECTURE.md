@@ -146,6 +146,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 | `DEEPL_API_KEY` | DeepL API |
 | `BUFFER_ACCESS_TOKEN` | Buffer GraphQL API key (Buffer → Settings → API), sent as `Authorization: Bearer`. A legacy REST OAuth token doesn't work |
 | `CRON_SECRET` | Protects internal job-trigger routes |
+| `METRICS_PORT` | Optional; `9100` by default: the port `/metrics` is served on. `0` serves none |
 | `LOG_LEVEL` | Optional; `INFO` by default |
 | `LOG_JSON` | Optional; `true` by default: one JSON object per log line. `false` for plain lines when reading locally |
 | `REDIS_URL` | Optional; defaults to local Redis URL |
@@ -166,7 +167,8 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - No periodic Celery beat schedule is configured here. Weekly generation requires an external Railway cron schedule to call the protected endpoint.
 - Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
 - Operator authentication has no sign-up, MFA, or role management UI. Magic links and password recovery are supported for existing users only.
-- Logs (plan 5.3): the API and the worker write one JSON object per line to stdout (`app/observability.py`): `ts`, `level`, `logger`, `msg`, and the fields a call adds (a failed translation's `draft_id`, `language`, `error`). Every request gets a request ID, kept from a plain `X-Request-ID` header or generated, echoed in the response and on every line the request logs; one access line per request names its route template (`/api/v1/hotels/{hotel_id}`), never the raw path. Probes are logged at DEBUG. No metrics or alerting yet: the next 5.3 step.
+- Logs (plan 5.3): the API and the worker write one JSON object per line to stdout (`app/observability.py`): `ts`, `level`, `logger`, `msg`, and the fields a call adds (a failed translation's `draft_id`, `language`, `error`). Every request gets a request ID, kept from a plain `X-Request-ID` header or generated, echoed in the response and on every line the request logs; one access line per request names its route template (`/api/v1/hotels/{hotel_id}`), never the raw path. Probes are logged at DEBUG.
+- Metrics (plan 5.3): the API serves Prometheus metrics on their own port, `METRICS_PORT` (9100), not the public one: `http_requests_total{method, route, status}` and `http_request_duration_seconds{method, route}`, shortly's names, so the platform's SLO rules and dashboards read both apps alike. Routes are templates, never raw paths. The worker exports no metrics yet; alerting comes with the deploy values (plan 5.8).
 
 ## Source map
 

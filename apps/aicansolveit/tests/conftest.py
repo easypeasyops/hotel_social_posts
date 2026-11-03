@@ -16,6 +16,7 @@ TEST_ENV = {
     "BUFFER_ACCESS_TOKEN": "test-buffer-token",
     "CRON_SECRET": "test-cron-secret",
     "REDIS_URL": "redis://redis.invalid:6379/0",
+    "METRICS_PORT": "0",  # no metrics server in tests; tests/test_metrics.py starts its own
 }
 os.environ.update(TEST_ENV)
 

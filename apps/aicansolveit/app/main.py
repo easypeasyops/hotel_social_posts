@@ -14,15 +14,19 @@ from app.content.router import router as content_router
 from app.dashboard import router as dashboard_router
 from app.hotels.router import router as hotels_router
 from app.jobs.router import router as jobs_router
-from app.observability import RequestContextMiddleware, configure_logging
+from app.observability import Metrics, RequestContextMiddleware, configure_logging, serve_metrics
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: warm up settings cache, validate critical env vars
-    get_settings()
+    settings = get_settings()
+    stop_metrics = (
+        serve_metrics(app.state.metrics, settings.metrics_port) if settings.metrics_port else None
+    )
     yield
-    # Shutdown: nothing to clean up for now
+    if stop_metrics:
+        stop_metrics()
 
 
 templates = Jinja2Templates(directory="app/templates")
@@ -108,8 +112,10 @@ def create_app() -> FastAPI:
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
-    # Outermost, so every request gets an ID and an access log line, even one the app fails.
-    app.add_middleware(RequestContextMiddleware)
+    # Outermost, so every request gets an ID, its metrics and an access log line, even one
+    # the app fails.
+    app.state.metrics = Metrics()
+    app.add_middleware(RequestContextMiddleware, metrics=app.state.metrics)
 
     return app
 

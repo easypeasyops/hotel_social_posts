@@ -123,6 +123,10 @@ docker compose logs api | grep -o '{.*' | jq -c 'select(.status >= 500) | {ts, r
 docker compose logs worker | grep -o '{.*' | jq -c 'select(.msg == "translation failed") | {draft_id, language, error}'
 ```
 
+## Reading the metrics
+
+The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its public port: `curl -s localhost:9100/metrics | grep ^http_`. Per route template and status: `http_requests_total` counts requests and `http_request_duration_seconds` buckets their latency. A rising `status="5.."` count on one route points at that route's dependency; `route="unmatched"` is requests for paths the app doesn't have.
+
 ## Incident procedures
 
 ### API health check fails

@@ -27,7 +27,7 @@ def create_session(access_token: str, refresh_token: str, expires_at: int | None
             "expires_at": expires_at,
         }
     )
-    get_session_store().setex(f"web-session:{session_id}", SESSION_TTL_SECONDS, session_data)
+    get_session_store().set(f"web-session:{session_id}", session_data, ex=SESSION_TTL_SECONDS)
     return session_id
 
 
@@ -46,7 +46,7 @@ def update_session(
             "expires_at": expires_at,
         }
     )
-    get_session_store().setex(f"web-session:{session_id}", SESSION_TTL_SECONDS, session_data)
+    get_session_store().set(f"web-session:{session_id}", session_data, ex=SESSION_TTL_SECONDS)
 
 
 def delete_session(session_id: str) -> None:
@@ -64,8 +64,8 @@ def create_password_reset_session(
             "expires_at": expires_at,
         }
     )
-    get_session_store().setex(
-        f"password-reset:{reset_id}", PASSWORD_RESET_TTL_SECONDS, session_data
+    get_session_store().set(
+        f"password-reset:{reset_id}", session_data, ex=PASSWORD_RESET_TTL_SECONDS
     )
     return reset_id
 

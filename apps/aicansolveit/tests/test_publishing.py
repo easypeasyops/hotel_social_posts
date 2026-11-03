@@ -71,9 +71,15 @@ def test_a_channel_without_a_buffer_channel_is_not_sent() -> None:
         (
             {
                 "data": None,
-                "errors": [{"message": "Not authorized", "extensions": {"code": "UNAUTHORIZED"}}],
+                # What Buffer answers a key it doesn't accept (seen 2026-11-03).
+                "errors": [
+                    {
+                        "message": "Access token is not valid",
+                        "extensions": {"code": "UNAUTHENTICATED"},
+                    }
+                ],
             },
-            "UNAUTHORIZED: Not authorized",
+            "UNAUTHENTICATED: Access token is not valid",
         ),
     ],
 )

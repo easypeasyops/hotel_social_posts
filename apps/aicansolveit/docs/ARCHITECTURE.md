@@ -54,6 +54,8 @@ flowchart LR
 
 The API and worker are separate processes but use the same source image and environment. The container's default command starts the API; the worker needs its own service/start command. The API also requires Redis for browser sessions.
 
+**The image** (plan 5.3, as shortly's): two stages, so the runtime holds only the virtualenv from `uv.lock` and `app/`; base images pinned by digest and bumped by Dependabot (`.github/dependabot.yaml`, with the Python dependencies and the Actions); runs as UID 10001, not root, with code and dependencies owned by root and only readable; no pip or ensurepip; exposes 8000 (app) and 9100 (metrics); `uvicorn` is PID 1 in exec form, so SIGTERM reaches it and requests in flight get 20 s to finish. The worker runs the same image with `celery -A app.jobs.tasks.celery_app worker`.
+
 ## Operator authentication and dashboard
 
 1. Operators sign in with email/password or request an email magic link through Supabase Auth. Operator accounts are provisioned in Supabase; the application does not implement sign-up.
@@ -182,7 +184,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Database schema and Storage buckets: `supabase/migrations/`
 - Dependencies and tool settings: `pyproject.toml`, `uv.lock`, `.python-version`
 - Tests and checks: `tests/`, `scripts/smoke.sh`, `scripts/ci-scope.sh`, the repo's `.github/workflows/ci.yml`
-- Deployment configuration: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `railway.toml`
+- Deployment configuration: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `railway.toml`; dependency bumps: the repo's `.github/dependabot.yaml`
 
 ## Related documentation
 

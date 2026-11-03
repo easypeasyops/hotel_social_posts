@@ -145,6 +145,7 @@ The hotel upload page uses a short-lived, hotel-scoped capability instead of an 
 2. Confirm the hotel exists, has a valid tier, and has the expected channels. Generation can operate with no ready assets, using the hotel description only.
 3. Inspect `content_drafts` and `content_translations` before rerunning. Generation retries after partial completion may have already created drafts.
 4. Translation can skip individual failed languages while the overall task completes; retry or repair only missing translations using the project's approved procedure.
+5. Every language failing with `403 Forbidden` from DeepL means it refused the key: check `DEEPL_API_KEY` and that it is a Free-plan key (the app calls `api-free.deepl.com`). The key travels in the `Authorization: DeepL-Auth-Key …` header; DeepL refuses it in the request body since 2026-01-15, which broke every translation until this was fixed (2026-11).
 
 ### Buffer scheduling failure or possible duplicate
 

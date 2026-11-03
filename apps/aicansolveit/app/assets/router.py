@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/hotel/{hotel_id}")
-async def list_assets(
+def list_assets(
     hotel_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),
@@ -19,7 +19,7 @@ async def list_assets(
 
 
 @router.post("/hotel/{hotel_id}/upload-url", status_code=201)
-async def create_upload_url(
+def create_upload_url(
     hotel_id: str,
     request: UploadUrlRequest,
     db: Client = Depends(get_supabase),
@@ -29,7 +29,7 @@ async def create_upload_url(
 
 
 @router.post("/{asset_id}/confirm")
-async def confirm_upload(
+def confirm_upload(
     asset_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),
@@ -38,7 +38,7 @@ async def confirm_upload(
 
 
 @router.delete("/{asset_id}", status_code=204)
-async def delete_asset(
+def delete_asset(
     asset_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),

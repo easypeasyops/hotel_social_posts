@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/hotel/{hotel_id}/drafts")
-async def list_drafts(
+def list_drafts(
     hotel_id: str,
     status: str = "pending_review",
     db: Client = Depends(get_supabase),
@@ -20,7 +20,7 @@ async def list_drafts(
 
 
 @router.get("/drafts/{draft_id}")
-async def get_draft(
+def get_draft(
     draft_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),
@@ -29,7 +29,7 @@ async def get_draft(
 
 
 @router.patch("/drafts/{draft_id}/approve")
-async def approve_draft(
+def approve_draft(
     draft_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),
@@ -38,7 +38,7 @@ async def approve_draft(
 
 
 @router.patch("/drafts/{draft_id}/reject")
-async def reject_draft(
+def reject_draft(
     draft_id: str,
     action: ReviewAction,
     db: Client = Depends(get_supabase),
@@ -48,7 +48,7 @@ async def reject_draft(
 
 
 @router.get("/drafts/{draft_id}/translations")
-async def get_translations(
+def get_translations(
     draft_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),

@@ -7,7 +7,7 @@ router = APIRouter()
 
 
 @router.post("/generate", dependencies=[Depends(verify_cron_secret)])
-async def trigger_generation_all():
+def trigger_generation_all():
     """
     Railway cron endpoint — triggers content generation for all active hotels.
     Called weekly via Railway cron: POST /internal/jobs/generate
@@ -18,7 +18,7 @@ async def trigger_generation_all():
 
 
 @router.post("/generate/{hotel_id}", dependencies=[Depends(verify_cron_secret)])
-async def trigger_generation_hotel(hotel_id: str):
+def trigger_generation_hotel(hotel_id: str):
     """
     Manually trigger content generation for a single hotel.
     Useful for operator dashboard one-off runs.

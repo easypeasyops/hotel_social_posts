@@ -47,12 +47,12 @@ def _set_session_cookie(response, session_id: str) -> None:
 
 
 @router.get("/login", name="login_page")
-async def login_page(request: Request):
+def login_page(request: Request):
     return templates.TemplateResponse(request, "auth/login.html", {"request": request})
 
 
 @router.post("/login")
-async def login(request: Request, email: str = Form(...), password: str = Form(...)):
+def login(request: Request, email: str = Form(...), password: str = Form(...)):
     try:
         auth_response = get_supabase_anon().auth.sign_in_with_password(
             {"email": email, "password": password}
@@ -98,7 +98,7 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
 
 
 @router.post("/login/magic-link")
-async def request_magic_link(request: Request, email: str = Form(...)):
+def request_magic_link(request: Request, email: str = Form(...)):
     settings = get_settings()
     callback_url = f"{settings.public_base_url.rstrip('/')}/auth/callback"
 
@@ -143,7 +143,7 @@ async def request_magic_link(request: Request, email: str = Form(...)):
 
 
 @router.post("/login/forgot-password")
-async def request_password_reset(request: Request, email: str = Form(...)):
+def request_password_reset(request: Request, email: str = Form(...)):
     settings = get_settings()
     callback_url = f"{settings.public_base_url.rstrip('/')}/auth/callback"
 
@@ -182,7 +182,7 @@ async def request_password_reset(request: Request, email: str = Form(...)):
 
 
 @router.get("/auth/callback", name="auth_callback")
-async def auth_callback(request: Request):
+def auth_callback(request: Request):
     response = templates.TemplateResponse(request, "auth/callback.html", {"request": request})
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -190,7 +190,7 @@ async def auth_callback(request: Request):
 
 
 @router.post("/auth/callback/session")
-async def create_magic_link_session(payload: MagicLinkSession):
+def create_magic_link_session(payload: MagicLinkSession):
     if payload.flow_type == "recovery":
         raise HTTPException(
             status_code=400,
@@ -225,7 +225,7 @@ async def create_magic_link_session(payload: MagicLinkSession):
 
 
 @router.post("/auth/callback/recovery")
-async def start_password_reset(payload: MagicLinkSession):
+def start_password_reset(payload: MagicLinkSession):
     if payload.flow_type != "recovery":
         raise HTTPException(status_code=400, detail="This is not a password reset link")
 
@@ -262,7 +262,7 @@ async def start_password_reset(payload: MagicLinkSession):
 
 
 @router.get("/reset-password", name="reset_password_page")
-async def reset_password_page(request: Request):
+def reset_password_page(request: Request):
     reset_id = request.cookies.get(PASSWORD_RESET_COOKIE)
     if not reset_id:
         return RedirectResponse("/login?error=reset", status_code=303)
@@ -283,7 +283,7 @@ async def reset_password_page(request: Request):
 
 
 @router.post("/reset-password")
-async def update_password(
+def update_password(
     request: Request,
     password: str = Form(...),
     password_confirmation: str = Form(...),
@@ -379,7 +379,7 @@ async def update_password(
 
 
 @router.post("/logout")
-async def logout(request: Request):
+def logout(request: Request):
     session_id = request.cookies.get(SESSION_COOKIE)
     if session_id:
         try:

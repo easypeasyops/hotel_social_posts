@@ -152,6 +152,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 ## Reliability and current design limits
 
 - Celery uses JSON task/result serialization and `Europe/Istanbul` timezone. Tasks retry with finite retry limits and fixed countdowns.
+- Route handlers and their dependencies are plain `def`, not `async def`: the Supabase, Redis and Celery clients are synchronous, so FastAPI runs those handlers in its thread pool, and one slow Supabase call doesn't stall other requests (`tests/test_concurrency.py`). Only code that awaits stays `async` (the DeepL calls, the middleware, `lifespan`, `/health`).
 - `GET /health` is liveness-only. It can return success while Redis, Supabase, or external providers are unavailable.
 - Operator sessions and authenticated browser API requests depend on Redis; there is no session failover.
 - A task retry is not equivalent to an idempotent external operation. For example, Buffer may schedule a post even if the subsequent database write fails; retrying could schedule a duplicate.
@@ -161,7 +162,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - No periodic Celery beat schedule is configured here. Weekly generation requires an external Railway cron schedule to call the protected endpoint.
 - Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
 - Operator authentication has no sign-up, MFA, or role management UI. Magic links and password recovery are supported for existing users only.
-- No automated tests or observability/alerting configuration are included in the repository.
+- No observability/alerting configuration is included in the repository (it comes with the platform, plan 5.3).
 
 ## Source map
 

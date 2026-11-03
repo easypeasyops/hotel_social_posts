@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Black-box smoke test of the built image: the container starts from its environment alone
-# and answers its health check. Placeholder secrets: nothing here reaches a real provider.
+# Black-box smoke test of the built image: the container starts from its environment alone,
+# is alive (/healthz), and says it isn't ready without Redis (/readyz). Placeholder secrets
+# and an unreachable Redis: nothing here reaches a real service.
 #
 #   AICANSOLVEIT_IMAGE=aicansolveit:dev scripts/smoke.sh
 set -euo pipefail
@@ -27,12 +28,16 @@ docker run -d --name "$NAME" -p 127.0.0.1:8000:8000 "${env_args[@]}" \
   "$IMAGE" >/dev/null
 
 for _ in $(seq 1 30); do
-  code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health || true)
+  code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/healthz || true)
   [[ "$code" == 200 ]] && break
   sleep 1
 done
-[[ "$code" == 200 ]] || fail "/health returned ${code:-nothing} after 30 s"
-pass "/health 200"
+[[ "$code" == 200 ]] || fail "/healthz returned ${code:-nothing} after 30 s"
+pass "/healthz 200"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 http://127.0.0.1:8000/readyz)
+[[ "$code" == 503 ]] || fail "/readyz returned $code without Redis (want 503)"
+pass "/readyz 503 without Redis"
 
 [[ -z "$(docker exec "$NAME" sh -c 'ls -A /app/.env 2>/dev/null')" ]] || fail ".env is in the image"
 pass "no .env in the image"

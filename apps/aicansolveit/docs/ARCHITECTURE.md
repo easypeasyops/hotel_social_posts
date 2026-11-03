@@ -105,7 +105,9 @@ All API route prefixes below are registered in `app/main.py`.
 
 | Route | Authentication | Purpose |
 |---|---|---|
-| `GET /health` | None | Process liveness response (`{"status":"ok"}`); does not probe dependencies |
+| `GET /healthz` | None | Liveness (`{"status":"ok"}`): the process answers. Checks no dependency |
+| `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
+| `GET /health` | None | The same as `/healthz`, for Railway's health check until the platform replaces Railway (plan 5.9) |
 | `GET /login`, `POST /login`, `POST /login/magic-link`, `POST /login/forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or magic-link sign-in, password recovery, sign-out |
 | `/dashboard/*` | Operator session or Supabase bearer JWT | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
 | `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
@@ -152,8 +154,8 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 ## Reliability and current design limits
 
 - Celery uses JSON task/result serialization and `Europe/Istanbul` timezone. Tasks retry with finite retry limits and fixed countdowns.
-- Route handlers and their dependencies are plain `def`, not `async def`: the Supabase, Redis and Celery clients are synchronous, so FastAPI runs those handlers in its thread pool, and one slow Supabase call doesn't stall other requests (`tests/test_concurrency.py`). Only code that awaits stays `async` (the DeepL calls, the middleware, `lifespan`, `/health`).
-- `GET /health` is liveness-only. It can return success while Redis, Supabase, or external providers are unavailable.
+- Route handlers and their dependencies are plain `def`, not `async def`: the Supabase, Redis and Celery clients are synchronous, so FastAPI runs those handlers in its thread pool, and one slow Supabase call doesn't stall other requests (`tests/test_concurrency.py`). Only code that awaits stays `async` (the DeepL calls, the middleware, `lifespan`, and the probes `/healthz`, `/health` and `/readyz`).
+- Probes (plan 5.3): `/healthz` is liveness only. `/readyz` checks Redis, which every operator request needs and which runs beside the app; an unready pod leaves the Service until Redis is back. It doesn't check Supabase or the providers: they are outside the cluster, and an outage there would take every pod out at once with nothing to fail over to. Both are `async` and answered on the event loop, and the Redis ping runs on its own one-thread limiter, so probes never queue behind request work.
 - Operator sessions and authenticated browser API requests depend on Redis; there is no session failover.
 - A task retry is not equivalent to an idempotent external operation. For example, Buffer may schedule a post even if the subsequent database write fails; retrying could schedule a duplicate.
 - Asset processing is a placeholder status transition, not media validation or transformation.

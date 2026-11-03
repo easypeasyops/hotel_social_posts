@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+import anyio
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.assets.public_router import router as public_upload_router
 from app.assets.router import router as assets_router
+from app.auth import sessions
 from app.auth.router import router as auth_router
 from app.config import get_settings
 from app.content.router import router as content_router
@@ -23,6 +25,8 @@ async def lifespan(app: FastAPI):
 
 
 templates = Jinja2Templates(directory="app/templates")
+
+READY_TIMEOUT_SECONDS = 2.0  # under the kubelet's readiness probe timeout
 
 
 def create_app() -> FastAPI:
@@ -55,9 +59,38 @@ def create_app() -> FastAPI:
                 return RedirectResponse("/login", status_code=303)
         return response
 
-    @app.get("/health")
-    async def health():
+    # Probes (platform plan 5.3), answered on the event loop (`async def`), so they never
+    # queue behind request work in the thread pool: a slow liveness answer under load would
+    # get every pod restarted at once.
+    @app.get("/healthz", include_in_schema=False)
+    async def healthz() -> dict[str, str]:
+        """Liveness: the process answers. No dependency checks: a restart can't fix them."""
         return {"status": "ok"}
+
+    # Railway's health check (railway.toml) until the platform replaces Railway (5.9).
+    app.add_api_route("/health", healthz, include_in_schema=False)
+
+    probe_limiter = anyio.CapacityLimiter(1)  # its own thread, never the request pool's
+
+    @app.get("/readyz", include_in_schema=False)
+    async def readyz() -> dict[str, str]:
+        """Readiness: Redis answers. Every operator request needs it (sessions), and it runs
+        beside the app, so an unready pod is taken out of the Service until it's back.
+        Supabase and the providers are not checked: they are outside the cluster, and an
+        outage there would take every pod out at once without anything to fail over to."""
+        try:
+            with anyio.fail_after(READY_TIMEOUT_SECONDS):
+                # abandon_on_cancel: the timeout answers now instead of waiting out a hung
+                # ping. The thread keeps the limiter until the ping returns, so probes stay
+                # unready (they time out) while Redis hangs, then recover by themselves.
+                await anyio.to_thread.run_sync(
+                    lambda: sessions.get_session_store().ping(),
+                    limiter=probe_limiter,
+                    abandon_on_cancel=True,
+                )
+        except (TimeoutError, sessions.RedisError) as exc:
+            raise HTTPException(503, "not ready: Redis") from exc
+        return {"status": "ready"}
 
     @app.get("/upload/{hotel_slug}")
     def upload_page(hotel_slug: str, request: Request):

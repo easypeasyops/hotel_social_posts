@@ -60,7 +60,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/upload/{hotel_slug}")
-    async def upload_page(hotel_slug: str, request: Request):
+    def upload_page(hotel_slug: str, request: Request):
         from app.database import get_supabase
         from app.hotels.service import get_hotel_by_slug
 

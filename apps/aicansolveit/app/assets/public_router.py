@@ -13,7 +13,7 @@ router = APIRouter(
 
 
 @router.post("/{hotel_id}/upload-url", status_code=201)
-async def create_upload_url(
+def create_upload_url(
     hotel_id: str,
     request: UploadUrlRequest,
     db: Client = Depends(get_supabase),
@@ -22,7 +22,7 @@ async def create_upload_url(
 
 
 @router.post("/{hotel_id}/assets/{asset_id}/confirm")
-async def confirm_upload(
+def confirm_upload(
     hotel_id: str,
     asset_id: str,
     db: Client = Depends(get_supabase),

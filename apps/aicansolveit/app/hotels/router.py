@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def list_hotels(
+def list_hotels(
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),
 ):
@@ -18,7 +18,7 @@ async def list_hotels(
 
 
 @router.post("", status_code=201)
-async def create_hotel(
+def create_hotel(
     payload: HotelCreate,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),
@@ -27,7 +27,7 @@ async def create_hotel(
 
 
 @router.get("/{hotel_id}")
-async def get_hotel(
+def get_hotel(
     hotel_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),
@@ -36,7 +36,7 @@ async def get_hotel(
 
 
 @router.patch("/{hotel_id}")
-async def update_hotel(
+def update_hotel(
     hotel_id: str,
     payload: HotelUpdate,
     db: Client = Depends(get_supabase),
@@ -46,7 +46,7 @@ async def update_hotel(
 
 
 @router.delete("/{hotel_id}", status_code=204)
-async def delete_hotel(
+def delete_hotel(
     hotel_id: str,
     db: Client = Depends(get_supabase),
     _user=Depends(get_current_user),

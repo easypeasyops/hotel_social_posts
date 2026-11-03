@@ -17,7 +17,7 @@ from app.database import get_supabase_anon
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
+def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
 ) -> dict:
@@ -74,7 +74,7 @@ async def get_current_user(
     return response.user
 
 
-async def verify_hotel_upload_token(
+def verify_hotel_upload_token(
     hotel_id: str,
     credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
 ) -> None:
@@ -83,7 +83,7 @@ async def verify_hotel_upload_token(
         raise HTTPException(status_code=403, detail="Invalid or expired upload link")
 
 
-async def verify_cron_secret(x_cron_secret: str = Header(...)):
+def verify_cron_secret(x_cron_secret: str = Header(...)):
     """
     Protects /internal/* endpoints called by Railway cron.
     Railway cron passes the secret in X-Cron-Secret header.

@@ -27,12 +27,12 @@ def _hotel_form_context(request: Request, hotel: dict | None = None, error: str 
 
 
 @router.get("")
-async def dashboard_home():
+def dashboard_home():
     return RedirectResponse("/dashboard/hotels", status_code=303)
 
 
 @router.get("/hotels")
-async def list_hotels(request: Request, db: Client = Depends(get_supabase)):
+def list_hotels(request: Request, db: Client = Depends(get_supabase)):
     hotels = hotel_service.list_hotels(db)
     return templates.TemplateResponse(
         request, "dashboard/hotels.html", {"request": request, "hotels": hotels}
@@ -40,14 +40,14 @@ async def list_hotels(request: Request, db: Client = Depends(get_supabase)):
 
 
 @router.get("/hotels/new")
-async def new_hotel_page(request: Request):
+def new_hotel_page(request: Request):
     return templates.TemplateResponse(
         request, "dashboard/hotel_form.html", _hotel_form_context(request)
     )
 
 
 @router.post("/hotels")
-async def create_hotel(
+def create_hotel(
     request: Request,
     name: str = Form(...),
     slug: str = Form(...),
@@ -81,7 +81,7 @@ async def create_hotel(
 
 
 @router.get("/hotels/{hotel_id}")
-async def hotel_detail(
+def hotel_detail(
     hotel_id: str,
     request: Request,
     db: Client = Depends(get_supabase),
@@ -102,7 +102,7 @@ async def hotel_detail(
 
 
 @router.get("/hotels/{hotel_id}/edit")
-async def edit_hotel_page(
+def edit_hotel_page(
     hotel_id: str,
     request: Request,
     db: Client = Depends(get_supabase),
@@ -114,7 +114,7 @@ async def edit_hotel_page(
 
 
 @router.post("/hotels/{hotel_id}")
-async def update_hotel(
+def update_hotel(
     hotel_id: str,
     request: Request,
     name: str = Form(...),
@@ -147,7 +147,7 @@ async def update_hotel(
 
 
 @router.post("/hotels/{hotel_id}/upload-link")
-async def create_hotel_upload_link(
+def create_hotel_upload_link(
     hotel_id: str,
     request: Request,
     db: Client = Depends(get_supabase),

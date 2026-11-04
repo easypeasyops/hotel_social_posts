@@ -24,7 +24,14 @@ def _asset(asset_id: str, hotel_id: str = "hotel-1") -> dict[str, Any]:
 def _db(*drafts: dict[str, Any]) -> FakeDB:
     db = FakeDB(
         hotels=[{"id": "hotel-1", "name": "Lagoon Bay", "slug": "lagoon-bay"}],
-        hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1", "email": "s@example.com"}],
+        hotel_members=[
+            {
+                "user_id": "staff-1",
+                "hotel_id": "hotel-1",
+                "email": "s@example.com",
+                "role": "hotel_admin",
+            }
+        ],  # fmt: skip
         assets=[_asset("free"), _asset("sent"), _asset("theirs", hotel_id="hotel-2")],
         content_drafts=[
             {"id": "d1", "hotel_id": "hotel-1", "status": "scheduled", "asset_ids": ["sent"]},

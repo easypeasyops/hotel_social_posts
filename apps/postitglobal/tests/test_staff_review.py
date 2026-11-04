@@ -38,7 +38,7 @@ def _db(*drafts: dict[str, Any]) -> FakeDB:
         hotels=[HOTEL],
         assets=[POOL],
         content_drafts=list(drafts),
-        hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1"}],
+        hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1", "role": "hotel_admin"}],
     )
 
 

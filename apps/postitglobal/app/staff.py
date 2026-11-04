@@ -1,6 +1,7 @@
 """The hotel staff's own pages (/hotel): their hotel's files, a way to upload more, and the
 drafts waiting for their decision. Every route acts on the hotel the signed-in account belongs
-to (require_staff), never on one a URL names."""
+to (require_staff), never on one a URL names. Changing or deciding content takes a hotel admin
+or content moderator (require_moderator); a content creator uploads and looks."""
 
 from urllib.parse import quote
 
@@ -10,12 +11,13 @@ from fastapi.templating import Jinja2Templates
 
 from app.assets import service as asset_service
 from app.assets.models import AssetCategory
-from app.auth.dependencies import require_staff
+from app.auth.dependencies import require_moderator, require_staff, require_staff_member
 from app.auth.upload_tokens import create_upload_token
 from app.content import service as content_service
 from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
+from app.hotels.staff import can_moderate
 from supabase import Client
 
 router = APIRouter(prefix="/hotel")
@@ -25,9 +27,10 @@ templates = Jinja2Templates(directory="app/templates")
 @router.get("", name="staff_home")
 def staff_home(
     request: Request,
-    hotel_id: str = Depends(require_staff),
+    member: dict = Depends(require_staff_member),
     db: Client = Depends(get_supabase),
 ):
+    hotel_id = member["hotel_id"]
     assets = asset_service.list_assets(db, hotel_id)
     _, thumbnails = review_images(db, assets, [])
     return templates.TemplateResponse(
@@ -39,6 +42,7 @@ def staff_home(
             "assets": assets,
             "thumbnails": thumbnails,
             "sent": content_service.sent_asset_ids(db, hotel_id),
+            "can_moderate": can_moderate(member),
             "pending_count": len(content_service.list_drafts(db, hotel_id, "pending_review")),
         },
     )
@@ -68,7 +72,7 @@ def staff_edit_file(
     asset_id: str,
     name: str = Form(...),
     category: AssetCategory = Form(...),
-    hotel_id: str = Depends(require_staff),
+    hotel_id: str = Depends(require_moderator),
     db: Client = Depends(get_supabase),
 ):
     asset_service.edit_asset(db, _own_unsent_file(db, hotel_id, asset_id), name, category)
@@ -77,7 +81,7 @@ def staff_edit_file(
 
 @router.post("/files/{asset_id}/delete")
 def staff_delete_file(
-    asset_id: str, hotel_id: str = Depends(require_staff), db: Client = Depends(get_supabase)
+    asset_id: str, hotel_id: str = Depends(require_moderator), db: Client = Depends(get_supabase)
 ):
     """Delete a file and its record. Pending drafts that named it go on without it."""
     _own_unsent_file(db, hotel_id, asset_id)
@@ -96,9 +100,10 @@ def _own_draft(db: Client, hotel_id: str, draft_id: str) -> dict:
 @router.get("/drafts", name="staff_drafts")
 def staff_drafts(
     request: Request,
-    hotel_id: str = Depends(require_staff),
+    member: dict = Depends(require_staff_member),
     db: Client = Depends(get_supabase),
 ):
+    hotel_id = member["hotel_id"]
     pending = content_service.list_drafts(db, hotel_id, "pending_review")
     assets = asset_service.list_assets(db, hotel_id)
     previews, thumbnails = review_images(db, assets, pending)
@@ -112,6 +117,7 @@ def staff_drafts(
             "preview_images": previews,
             "image_choices": image_choices(assets),
             "thumbnails": thumbnails,
+            "can_moderate": can_moderate(member),
             "done": request.query_params.get("done"),
         },
     )
@@ -119,7 +125,7 @@ def staff_drafts(
 
 @router.post("/drafts/{draft_id}/approve")
 def staff_approve(
-    draft_id: str, hotel_id: str = Depends(require_staff), db: Client = Depends(get_supabase)
+    draft_id: str, hotel_id: str = Depends(require_moderator), db: Client = Depends(get_supabase)
 ):
     """As on the dashboard: publish to Buffer through the worker; a second click does nothing."""
     if _own_draft(db, hotel_id, draft_id).get("status") == "pending_review":
@@ -135,7 +141,7 @@ def staff_approve(
 def staff_edit(
     draft_id: str,
     body_tr: str = Form(...),
-    hotel_id: str = Depends(require_staff),
+    hotel_id: str = Depends(require_moderator),
     db: Client = Depends(get_supabase),
 ):
     """As on the dashboard: save a pending draft's edited text, translated again."""
@@ -150,7 +156,7 @@ def staff_choose_images(
     choice: list[str] = Form([]),
     order: list[str] = Form([]),
     asset_ids: list[str] = Form([]),
-    hotel_id: str = Depends(require_staff),
+    hotel_id: str = Depends(require_moderator),
     db: Client = Depends(get_supabase),
 ):
     """As on the dashboard: which of the hotel's photos a pending draft carries, in order."""
@@ -165,7 +171,7 @@ def staff_choose_images(
 def staff_reject(
     draft_id: str,
     feedback: str = Form(""),
-    hotel_id: str = Depends(require_staff),
+    hotel_id: str = Depends(require_moderator),
     db: Client = Depends(get_supabase),
 ):
     if _own_draft(db, hotel_id, draft_id).get("status") == "pending_review":
@@ -175,7 +181,7 @@ def staff_reject(
 
 @router.post("/drafts/{draft_id}/delete")
 def staff_delete_draft(
-    draft_id: str, hotel_id: str = Depends(require_staff), db: Client = Depends(get_supabase)
+    draft_id: str, hotel_id: str = Depends(require_moderator), db: Client = Depends(get_supabase)
 ):
     """As on the dashboard: delete a draft that isn't at Buffer (409 for one that is)."""
     content_service.delete_draft(db, _own_draft(db, hotel_id, draft_id))

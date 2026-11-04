@@ -37,7 +37,8 @@ def _db(status: str = "pending_review", assets: list[dict] = ASSETS) -> FakeDB:
     draft = {"id": "d1", "hotel_id": "hotel-1", "channel": "instagram", "status": status,
              "body_tr": "Metin", "asset_ids": ["pool"]}  # fmt: skip
     return FakeDB(hotels=[HOTEL], assets=list(assets), content_drafts=[draft],
-                  hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1"}])  # fmt: skip
+                  hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1",
+                                  "role": "hotel_admin"}])  # fmt: skip
 
 
 def _client(db: FakeDB, user: Any) -> TestClient:

@@ -72,7 +72,7 @@ Hotel-level isolation is not implemented for operator accounts: any operator can
 
 ## Hotel staff
 
-Hotel staff are Supabase accounts tied to one hotel by a row in `hotel_members` (`user_id`, `hotel_id`, `email`; migration `003`). They have no operator role, so they never reach `/dashboard` or the operator API (403). Their pages, under `/hotel` (`app/staff.py`, in Turkish and in the customer layer like the upload page), resolve the hotel from the signed-in account (`require_staff`), never from the URL:
+Hotel staff are Supabase accounts tied to one hotel by a row in `hotel_members` (`user_id`, `hotel_id`, `email`; migration `003`), with a `role` (migration `004`): `hotel_admin`, `content_moderator` or `content_creator`. They have no operator role, so they never reach `/dashboard` or the operator API (403). Their pages, under `/hotel` (`app/staff.py`, in Turkish and in the customer layer like the upload page), resolve the hotel and role from the signed-in account (`require_staff_member`, `member_of` in `app/hotels/staff.py`), never from the URL. Every role sees the files and the pending drafts with their previews, and uploads. Changing or deciding content (every `POST /hotel/files/…` and `POST /hotel/drafts/…` route below) takes a hotel admin or a content moderator (`require_moderator`, `can_moderate`): a content creator gets 403 and the pages show them none of those buttons. The role is read on each request, so a change applies at once.
 
 - `GET /hotel` lists the hotel's uploaded files with their category and status. Each photo a post can carry (`image_choices`) shows as a thumbnail, through a signed link made in one Storage request (`review_images`, valid an hour); clicking it opens the same link full size in a `<dialog>` on the page. Other files, such as videos, show their file type instead. Under **Düzenle**, staff rename a file (`POST /hotel/files/{asset_id}/edit`: the name keeps its extension, which decides whether a post can carry it, and the stored object keeps its path; an empty name or one with `/` is refused, 422) and change its category, or delete it (`…/delete`, as the dashboard's delete: the object and the row). A file a draft has taken to Buffer (`sent_asset_ids`: named by an approved, scheduled or published draft) offers neither and refuses both (409), so the record of what went out stays true; pending drafts that named a deleted file go on without it. Another hotel's file is a 404.
 - `GET /hotel/upload` redirects to `/upload/{slug}#token=…` with a fresh 24-hour upload capability for that hotel, so staff use the same upload page and API as an upload link.
@@ -124,7 +124,8 @@ All API route prefixes below are registered in `app/main.py`.
 | Route | Authentication | Purpose |
 |---|---|---|
 | `GET/POST /signup` | A staff invite (form field from the link's fragment) | Hotel staff sign-up |
-| `GET /hotel`, `GET /hotel/upload`, `GET /hotel/drafts`, `POST /hotel/drafts/{draft_id}/approve`, `…/reject`, `…/edit`, `…/images` | Session or bearer JWT of hotel staff (`hotel_members`) | The staff member's own hotel: its files, the upload page with a fresh upload link, and its drafts to edit, approve or reject |
+| `GET /hotel`, `GET /hotel/upload`, `GET /hotel/drafts` | Session or bearer JWT of hotel staff (`hotel_members`), any role | The staff member's own hotel: its files, the upload page with a fresh upload link, and its pending drafts |
+| `POST /hotel/files/{asset_id}/edit`, `…/delete`, `POST /hotel/drafts/{draft_id}/approve`, `…/reject`, `…/edit`, `…/images`, `…/delete` | As above, role `hotel_admin` or `content_moderator` | Change the hotel's files, and edit, approve, reject or delete its drafts |
 | `GET /healthz` | None | Liveness (`{"status":"ok"}`): the process answers. Checks no dependency |
 | `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
 | `GET /login`, `POST /login`, `GET/POST /forgot-password`, `GET /auth/callback`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `GET /login/google`, `GET /auth/callback/google`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or Google sign-in, password recovery, sign-out |
@@ -142,13 +143,13 @@ All API route prefixes below are registered in `app/main.py`.
 
 ## Data model
 
-The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket; `003_hotel_members.sql` adds `hotel_members`.
+The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket; `003_hotel_members.sql` adds `hotel_members`; `004_hotel_member_roles.sql` adds its `role`.
 
 - `hotels`: hotel profile, subscription tier, channels, contact, and Buffer channel IDs per network (`buffer_profiles`, named for the REST API's profiles).
 - `assets`: hotel-owned metadata, Storage path, category, and processing state.
 - `content_drafts`: Turkish source text, channel, review/publishing status, and associated asset IDs.
 - `content_translations`: translated text keyed uniquely by draft and language.
-- `hotel_members`: hotel staff accounts, one hotel each (`user_id` primary key, cascading from `auth.users` and `hotels`). Row-level security is on with no policies, so only the service-role key reads or writes it.
+- `hotel_members`: hotel staff accounts, one hotel each (`user_id` primary key, cascading from `auth.users` and `hotels`), with a `role` checked to `hotel_admin`, `content_moderator` or `content_creator` (default `hotel_admin`, so staff from before roles, and rows an older image inserts, keep what they could do). Row-level security is on with no policies, so only the service-role key reads or writes it.
 - `publish_log`: Buffer post ID (`buffer_update_id`, named for the REST API's updates) and scheduling status.
 
 Assets, drafts, translations, and publish-log records use foreign keys with cascading deletion from their owning hotel or draft. `hotels` and `content_drafts` have `updated_at` triggers. The migration does not define row-level security policies, indexes beyond primary/unique constraints, or Storage bucket policies.

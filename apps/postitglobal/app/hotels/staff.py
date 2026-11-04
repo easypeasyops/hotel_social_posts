@@ -4,12 +4,25 @@ from typing import cast
 
 from supabase import Client
 
+MODERATORS = ("hotel_admin", "content_moderator")
+
+
+def member_of(db: Client, user_id: str) -> dict | None:
+    """This account's hotel and role (hotel_id, role), or None if it isn't hotel staff."""
+    response = db.table("hotel_members").select("hotel_id, role").eq("user_id", user_id).execute()
+    rows = cast(list[dict], response.data)
+    return rows[0] if rows else None
+
 
 def hotel_of(db: Client, user_id: str) -> str | None:
     """The hotel this account works for, or None if it isn't hotel staff."""
-    response = db.table("hotel_members").select("hotel_id").eq("user_id", user_id).execute()
-    rows = cast(list[dict], response.data)
-    return rows[0]["hotel_id"] if rows else None
+    member = member_of(db, user_id)
+    return member["hotel_id"] if member else None
+
+
+def can_moderate(member: dict) -> bool:
+    """Hotel admins and content moderators change and decide content; creators only upload."""
+    return member["role"] in MODERATORS
 
 
 def list_members(db: Client, hotel_id: str) -> list[dict]:

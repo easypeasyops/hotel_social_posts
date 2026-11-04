@@ -49,7 +49,14 @@ def database() -> FakeDB:
     return FakeDB(
         hotels=HOTELS,
         assets=ASSETS,
-        hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1", "email": "s@example.com"}],
+        hotel_members=[
+            {
+                "user_id": "staff-1",
+                "hotel_id": "hotel-1",
+                "email": "s@example.com",
+                "role": "hotel_admin",
+            }
+        ],
     )
 
 

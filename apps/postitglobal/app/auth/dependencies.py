@@ -13,7 +13,7 @@ from app.auth.sessions import (
 from app.auth.upload_tokens import verify_upload_token
 from app.config import get_settings
 from app.database import get_supabase, get_supabase_anon
-from app.hotels.staff import hotel_of
+from app.hotels.staff import can_moderate, hotel_of, member_of
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -99,12 +99,25 @@ def landing_page(user) -> str | None:
     return None
 
 
-def require_staff(user=Depends(get_current_user), db=Depends(get_supabase)) -> str:
-    """The staff pages: the hotel this account works for; 403 for anyone else."""
-    hotel_id = hotel_of(db, user.id)
-    if hotel_id is None:
+def require_staff_member(user=Depends(get_current_user), db=Depends(get_supabase)) -> dict:
+    """The staff pages: this account's hotel and role (member_of); 403 for anyone else."""
+    member = member_of(db, user.id)
+    if member is None:
         raise HTTPException(status_code=403, detail="This account is not hotel staff")
-    return hotel_id
+    return member
+
+
+def require_staff(member: dict = Depends(require_staff_member)) -> str:
+    """The hotel this staff account works for, whatever its role."""
+    return member["hotel_id"]
+
+
+def require_moderator(member: dict = Depends(require_staff_member)) -> str:
+    """The hotel, for a staff account that may change and decide its content (can_moderate);
+    403 for a content creator."""
+    if not can_moderate(member):
+        raise HTTPException(status_code=403, detail="This account can only upload content")
+    return member["hotel_id"]
 
 
 def signed_in_landing_page(request: Request) -> str | None:

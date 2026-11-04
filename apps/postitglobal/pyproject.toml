@@ -1,6 +1,6 @@
 [project]
 name = "postitglobal"
-version = "0.2.3"
+version = "0.3.0"
 description = "Hotel content: Claude drafts, DeepL translations, Buffer publishing"
 requires-python = ">=3.15,<3.16"
 # The versions requirements.txt pinned (platform plan 5.2), except two that the image scan

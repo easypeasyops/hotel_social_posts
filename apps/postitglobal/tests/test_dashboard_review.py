@@ -104,3 +104,27 @@ def test_a_draft_of_another_hotel_is_not_found(action: str, published: list[str]
     assert response.status_code == 404
     assert db.rows["content_drafts"][0]["status"] == "pending_review"
     assert published == []
+
+
+def test_generate_queues_this_hotels_generation_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queued: list[str] = []
+    monkeypatch.setattr(tasks.generate_content_task, "delay", queued.append)
+    client = _client(_db())
+
+    response = client.post("/dashboard/hotels/hotel-1/generate")
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/dashboard/hotels/hotel-1?generation=queued#review"
+    assert queued == ["hotel-1"]
+    assert "Generation queued" in client.get(response.headers["location"]).text
+    assert "Generation queued" not in client.get("/dashboard/hotels/hotel-1").text
+
+
+def test_generate_for_an_unknown_hotel_queues_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    queued: list[str] = []
+    monkeypatch.setattr(tasks.generate_content_task, "delay", queued.append)
+    response = _client(_db()).post("/dashboard/hotels/hotel-9/generate")
+    assert response.status_code == 404
+    assert queued == []

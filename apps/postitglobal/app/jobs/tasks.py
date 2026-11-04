@@ -45,7 +45,8 @@ def process_asset_task(self, asset_id: str):
 def generate_all_hotels_task():
     """
     Fetches all active hotels and enqueues individual generation tasks.
-    Called by Railway cron weekly.
+    Queued weekly by the cluster's generate-weekly CronJob (celery call), or by
+    POST /internal/jobs/generate.
     """
     from app.database import get_supabase
 

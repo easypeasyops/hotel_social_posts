@@ -85,8 +85,8 @@ def verify_hotel_upload_token(
 
 def verify_cron_secret(x_cron_secret: str = Header(...)):
     """
-    Protects /internal/* endpoints called by Railway cron.
-    Railway cron passes the secret in X-Cron-Secret header.
+    Protects the /internal/* job triggers: the caller passes the secret in the
+    X-Cron-Secret header.
     """
     settings = get_settings()
     if x_cron_secret != settings.cron_secret:

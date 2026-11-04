@@ -1,5 +1,5 @@
-"""The app starts from its environment alone and answers its health check (what Railway,
-and later the cluster's probes, rely on)."""
+"""The app starts from its environment alone and answers its health check (what the
+cluster's probes rely on)."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,7 +10,7 @@ from app.main import create_app
 
 
 def test_health() -> None:
-    response = TestClient(create_app()).get("/health")
+    response = TestClient(create_app()).get("/healthz")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 

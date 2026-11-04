@@ -42,7 +42,7 @@ workers:
       requests: { cpu: 50m, memory: 256Mi }
       limits: { memory: 512Mi }
 
-# Weekly content generation for every hotel (Railway's cron until platform plan 5.9): the
+# Weekly content generation for every hotel (Railway's cron before platform plan 5.9): the
 # job queues the task and exits; the worker does the work. Mondays 06:00 UTC, 09:00 in
 # Türkiye.
 cronJobs:

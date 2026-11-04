@@ -1,5 +1,5 @@
-# Prod, on the laptop cluster for now (platform plan 5, decided 2026-11-03): it replaces
-# Railway once it runs (5.9). Same image digest staging ran.
+# Prod, on the laptop cluster for now (platform plan 5, decided 2026-11-03), where Railway
+# ran it before 5.9. Same image digest staging ran.
 environment: prod
 image:
   digest: "sha256:1e062e6d94f7f62d5eb3868d3b4c71aebc62c042ec975bdaea245b12d0ac5927" # v0.1.0, as staging

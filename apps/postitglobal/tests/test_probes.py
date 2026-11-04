@@ -16,7 +16,6 @@ from app.main import create_app
 def test_liveness_needs_nothing() -> None:
     client = TestClient(create_app())
     assert client.get("/healthz").json() == {"status": "ok"}
-    assert client.get("/health").json() == {"status": "ok"}  # Railway's, until 5.9
 
 
 def test_ready_when_redis_answers(monkeypatch: pytest.MonkeyPatch) -> None:

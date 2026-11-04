@@ -73,9 +73,6 @@ def create_app() -> FastAPI:
         """Liveness: the process answers. No dependency checks: a restart can't fix them."""
         return {"status": "ok"}
 
-    # Railway's health check (railway.toml) until the platform replaces Railway (5.9).
-    app.add_api_route("/health", healthz, include_in_schema=False)
-
     probe_limiter = anyio.CapacityLimiter(1)  # its own thread, never the request pool's
 
     @app.get("/readyz", include_in_schema=False)

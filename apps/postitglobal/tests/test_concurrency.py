@@ -38,7 +38,7 @@ def test_a_slow_database_call_does_not_block_other_requests(
             started = time.perf_counter()
             slow = asyncio.create_task(client.get("/api/v1/hotels"))
             await asyncio.sleep(0.05)  # the slow request is in its database call now
-            health = await client.get("/health")
+            health = await client.get("/healthz")
             answered_after = time.perf_counter() - started
             assert health.status_code == 200
             assert (await slow).status_code == 200

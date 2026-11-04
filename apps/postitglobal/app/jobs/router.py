@@ -9,9 +9,9 @@ router = APIRouter()
 @router.post("/generate", dependencies=[Depends(verify_cron_secret)])
 def trigger_generation_all():
     """
-    Railway cron endpoint — triggers content generation for all active hotels.
-    Called weekly via Railway cron: POST /internal/jobs/generate
-    Header: X-Cron-Secret: <cron_secret>
+    Triggers content generation for all active hotels, by hand: POST /internal/jobs/generate
+    with the X-Cron-Secret header. The weekly run is the cluster's CronJob
+    (deploy/service/values.yaml, generate-weekly), which queues the task directly.
     """
     tasks.generate_all_hotels_task.delay()
     return {"status": "queued"}

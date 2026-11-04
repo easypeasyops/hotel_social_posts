@@ -2,23 +2,23 @@
 
 ## Scope
 
-This runbook covers local startup, deployment checks, common incidents, and recovery for the current FastAPI/Celery application. It assumes access to the Railway project, Supabase project, Redis service, and provider dashboards. Never paste secrets into tickets, logs, or command output.
+This runbook covers local startup, deployment checks, common incidents, and recovery for the current FastAPI/Celery application. It assumes access to the cluster (`kubectl`, Argo CD), the Supabase project and the provider dashboards. Never paste secrets into tickets, logs, or command output.
 
 ## Service topology
 
-- **API:** FastAPI/Uvicorn web service. Liveness is `GET /healthz`, readiness `GET /readyz` (Redis answers); Railway's `railway.toml` uses `GET /health`, the same as `/healthz`.
-- **Worker:** Celery process using the same application image; must be deployed as a separate Railway service with a worker start command.
+- **API:** FastAPI/Uvicorn web service. Liveness is `GET /healthz`, readiness `GET /readyz` (Redis answers).
+- **Worker:** Celery process using the same application image, with its own command (the chart's `workers.worker`).
 - **Redis:** Celery broker/result backend and operator session store.
 - **Supabase:** Postgres, Auth, the private `hotel-assets` Storage bucket (uploads) and the public `published-media` bucket (images being posted).
 - **External providers:** Anthropic, DeepL, and Buffer.
-- **Cron:** External Railway cron schedule calling the internal generation endpoint. The schedule itself is not defined in this repository.
+- **Cron:** the cluster's `generate-weekly` CronJob (below). Railway ran the app and its cron until plan 5.9.
 - **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC, prod only: staging shares prod's Supabase). Run it now: `kubectl -n postitglobal-prod create job generate-now --from=cronjob/postitglobal-generate-weekly`; in staging, queue one hotel with `POST /internal/jobs/generate/<hotel_id>`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh postitglobal .env`, then restart the API and the worker to read changed keys (`kubectl -n postitglobal-<env> rollout restart deployment`).
 
 ## Prerequisites and configuration
 
 Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket), and configure provider credentials.
 
-Set the following environment variables in the local `.env` or the appropriate Railway service settings:
+Set the following environment variables in the local `.env`; in the cluster they come from the platform's store, loaded from that file (below):
 
 ```dotenv
 SECRET_KEY=
@@ -105,21 +105,16 @@ A release is an image built, scanned and signed by `.github/workflows/release.ym
 1. Confirm required settings exist for both the API and worker services; the worker needs `REDIS_URL` and all provider/Supabase settings used by its tasks.
 2. Apply any new Supabase migration deliberately before deploying code that depends on it. The application does not migrate the database at startup.
 3. Ensure the `hotel-assets` bucket exists and its upload policies match the signed-upload flow, and that the `published-media` bucket exists and is public (migration `002`); without it, publishing fails on the image copy.
-4. Deploy the API from the repository's Dockerfile and preserve the `GET /health` Railway check.
-5. Deploy a separate worker using:
-
-   ```sh
-   celery -A app.jobs.tasks.celery_app worker --loglevel=info --concurrency=2
-   ```
-
-6. Verify API and worker startup logs, then call `/health` on the deployed API.
+4. Deploy by digest: set `image.digest` in `deploy/envs/staging.yaml` in a PR (Argo CD deploys it on merge), check staging, then the same digest in `deploy/envs/prod.yaml`.
+5. The worker deploys with the API: the chart's `workers.worker` runs the same image with `celery -A app.jobs.tasks.celery_app worker --loglevel=info --concurrency=2`.
+6. Verify the API and worker logs (`kubectl -n postitglobal-<env> logs deploy/postitglobal` and `deploy/postitglobal-worker`), then `GET /readyz` through the Gateway.
 7. Verify a protected job trigger only in a controlled environment and ensure it is not exposed with the cron secret in logs or shell history.
-8. Configure the external Railway cron schedule to send `POST /internal/jobs/generate` with the `X-Cron-Secret` header. The intended cadence is weekly, but the cadence must be set in Railway; it is not encoded in this repository.
+8. Weekly generation is the `generate-weekly` CronJob in prod (`deploy/service/values.yaml`); nothing to configure outside this repository.
 9. For release validation, confirm a test hotel can create a draft, persist translations, and schedule an approved draft without sending unintended production posts.
 
 ## Routine operational checks
 
-- Check the Railway API and worker logs for startup errors, repeated task retries, or task failures.
+- Check the API and worker logs (`kubectl -n postitglobal-<env> logs`) for startup errors, repeated task retries, or task failures.
 - Check Redis availability and the worker's ability to consume jobs if tasks remain queued.
 - Check Redis availability for operator sessions as well as Celery; login and authenticated dashboard/API requests require it.
 - Check Supabase database and Storage health, and confirm the `hotel-assets` bucket is reachable.
@@ -148,13 +143,13 @@ The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its publ
 
 ### API health check fails
 
-1. Inspect Railway API deployment logs and recent release/configuration changes.
+1. Inspect the API's logs and events (`kubectl -n postitglobal-<env> describe pod`, `logs`) and recent release or configuration changes.
 2. Verify required environment variables are present without printing their values.
-3. Confirm the web service is listening on Railway's `$PORT` and that the deployment start command is correct.
-4. Roll back to the last known-good deployment if the failure began with a release and rollback is the established project procedure.
-5. After recovery, check `/health` and perform a safe authenticated read.
+3. Confirm the pods are Ready (`kubectl -n postitglobal-<env> get pods`) and the Application is Synced and Healthy (`kubectl -n argocd get app postitglobal-<env>`).
+4. If the failure began with a release, roll back: put the previous digest back in `deploy/envs/<env>.yaml` and merge.
+5. After recovery, check `/readyz` and perform a safe authenticated read.
 
-Because `/healthz` (and `/health`) are liveness-only, a successful response is not proof that dependencies are healthy. `/readyz` returns 503 `not ready: Redis` when Redis doesn't answer within 2 s: check Redis first. It doesn't cover Supabase or the providers.
+Because `/healthz` is liveness-only, a successful response is not proof that dependencies are healthy. `/readyz` returns 503 `not ready: Redis` when Redis doesn't answer within 2 s: check Redis first. It doesn't cover Supabase or the providers.
 
 ### Jobs are not progressing
 
@@ -193,14 +188,14 @@ The application currently schedules Turkish text only and has no Buffer webhook/
 
 ### Cron did not enqueue generation
 
-1. Verify the Railway cron schedule and target URL are configured; neither is defined by this repository.
-2. Confirm the request is `POST /internal/jobs/generate` and includes `X-Cron-Secret`.
+1. Check the CronJob's last run: `kubectl -n postitglobal-prod get cronjob,jobs` and the job pod's logs (`celery call` prints the task ID).
+2. A manual `POST /internal/jobs/generate` must include `X-Cron-Secret`.
 3. Check for an authorization failure, API health issue, or Redis/worker outage in logs.
 4. If manually rerunning generation, inspect recent drafts first to avoid duplicates.
 
 ## Security and data handling
 
-- Store secrets only in Railway's secret settings or a protected local `.env`; `.env` is ignored by Git.
+- Store secrets only in a protected local `.env` (ignored by Git) and the platform's store, loaded from it with `platform/scripts/load-app-env.sh`.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY`, provider tokens, or `CRON_SECRET` to browser code or client logs.
 - Dashboard browser sessions use an HttpOnly, SameSite=Strict cookie containing only an opaque Redis session ID. Session access and refresh tokens live in Redis. Keep `SESSION_COOKIE_SECURE=true` in deployed environments.
 - Magic-link authentication requires `PUBLIC_BASE_URL` and a matching Supabase Auth redirect allow-list entry for `/auth/callback`.

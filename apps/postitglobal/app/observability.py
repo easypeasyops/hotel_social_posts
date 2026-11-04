@@ -28,7 +28,7 @@ REQUEST_ID_HEADER: Final = "x-request-id"
 # log lines or bloat log storage, so it's replaced.
 _VALID_REQUEST_ID: Final = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 # Probes and scrapes are frequent and uninteresting: logged at DEBUG, not INFO.
-QUIET_PATHS: Final = frozenset({"/healthz", "/health", "/readyz", "/metrics"})
+QUIET_PATHS: Final = frozenset({"/healthz", "/readyz", "/metrics"})
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 

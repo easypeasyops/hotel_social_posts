@@ -20,7 +20,7 @@ flowchart LR
     Claude[Anthropic Claude API]
     DeepL[DeepL API]
     Buffer[Buffer API]
-    Cron[Railway cron]
+    Cron[Weekly CronJob]
 
     Operator -->|Supabase bearer JWT or HttpOnly session cookie| API
     Guest -->|upload page| API
@@ -33,7 +33,7 @@ flowchart LR
     Worker --> Claude
     Worker --> DeepL
     Worker --> Buffer
-    Cron -->|POST /internal/jobs/generate + secret| API
+    Cron -->|enqueue generate_all_hotels| Redis
 ```
 
 ## Runtime components
@@ -50,7 +50,7 @@ flowchart LR
 | Text generation | Turkish post drafts | Anthropic Claude; model selected by hotel tier |
 | Translation | Draft translations | DeepL API Free endpoint; enabled languages vary by tier |
 | Social scheduling | Queue approved Turkish drafts | Buffer API |
-| Deployment | Railway today: the API, with an external cron calling the generation endpoint. The Kubernetes cluster from plan 5.9: the API, the worker, Redis and a weekly CronJob, from the platform's service chart | `Dockerfile`, `railway.toml`; `deploy/` (cluster) |
+| Deployment | The platform's Kubernetes cluster (since plan 5.9; Railway before): the API, the worker, Redis and a weekly CronJob, from the platform's service chart | `Dockerfile`; `deploy/` |
 
 The API and worker are separate processes but use the same source image and environment. The container's default command starts the API; the worker needs its own service/start command. The API also requires Redis for browser sessions.
 
@@ -109,7 +109,6 @@ All API route prefixes below are registered in `app/main.py`.
 |---|---|---|
 | `GET /healthz` | None | Liveness (`{"status":"ok"}`): the process answers. Checks no dependency |
 | `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
-| `GET /health` | None | The same as `/healthz`, for Railway's health check until the platform replaces Railway (plan 5.9) |
 | `GET /login`, `POST /login`, `POST /login/magic-link`, `POST /login/forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or magic-link sign-in, password recovery, sign-out |
 | `/dashboard/*` | Operator session or Supabase bearer JWT | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
 | `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
@@ -135,14 +134,14 @@ Assets, drafts, translations, and publish-log records use foreign keys with casc
 
 ## In the cluster (plan 5.8)
 
-From 5.9 postitglobal runs on the platform's Kubernetes cluster, rendered by the platform's service chart (1.2.1 or later) from `deploy/service/values.yaml` and `deploy/envs/<env>.yaml`, in the namespaces `postitglobal-staging` and `postitglobal-prod`:
+Since 5.9 postitglobal runs on the platform's Kubernetes cluster, rendered by the platform's service chart (1.2.1 or later) from `deploy/service/values.yaml` and `deploy/envs/<env>.yaml`, in the namespaces `postitglobal-staging` and `postitglobal-prod`:
 
 | Piece | What the values ask the chart for |
 |---|---|
 | API | The release image, 2 replicas in prod and 1 in staging (no autoscaling), probes on `/healthz` and `/readyz`, behind the Gateway at `postitglobal.localhost` and `staging.postitglobal.localhost` |
 | Worker | `workers.worker`: the same image running `celery … worker --concurrency=2`, 120 s to finish its tasks on SIGTERM |
 | Redis | `redis.enabled`: the chart's in-namespace Redis 8, its URL templated into `REDIS_URL`, reachable only from this app's pods |
-| Weekly generation | `cronJobs.generate-weekly`, prod only (staging shares prod's Supabase, so a second run would duplicate every hotel's drafts): Mondays 06:00 UTC, `celery … call tasks.generate_all_hotels` queues the task and exits (Railway's cron, which called the HTTP endpoint, goes with 5.9) |
+| Weekly generation | `cronJobs.generate-weekly`, prod only (staging shares prod's Supabase, so a second run would duplicate every hotel's drafts): Mondays 06:00 UTC, `celery … call tasks.generate_all_hotels` queues the task and exits. It replaced Railway's cron, which called the HTTP endpoint |
 | Keys | `secretEnv.store: postitglobal`: the platform's store for this app, loaded by hand from `.env`; each secret variable reads one key of `postitglobal-env` |
 | Network | Ingress: the app port from the Gateway, metrics from Prometheus. Egress: DNS, the app's Redis, and port 443 outside the private ranges (Supabase and the providers can't be named in a NetworkPolicy) |
 
@@ -181,7 +180,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Asset processing is a placeholder status transition, not media validation or transformation.
 - A hotel-generation task creates drafts before queuing translation. A retry after partial completion may create duplicate drafts.
 - Translation failures can leave a partial set of translation rows without failing the overall task.
-- No periodic Celery beat schedule is configured here. Weekly generation is an external Railway cron calling the protected endpoint today, and the cluster's `generate-weekly` CronJob from plan 5.9.
+- No periodic Celery beat schedule is configured here. Weekly generation is the cluster's `generate-weekly` CronJob, which queues the task directly; `POST /internal/jobs/generate` does the same by hand.
 - Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
 - Operator authentication has no sign-up, MFA, or role management UI. Magic links and password recovery are supported for existing users only.
 - Logs (plan 5.3): the API and the worker write one JSON object per line to stdout (`app/observability.py`): `ts`, `level`, `logger`, `msg`, and the fields a call adds (a failed translation's `draft_id`, `language`, `error`). Every request gets a request ID, kept from a plain `X-Request-ID` header or generated, echoed in the response and on every line the request logs; one access line per request names its route template (`/api/v1/hotels/{hotel_id}`), never the raw path. Probes are logged at DEBUG.
@@ -199,7 +198,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Database schema and Storage buckets: `supabase/migrations/`
 - Dependencies and tool settings: `pyproject.toml`, `uv.lock`, `.python-version`
 - Tests and checks: `tests/`, `scripts/smoke.sh`, `scripts/ci-scope.sh`, the repo's `.github/workflows/ci.yml`
-- Deployment configuration: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `railway.toml`; dependency bumps: the repo's `.github/dependabot.yaml`
+- Deployment configuration: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `deploy/` (the service chart's values); dependency bumps: the repo's `.github/dependabot.yaml`
 
 ## Related documentation
 

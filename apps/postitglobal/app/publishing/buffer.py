@@ -67,9 +67,21 @@ def _get_channel_id(channel: str, hotel: dict[str, Any]) -> str | None:
     return channel_id
 
 
+def image_suffix(asset: dict[str, Any]) -> str:
+    return PurePosixPath(asset["filename"]).suffix.lower()
+
+
+def postable_images(assets: list[dict[str, Any]], asset_ids: list[str]) -> list[dict[str, Any]]:
+    """The files a draft's post carries, from `assets` (the ready ones): its JPEG and PNG
+    images in the draft's order, at most MAX_IMAGES. Videos and other files are skipped:
+    posts carry images only, for now."""
+    by_id = {asset["id"]: asset for asset in assets}
+    images = [by_id[i] for i in asset_ids if i in by_id and image_suffix(by_id[i]) in IMAGE_TYPES]
+    return images[:MAX_IMAGES]
+
+
 def _publish_images(db: Client, hotel_id: str, draft_id: str, asset_ids: list[str]) -> list[str]:
-    """Public URLs for the draft's images, in the draft's order, at most MAX_IMAGES.
-    Videos and other files are skipped: posts carry images only, for now."""
+    """Public URLs for the draft's postable images (postable_images)."""
     if not asset_ids:
         return []
     rows = (
@@ -80,21 +92,15 @@ def _publish_images(db: Client, hotel_id: str, draft_id: str, asset_ids: list[st
         .execute()
         .data
     )
-    by_id = {row["id"]: row for row in rows}
     urls: list[str] = []
-    for asset_id in asset_ids:
-        asset = by_id.get(asset_id)
-        suffix = PurePosixPath(asset["filename"]).suffix.lower() if asset else ""
-        if not asset or suffix not in IMAGE_TYPES:
-            continue
+    for asset in postable_images(rows, asset_ids):
+        suffix = image_suffix(asset)
         data = db.storage.from_(STORAGE_BUCKET).download(asset["storage_path"])
-        path = f"{hotel_id}/{draft_id}/{asset_id}{suffix}"
+        path = f"{hotel_id}/{draft_id}/{asset['id']}{suffix}"
         published = db.storage.from_(PUBLISHED_BUCKET)
         # upsert: a retried task writes the same path again
         published.upload(path, data, {"content-type": IMAGE_TYPES[suffix], "upsert": "true"})
         urls.append(published.get_public_url(path))
-        if len(urls) == MAX_IMAGES:
-            break
     return urls
 
 

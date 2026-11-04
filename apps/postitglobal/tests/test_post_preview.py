@@ -85,3 +85,22 @@ def test_facebook_shows_the_text_then_up_to_four_images(
     assert page.index("Merhaba") < page.index("<img")  # the text above the images, as on Facebook
     assert page.count("<img") == shown
     assert (more in page) if more else ("+" not in page.split("<img", 1)[1])
+
+
+def test_every_network_has_its_own_look() -> None:
+    from app.hotels.models import SocialChannel
+
+    for channel in SocialChannel:
+        assert f'data-preview="{channel.value}"' in _render(channel.value, [])
+
+
+def test_tiktok_shows_every_image_in_a_vertical_frame() -> None:
+    page = _render("tiktok", [f"https://img.invalid/{n}.jpg" for n in range(3)])
+    assert page.count("<img") == 3
+    assert "aspect-[9/16]" in page and "@egekonak" in page and "Merhaba" in page
+
+
+def test_google_business_shows_the_first_image_only() -> None:
+    page = _render("google_business", ["https://img.invalid/1.jpg", "https://img.invalid/2.jpg"])
+    assert page.count("<img") == 1 and "1.jpg" in page
+    assert page.index("<img") < page.index("Merhaba")

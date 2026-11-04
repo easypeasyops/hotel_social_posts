@@ -11,15 +11,15 @@
   <script>
     tailwind.config = { theme: { extend: {
       colors: {
-        lagoon: { 50: '#edf6f5', 100: '#d3eae7', 700: '#0f5c5a', 800: '#0b4644', 950: '#1f2a29' },
+        iris: { 50: '#f4f1fe', 100: '#e7e0fd', 600: '#3b05c1', 700: '#2f04a6', 950: '#030923' },
         sand: { 50: '#faf7f2', 100: '#f3ece1', 500: '#8a8178', 700: '#5c554f' },
       },
       fontFamily: { customer: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-      boxShadow: { soft: '0 1px 2px 0 rgba(31, 42, 41, 0.06), 0 8px 24px -8px rgba(31, 42, 41, 0.12)' },
+      boxShadow: { soft: '0 1px 2px 0 rgba(3, 9, 35, 0.06), 0 8px 24px -8px rgba(3, 9, 35, 0.12)' },
     } } };
   </script>
 </head>
-<body class="min-h-screen bg-sand-50 text-lagoon-950 font-customer text-base flex items-center justify-center px-4 py-8">
+<body class="min-h-screen bg-sand-50 text-iris-950 font-customer text-base flex items-center justify-center px-4 py-8">
 
   <main class="w-full max-w-xl bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-6">
     <img src="/static/logo.png" alt="postitglobal" width="142" height="32" class="h-8 w-auto" />
@@ -39,15 +39,15 @@
         {% for value, label in [("room", "Oda"), ("pool", "Havuz"), ("food", "Yemek"), ("exterior", "Dış cephe"), ("lobby", "Lobi"), ("beach", "Sahil"), ("other", "Diğer")] %}
         <label class="cursor-pointer">
           <input type="radio" name="category" value="{{ value }}" class="peer sr-only" {% if loop.first %}checked{% endif %} />
-          <span class="inline-flex items-center min-h-11 px-4 rounded-full border border-sand-500 bg-white font-medium peer-checked:bg-lagoon-700 peer-checked:border-lagoon-700 peer-checked:text-white peer-checked:before:content-['✓'] peer-checked:before:mr-2 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lagoon-700">{{ label }}</span>
+          <span class="inline-flex items-center min-h-11 px-4 rounded-full border border-sand-500 bg-white font-medium peer-checked:bg-iris-600 peer-checked:border-iris-600 peer-checked:text-white peer-checked:before:content-['✓'] peer-checked:before:mr-2 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-iris-600">{{ label }}</span>
         </label>
         {% endfor %}
       </fieldset>
 
-      <label class="relative block px-6 py-8 text-center rounded-2xl border-2 border-dashed border-sand-500 bg-sand-50 cursor-pointer hover:border-lagoon-700 hover:bg-lagoon-50 focus-within:border-lagoon-700 focus-within:bg-lagoon-50">
+      <label class="relative block px-6 py-8 text-center rounded-2xl border-2 border-dashed border-sand-500 bg-sand-50 cursor-pointer hover:border-iris-600 hover:bg-iris-50 focus-within:border-iris-600 focus-within:bg-iris-50">
         <input type="file" id="files" name="files" multiple accept="image/*,video/*" aria-describedby="files-help"
                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-        <span class="block font-semibold text-lagoon-700">Dosyaları seçin veya buraya sürükleyin</span>
+        <span class="block font-semibold text-iris-600">Dosyaları seçin veya buraya sürükleyin</span>
         <span id="files-help" class="text-sand-700">Fotoğraf ve video. Birden fazla seçebilirsiniz.</span>
       </label>
 
@@ -59,7 +59,7 @@
       </div>
 
       <button id="upload-button" type="submit"
-              class="w-full inline-flex items-center justify-center min-h-12 px-6 py-3 rounded-xl bg-lagoon-700 text-white font-semibold hover:bg-lagoon-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon-700 disabled:bg-sand-100 disabled:text-sand-700 disabled:cursor-not-allowed">
+              class="w-full inline-flex items-center justify-center min-h-12 px-6 py-3 rounded-xl bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600 disabled:bg-sand-100 disabled:text-sand-700 disabled:cursor-not-allowed">
         Dosyaları yükle
       </button>
     </form>
@@ -116,7 +116,7 @@
         const track = document.createElement('div');
         track.className = 'mt-1 h-1 rounded-full bg-sand-100 overflow-hidden';
         const bar = document.createElement('div');
-        bar.className = 'h-full bg-lagoon-700';
+        bar.className = 'h-full bg-iris-600';
         track.append(bar);
         left.append(name, track);
         const status = document.createElement('span');

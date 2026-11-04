@@ -38,6 +38,18 @@ def test_the_dashboard_nav_shows_the_logo_and_the_tab_icon() -> None:
     assert ICON in page
 
 
+def test_the_customer_pages_use_the_logos_purple(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The sign-in layout, the upload page and the staff layout each carry the customer
+    # palette inline (no shared stylesheet yet): all three must name the logo's purple.
+    hotel = {"id": "h1", "name": "Lykia Resort", "slug": "lykia-resort"}
+    monkeypatch.setattr("app.database.get_supabase", lambda: FakeDB(hotels=[hotel]))
+    client = TestClient(create_app())
+    for path in ["/login", "/upload/lykia-resort"]:
+        assert "#3b05c1" in client.get(path).text, path
+    staff = templates.get_template("staff/base.html").render(hotel={"name": "Lykia Resort"})
+    assert "#3b05c1" in staff
+
+
 def test_the_hotel_staff_pages_show_the_tab_icon() -> None:
     page = templates.get_template("staff/base.html").render(hotel={"name": "Lykia Resort"})
     assert ICON in page

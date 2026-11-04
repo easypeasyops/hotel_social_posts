@@ -107,18 +107,6 @@ def require_staff(user=Depends(get_current_user), db=Depends(get_supabase)) -> s
     return hotel_id
 
 
-def signed_in_staff_hotel(request: Request) -> str | None:
-    """The hotel this browser's signed-in staff member works for, or None: no session, an
-    expired one, or an account that isn't staff. For pages anyone with a link can open."""
-    if not request.cookies.get(SESSION_COOKIE):
-        return None
-    try:
-        user = get_current_user(request, None)
-    except HTTPException:
-        return None
-    return hotel_of(get_supabase(), user.id)
-
-
 def verify_hotel_upload_token(
     hotel_id: str,
     credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),

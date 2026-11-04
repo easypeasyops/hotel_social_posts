@@ -21,11 +21,7 @@
 </head>
 <body class="min-h-screen bg-sand-50 text-iris-950 font-customer text-base flex items-center justify-center px-4 py-8">
 
-  {% set categories = [("room", "Oda"), ("pool", "Havuz"), ("food", "Yemek"), ("exterior", "Dış cephe"), ("lobby", "Lobi"), ("beach", "Sahil"), ("other", "Diğer")] %}
   <main class="w-full max-w-xl bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-6">
-    {% if back_url %}
-    <a href="{{ back_url }}" class="inline-flex items-center min-h-11 -my-2 font-medium text-iris-600 hover:text-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">← Dosyalarınız</a>
-    {% endif %}
     <img src="/static/logo.png" alt="postitglobal" width="142" height="32" class="h-8 w-auto" />
     <div>
       <h1 class="text-3xl font-semibold tracking-tight">{{ hotel.name }}</h1>
@@ -40,8 +36,7 @@
     <form id="upload-form" class="space-y-6">
       <fieldset class="flex flex-wrap gap-2">
         <legend class="mb-2 font-medium">Ne yüklüyorsunuz?</legend>
-        <p class="w-full -mt-1 mb-1 text-sm text-sand-700">Seçtiğiniz dosyalar bu kategoriyle eklenir; her birini listede değiştirebilirsiniz.</p>
-        {% for value, label in categories %}
+        {% for value, label in [("room", "Oda"), ("pool", "Havuz"), ("food", "Yemek"), ("exterior", "Dış cephe"), ("lobby", "Lobi"), ("beach", "Sahil"), ("other", "Diğer")] %}
         <label class="cursor-pointer">
           <input type="radio" name="category" value="{{ value }}" class="peer sr-only" {% if loop.first %}checked{% endif %} />
           <span class="inline-flex items-center min-h-11 px-4 rounded-full border border-sand-500 bg-white font-medium peer-checked:bg-iris-600 peer-checked:border-iris-600 peer-checked:text-white peer-checked:before:content-['✓'] peer-checked:before:mr-2 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-iris-600">{{ label }}</span>
@@ -57,21 +52,6 @@
       </label>
 
       <ul id="file-list" class="hidden border-t border-sand-100" aria-live="polite"></ul>
-      <template id="file-row">
-        <li class="py-3 border-b border-sand-100 space-y-2">
-          <div class="flex items-center justify-between gap-4">
-            <span data-name class="flex-1 min-w-0 truncate"></span>
-            <span data-status class="flex-none text-sm"></span>
-          </div>
-          <div data-track class="h-1 rounded-full bg-sand-100 overflow-hidden"><div data-bar class="h-full bg-iris-600"></div></div>
-          <div class="flex items-center gap-2">
-            <select name="file-category" class="flex-1 min-h-11 px-3 rounded-lg border border-sand-500 bg-white disabled:bg-sand-50 disabled:text-sand-700">
-              {% for value, label in categories %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-            </select>
-            <button type="button" data-remove class="min-h-11 px-3 rounded-lg text-sand-700 hover:text-iris-950 hover:bg-sand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">Kaldır</button>
-          </div>
-        </li>
-      </template>
 
       <div id="summary" role="status" class="hidden flex gap-3 p-4 rounded-xl bg-green-100 text-green-800">
         <span class="flex-none font-semibold" aria-hidden="true">✓</span>
@@ -93,15 +73,12 @@
     const summaryText = document.getElementById('summary-text');
     const uploadButton = document.getElementById('upload-button');
     const accessError = document.getElementById('access-error');
-    const rowTemplate = document.getElementById('file-row');
     const hotelId = "{{ hotel.id }}";
     const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
     history.replaceState(null, '', window.location.pathname);
 
-    // Each chosen file, its row in the list (with its own category), and whether it is
-    // uploaded yet.
+    // Each chosen file, its row in the list, and whether it is uploaded yet.
     let queue = [];
-    let busy = false; // an upload is running
 
     function showAccessError() {
       accessError.classList.remove('hidden');
@@ -123,50 +100,36 @@
       item.status.className = 'flex-none text-sm ' + color;
       item.track.classList.toggle('hidden', state !== 'uploading');
       item.bar.style.width = (percent || 0) + '%';
-      // Once on its way, a file's category is settled and it can't be taken off the list.
-      item.select.disabled = state === 'uploading' || state === 'done';
-      item.remove.hidden = state === 'uploading' || state === 'done';
     }
 
-    function refresh() {
-      fileList.classList.toggle('hidden', queue.length === 0);
-      uploadButton.disabled = busy || !queue.some((item) => item.state !== 'done');
-    }
-
-    // Each pick adds to the list, with the category chosen above, so files from several
-    // folders (or of several kinds) go up together.
     filesInput.addEventListener('change', () => {
+      fileList.replaceChildren();
       summary.classList.add('hidden');
-      const category = form.querySelector('input[name="category"]:checked').value;
-      for (const file of Array.from(filesInput.files)) {
-        const row = rowTemplate.content.firstElementChild.cloneNode(true);
-        const item = {
-          file,
-          status: row.querySelector('[data-status]'),
-          track: row.querySelector('[data-track]'),
-          bar: row.querySelector('[data-bar]'),
-          select: row.querySelector('select'),
-          remove: row.querySelector('[data-remove]'),
-        };
-        row.querySelector('[data-name]').textContent = file.name;
-        item.select.value = category;
-        item.select.setAttribute('aria-label', `${file.name}: kategori`);
-        item.remove.setAttribute('aria-label', `${file.name}: listeden kaldır`);
-        item.remove.addEventListener('click', () => {
-          queue = queue.filter((other) => other !== item);
-          row.remove();
-          refresh();
-        });
-        setState(item, 'waiting');
+      queue = Array.from(filesInput.files).map((file) => {
+        const row = document.createElement('li');
+        row.className = 'flex items-center justify-between gap-4 py-3 border-b border-sand-100';
+        const left = document.createElement('div');
+        left.className = 'flex-1 min-w-0';
+        const name = document.createElement('span');
+        name.className = 'block truncate';
+        name.textContent = file.name;
+        const track = document.createElement('div');
+        track.className = 'mt-1 h-1 rounded-full bg-sand-100 overflow-hidden';
+        const bar = document.createElement('div');
+        bar.className = 'h-full bg-iris-600';
+        track.append(bar);
+        left.append(name, track);
+        const status = document.createElement('span');
+        row.append(left, status);
         fileList.append(row);
-        queue.push(item);
-      }
-      filesInput.value = ''; // so the same file can be picked again
-      if (!busy) uploadButton.textContent = 'Dosyaları yükle';
-      refresh();
+        const item = { file, status, track, bar };
+        setState(item, 'waiting');
+        return item;
+      });
+      fileList.classList.toggle('hidden', queue.length === 0);
+      uploadButton.disabled = false;
+      uploadButton.textContent = 'Dosyaları yükle';
     });
-
-    refresh();
 
     class LinkExpired extends Error {}
 
@@ -194,14 +157,13 @@
       if (!token) return;
       const pending = queue.filter((item) => item.state !== 'done');
       if (!pending.length) return;
+      const category = form.querySelector('input[name="category"]:checked').value;
 
       summary.classList.add('hidden');
-      busy = true;
       uploadButton.disabled = true;
       uploadButton.textContent = 'Yükleniyor…';
 
       for (const item of pending) {
-        if (!queue.includes(item)) continue; // taken off the list meanwhile
         try {
           setState(item, 'uploading', 0);
           const result = await readResponse(await fetch(`/api/v1/upload-capabilities/${hotelId}/upload-url`, {
@@ -210,7 +172,7 @@
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ filename: item.file.name, category: item.select.value, content_type: item.file.type }),
+            body: JSON.stringify({ filename: item.file.name, category, content_type: item.file.type }),
           }));
           await putFile(result.upload_url, item.file, (percent) => setState(item, 'uploading', percent));
           await readResponse(await fetch(
@@ -220,7 +182,6 @@
           setState(item, 'done');
         } catch (err) {
           if (err instanceof LinkExpired) {
-            busy = false;
             showAccessError();
             return;
           }
@@ -235,8 +196,7 @@
         summaryText.textContent = `${done} dosya yüklendi. Teşekkür ederiz.`;
         summary.classList.remove('hidden');
       }
-      busy = false;
-      refresh();
+      uploadButton.disabled = failed === 0;
       uploadButton.textContent = failed ? 'Yüklenemeyenleri tekrar dene' : 'Dosyaları yükle';
     });
   </script>

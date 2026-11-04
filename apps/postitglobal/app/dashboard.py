@@ -1,6 +1,6 @@
 from urllib.parse import quote  # noqa: I001
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from supabase import Client
@@ -8,6 +8,7 @@ from supabase import Client
 from app.assets import service as asset_service
 from app.auth.dependencies import get_current_user
 from app.auth.upload_tokens import create_upload_token, UPLOAD_TOKEN_TTL_SECONDS
+from app.content import service as content_service
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels.models import HotelCreate, HotelUpdate
@@ -24,6 +25,40 @@ def _hotel_form_context(request: Request, hotel: dict | None = None, error: str 
         "tiers": ["standard", "growth", "premium"],
         "channels": ["instagram", "facebook", "tiktok", "google_business"],
     }
+
+
+# What the review section lists besides the drafts waiting for a decision: how the latest
+# decisions went (published to Buffer, or failed), so an operator sees the outcome.
+DECIDED_STATUSES = ("approved", "scheduled", "failed")
+
+
+def _detail_context(
+    request: Request, db: Client, hotel_id: str, upload_link: str | None = None
+) -> dict:
+    hotel = hotel_service.get_hotel(db, hotel_id)
+    assets = asset_service.list_assets(db, hotel_id)
+    decided = [
+        d for status in DECIDED_STATUSES for d in content_service.list_drafts(db, hotel_id, status)
+    ]
+    decided.sort(key=lambda d: d.get("created_at") or "", reverse=True)
+    return {
+        "request": request,
+        "hotel": hotel,
+        "assets": assets,
+        "asset_names": {a["id"]: a["filename"] for a in assets},
+        "pending": content_service.list_drafts(db, hotel_id, "pending_review"),
+        "decided": decided[:10],
+        "upload_link": upload_link,
+        "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
+    }
+
+
+def _hotels_draft(db: Client, hotel_id: str, draft_id: str) -> dict:
+    """The draft, if it belongs to this hotel: a URL can't act on another hotel's draft."""
+    draft = content_service.get_draft(db, draft_id)
+    if draft.get("hotel_id") != hotel_id:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return draft
 
 
 @router.get("")
@@ -86,18 +121,8 @@ def hotel_detail(
     request: Request,
     db: Client = Depends(get_supabase),
 ):
-    hotel = hotel_service.get_hotel(db, hotel_id)
-    assets = asset_service.list_assets(db, hotel_id)
     return templates.TemplateResponse(
-        request,
-        "dashboard/hotel_detail.html",
-        {
-            "request": request,
-            "hotel": hotel,
-            "assets": assets,
-            "upload_link": None,
-            "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
-        },
+        request, "dashboard/hotel_detail.html", _detail_context(request, db, hotel_id)
     )
 
 
@@ -158,17 +183,37 @@ def create_hotel_upload_link(
     upload_link = (
         f"{str(request.base_url).rstrip('/')}{page_url}#token={quote(capability, safe='')}"
     )
-    assets = asset_service.list_assets(db, hotel_id)
     response = templates.TemplateResponse(
         request,
         "dashboard/hotel_detail.html",
-        {
-            "request": request,
-            "hotel": hotel,
-            "assets": assets,
-            "upload_link": upload_link,
-            "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
-        },
+        _detail_context(request, db, hotel_id, upload_link),
     )
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@router.post("/hotels/{hotel_id}/drafts/{draft_id}/approve")
+def approve_draft(hotel_id: str, draft_id: str, db: Client = Depends(get_supabase)):
+    """Approve a draft waiting for review: it is published to Buffer by the worker. A second
+    click (the draft is no longer pending) changes nothing and just returns to the page."""
+    _hotels_draft(db, hotel_id, draft_id)
+    try:
+        content_service.approve_draft(db, draft_id)
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#review", status_code=303)
+
+
+@router.post("/hotels/{hotel_id}/drafts/{draft_id}/reject")
+def reject_draft(
+    hotel_id: str,
+    draft_id: str,
+    feedback: str = Form(""),
+    db: Client = Depends(get_supabase),
+):
+    """Reject a draft waiting for review, with optional feedback; it is never published."""
+    draft = _hotels_draft(db, hotel_id, draft_id)
+    if draft.get("status") == "pending_review":
+        content_service.reject_draft(db, draft_id, feedback.strip() or None)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#review", status_code=303)

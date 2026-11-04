@@ -1,5 +1,6 @@
 """A stand-in for the Supabase client: each table answers selects with the rows a test gives
-it (filtered by `in_`) and records what the code writes; Storage keeps files in memory."""
+it (filtered by `eq` and `in_` on columns the rows have) and records what the code writes;
+an `update` changes the matching rows. Storage keeps files in memory."""
 
 from types import SimpleNamespace
 from typing import Any
@@ -11,11 +12,13 @@ class FakeQuery:
         self.write: tuple[str, Any] | None = None
         self.one = False
         self.only: tuple[str, list[Any]] | None = None
+        self.equal: list[tuple[str, Any]] = []
 
     def select(self, *_: Any, **__: Any) -> FakeQuery:
         return self
 
-    def eq(self, *_: Any) -> FakeQuery:
+    def eq(self, column: str, value: Any) -> FakeQuery:
+        self.equal.append((column, value))
         return self
 
     def in_(self, column: str, values: list[Any]) -> FakeQuery:
@@ -40,14 +43,30 @@ class FakeQuery:
         self.write = ("upsert", row)
         return self
 
-    def execute(self) -> SimpleNamespace:
-        if self.write:
-            self.db.writes.append((self.table, *self.write))
-            return SimpleNamespace(data=[self.write[1]])
+    def update(self, row: dict[str, Any]) -> FakeQuery:
+        self.write = ("update", row)
+        return self
+
+    def _matching(self) -> list[dict[str, Any]]:
         rows = self.db.rows.get(self.table, [])
+        # A filter on a column the test's rows don't have is ignored, as before eq filtered.
+        rows = [r for r in rows if all(r.get(c, v) == v for c, v in self.equal)]
         if self.only:
             column, values = self.only
             rows = [row for row in rows if row.get(column) in values]
+        return rows
+
+    def execute(self) -> SimpleNamespace:
+        if self.write and self.write[0] == "update":
+            matching = self._matching()
+            for row in matching:
+                row.update(self.write[1])
+            self.db.writes.append((self.table, *self.write))
+            return SimpleNamespace(data=[dict(r) for r in matching])
+        if self.write:
+            self.db.writes.append((self.table, *self.write))
+            return SimpleNamespace(data=[self.write[1]])
+        rows = self._matching()
         return SimpleNamespace(data=(rows[0] if rows else None) if self.one else rows)
 
 

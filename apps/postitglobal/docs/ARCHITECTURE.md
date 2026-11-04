@@ -63,7 +63,7 @@ The API and worker are separate processes but use the same source image and envi
 3. Magic-link and password-recovery requests direct Supabase email links to `/auth/callback`. The callback page receives tokens in the URL fragment, removes the fragment from browser history, and posts tokens to the server.
 4. Magic-link tokens are validated and saved in Redis as an operator session. Recovery tokens are saved in a separate, 15-minute Redis record accessible only through a dedicated reset cookie; the reset form changes the password using the recovery session, then removes the temporary record.
 5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie. Session access tokens are refreshed near expiry.
-6. The dashboard supports listing, creating, and editing hotel profiles, and displaying hotel asset records.
+6. The dashboard supports listing, creating, and editing hotel profiles, displaying hotel asset records, and reviewing drafts: a hotel's page lists its drafts in `pending_review` (text, network, images), with Approve and publish and Reject (optional feedback) buttons, and its ten latest decided drafts with their outcome (`approved`, `scheduled`, `failed`). The buttons post to `/dashboard/hotels/{hotel_id}/drafts/{draft_id}/approve` and `/reject`, which act only on a draft of that hotel still in `pending_review`; a second click changes nothing.
 7. Session records are server-side in Redis; Redis availability is therefore required for operator sign-in and authenticated browser requests.
 
 Hotel-level isolation is not yet implemented for operator accounts: any authenticated operator can access all hotel records because the backend uses its Supabase service-role client.
@@ -95,7 +95,7 @@ The translation task tolerates individual language failures by logging and skipp
 
 ### Review and publishing
 
-1. An authenticated operator reads drafts in `pending_review`.
+1. An authenticated operator reads drafts in `pending_review`, on the hotel's dashboard page or through `/api/v1/content`.
 2. Approving a draft changes its status to `approved` and enqueues a publish task. Rejecting changes its status to `rejected` and optionally stores feedback.
 3. The publish task sends the Turkish body to the Buffer channel configured for the draft's network (`hotels.buffer_profiles`), through Buffer's GraphQL API (`createPost` at `https://api.buffer.com`, mode `shareNext`: the top of that channel's queue), with the draft's images: each ready JPEG or PNG among its `asset_ids`, in order and at most 10 (Instagram's carousel limit), copied from `hotel-assets` into the public `published-media` bucket (`<hotel>/<draft>/<asset>.<ext>`). Buffer fetches media when the post goes out, possibly days later, so it gets those permanent public URLs, not signed ones that would expire. Instagram refuses text-only posts: an Instagram draft without a ready image fails before Buffer is called. Videos are not sent yet. The task then writes a `publish_log` row with Buffer's post ID and marks the draft `scheduled`. Buffer answers HTTP 200 even when it refuses a post; the refusal (`MutationError` or the `errors` array) raises `BufferError`, so nothing is logged and the task retries.
 

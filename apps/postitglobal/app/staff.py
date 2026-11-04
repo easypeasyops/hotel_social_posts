@@ -90,6 +90,19 @@ def staff_approve(
     return RedirectResponse("/hotel/drafts?done=approved", status_code=303)
 
 
+@router.post("/drafts/{draft_id}/edit")
+def staff_edit(
+    draft_id: str,
+    body_tr: str = Form(...),
+    hotel_id: str = Depends(require_staff),
+    db: Client = Depends(get_supabase),
+):
+    """As on the dashboard: save a pending draft's edited text, translated again."""
+    _own_draft(db, hotel_id, draft_id)
+    content_service.edit_draft_text(db, draft_id, body_tr)
+    return RedirectResponse(f"/hotel/drafts?done=edited#draft-{draft_id}", status_code=303)
+
+
 @router.post("/drafts/{draft_id}/reject")
 def staff_reject(
     draft_id: str,

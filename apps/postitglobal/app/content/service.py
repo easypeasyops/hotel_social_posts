@@ -41,6 +41,28 @@ def approve_draft(db: Client, draft_id: str) -> dict:
     return response.data[0]
 
 
+def edit_draft_text(db: Client, draft_id: str, body_tr: str) -> bool:
+    """Replace the Turkish text of a draft still waiting for review, and make its
+    translations again from it. False when the draft has been decided meanwhile: it stays as
+    it was. Empty text is refused (422)."""
+    from app.jobs.tasks import translate_content_task  # avoid circular import
+
+    body_tr = body_tr.strip()
+    if not body_tr:
+        raise HTTPException(status_code=422, detail="The post's text can't be empty")
+    response = (
+        db.table("content_drafts")
+        .update({"body_tr": body_tr})
+        .eq("id", draft_id)
+        .eq("status", "pending_review")
+        .execute()
+    )
+    if not response.data:
+        return False
+    translate_content_task.delay(draft_id)
+    return True
+
+
 # Drafts that can be deleted: none of them is at Buffer. An approved draft is being published
 # and a scheduled one is in Buffer's queue: deleting the row wouldn't take the post back.
 DELETABLE_STATUSES = ("pending_review", "rejected", "failed")

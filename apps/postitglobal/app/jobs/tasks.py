@@ -109,3 +109,15 @@ def publish_content_task(self, draft_id: str):
     except Exception as exc:
         db.table("content_drafts").update({"status": "failed"}).eq("id", draft_id).execute()
         raise self.retry(exc=exc, countdown=60)  # noqa: B904
+
+
+@celery_app.task(name="tasks.sync_buffer_posts")
+def sync_buffer_posts_task():
+    """
+    Marks each draft Buffer has sent as published, and each it couldn't send as failed.
+    Queued hourly by the cluster's sync-buffer CronJob (celery call).
+    """
+    from app.database import get_supabase
+    from app.publishing.buffer import sync_scheduled_posts
+
+    sync_scheduled_posts(get_supabase())

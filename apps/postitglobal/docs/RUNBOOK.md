@@ -11,8 +11,8 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 - **Redis:** Celery broker/result backend and operator session store.
 - **Supabase:** Postgres, Auth, the private `hotel-assets` Storage bucket (uploads) and the public `published-media` bucket (images being posted).
 - **External providers:** Anthropic, DeepL, and Buffer.
-- **Cron:** the cluster's `generate-weekly` CronJob (below). Railway ran the app and its cron until plan 5.9.
-- **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC, prod only: staging shares prod's Supabase). Run it now: `kubectl -n postitglobal-prod create job generate-now --from=cronjob/postitglobal-generate-weekly`; in staging, queue one hotel with `POST /internal/jobs/generate/<hotel_id>`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh postitglobal .env`, then restart the API and the worker to read changed keys (`kubectl -n postitglobal-<env> rollout restart deployment`).
+- **Cron:** the cluster's `generate-weekly` and `sync-buffer` CronJobs (below). Railway ran the app and its cron until plan 5.9.
+- **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC, prod only: staging shares prod's Supabase). Run it now: `kubectl -n postitglobal-prod create job generate-now --from=cronjob/postitglobal-generate-weekly`; in staging, queue one hotel with `POST /internal/jobs/generate/<hotel_id>`. The `sync-buffer` CronJob (hourly at :15, prod only) marks drafts Buffer has sent `published` and those it couldn't send `failed`; run it now with `kubectl -n postitglobal-prod create job sync-now --from=cronjob/postitglobal-sync-buffer`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh postitglobal .env`, then restart the API and the worker to read changed keys (`kubectl -n postitglobal-<env> rollout restart deployment`).
 
 ## Prerequisites and configuration
 
@@ -109,7 +109,7 @@ A release is an image built, scanned and signed by `.github/workflows/release.ym
 5. The worker deploys with the API: the chart's `workers.worker` runs the same image with `celery -A app.jobs.tasks.celery_app worker --loglevel=info --concurrency=2`.
 6. Verify the API and worker logs (`kubectl -n postitglobal-<env> logs deploy/postitglobal` and `deploy/postitglobal-worker`), then `GET /readyz` through the Gateway.
 7. Verify a protected job trigger only in a controlled environment and ensure it is not exposed with the cron secret in logs or shell history.
-8. Weekly generation is the `generate-weekly` CronJob in prod (`deploy/service/values.yaml`); nothing to configure outside this repository.
+8. Weekly generation is the `generate-weekly` CronJob in prod, the Buffer sync the hourly `sync-buffer` one (`deploy/service/values.yaml`); nothing to configure outside this repository.
 9. For release validation, confirm a test hotel can create a draft, persist translations, and schedule an approved draft without sending unintended production posts.
 
 ## Routine operational checks
@@ -184,7 +184,7 @@ The hotel upload page uses a short-lived, hotel-scoped capability instead of an 
 3. If Buffer accepted the post but the database write failed, a Celery retry may submit it again. Confirm provider-side state and remove/resolve duplicates through Buffer before triggering another publish attempt.
 4. After confirming the external action, reconcile `content_drafts` and `publish_log` through the approved database procedure.
 
-The application currently schedules Turkish text only and has no Buffer webhook/polling process to update a draft to `published`. It uses Buffer's GraphQL API since 2026-11; Buffer's legacy REST API (`api.bufferapp.com/1`) has brownouts on 2026-11-11 and 2026-12-09 and stops on 2027-02-01.
+The application currently schedules Turkish text only. A draft becomes `published` (or `failed`) when the hourly `sync-buffer` CronJob finds Buffer has sent it (or couldn't). It uses Buffer's GraphQL API since 2026-11; Buffer's legacy REST API (`api.bufferapp.com/1`) has brownouts on 2026-11-11 and 2026-12-09 and stops on 2027-02-01.
 
 ### Cron did not enqueue generation
 
@@ -192,6 +192,12 @@ The application currently schedules Turkish text only and has no Buffer webhook/
 2. A manual `POST /internal/jobs/generate` must include `X-Cron-Secret`.
 3. Check for an authorization failure, API health issue, or Redis/worker outage in logs.
 4. If manually rerunning generation, inspect recent drafts first to avoid duplicates.
+
+### A draft stays scheduled after its post went out
+
+1. Check the `sync-buffer` CronJob's last runs: `kubectl -n postitglobal-prod get cronjob,jobs`, then the worker's logs for `tasks.sync_buffer_posts`.
+2. A warning `Buffer post <id>: NOT_FOUND ...` means Buffer no longer has the post (deleted in Buffer's app): the draft stays `scheduled`; reconcile it by hand after checking the network.
+3. An HTTP 429 means Buffer's rate limit (shared by every key on the account): the next hour's run picks up where this one stopped.
 
 ## Security and data handling
 

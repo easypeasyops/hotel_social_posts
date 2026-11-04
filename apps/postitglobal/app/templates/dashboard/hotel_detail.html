@@ -127,7 +127,7 @@
     <div class="py-2 flex items-center justify-between gap-4 text-sm">
       <p class="min-w-0 truncate">{{ draft.channel|replace("_", " ")|capitalize }}: {{ draft.body_tr }}</p>
       <div class="shrink-0 flex items-center gap-3">
-        <span class="rounded-full px-2.5 py-1 text-xs {% if draft.status == 'failed' %}bg-red-50 text-red-800{% elif draft.status == 'scheduled' %}bg-green-50 text-green-800{% else %}bg-gray-100{% endif %}">{{ draft.status|capitalize }}</span>
+        <span class="rounded-full px-2.5 py-1 text-xs {% if draft.status == 'failed' %}bg-red-50 text-red-800{% elif draft.status in ('scheduled', 'published') %}bg-green-50 text-green-800{% else %}bg-gray-100{% endif %}">{{ draft.status|capitalize }}</span>
         {% if draft.status in deletable %}
         <form method="post" action="/dashboard/hotels/{{ hotel.id }}/drafts/{{ draft.id }}/delete"
               onsubmit="return confirm('Delete this draft and its translations for good?')">

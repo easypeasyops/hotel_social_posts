@@ -20,7 +20,7 @@ flowchart LR
     Claude[Anthropic Claude API]
     DeepL[DeepL API]
     Buffer[Buffer API]
-    Cron[Weekly CronJob]
+    Cron[CronJobs: weekly generation, hourly Buffer sync]
 
     Operator -->|Supabase bearer JWT or HttpOnly session cookie| API
     Guest -->|upload page| API
@@ -50,7 +50,7 @@ flowchart LR
 | Text generation | Turkish post drafts | Anthropic Claude; model selected by hotel tier |
 | Translation | Draft translations | DeepL API Free endpoint; enabled languages vary by tier |
 | Social scheduling | Queue approved Turkish drafts | Buffer API |
-| Deployment | The platform's Kubernetes cluster (since plan 5.9; Railway before): the API, the worker, Redis and a weekly CronJob, from the platform's service chart | `Dockerfile`; `deploy/` |
+| Deployment | The platform's Kubernetes cluster (since plan 5.9; Railway before): the API, the worker, Redis and two CronJobs (weekly generation, hourly Buffer sync), from the platform's service chart | `Dockerfile`; `deploy/` |
 
 The API and worker are separate processes but use the same source image and environment. The container's default command starts the API; the worker needs its own service/start command. The API also requires Redis for browser sessions.
 
@@ -63,7 +63,7 @@ The API and worker are separate processes but use the same source image and envi
 3. Magic-link and password-recovery requests direct Supabase email links to `/auth/callback`. The callback page receives tokens in the URL fragment, removes the fragment from browser history, and posts tokens to the server.
 4. Magic-link tokens are validated and saved in Redis as an operator session. Recovery tokens are saved in a separate, 15-minute Redis record accessible only through a dedicated reset cookie; the reset form changes the password using the recovery session, then removes the temporary record.
 5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie. Session access tokens are refreshed near expiry.
-6. The dashboard supports listing, creating, and editing hotel profiles, displaying hotel asset records, and generating and reviewing drafts: **Generate new drafts** (`POST /dashboard/hotels/{hotel_id}/generate`) queues that hotel's generation task now, as the weekly CronJob does for every hotel; a hotel's page lists its drafts in `pending_review` (text, network, images), with Approve and publish and Reject (optional feedback) buttons, and its ten latest decided drafts with their outcome (`approved`, `scheduled`, `failed`). The buttons post to `/dashboard/hotels/{hotel_id}/drafts/{draft_id}/approve` and `/reject`, which act only on a draft of that hotel still in `pending_review`; a second click changes nothing. Files and drafts can be deleted there too (`…/assets/{asset_id}/delete`, `…/drafts/{draft_id}/delete`, each after a browser confirmation): a file with its Storage object; a draft that isn't at Buffer (`pending_review`, `rejected`, `failed`) with its translations and publish log (cascade) and the image copies a publish attempt made in `published-media`. An approved or scheduled draft can't be deleted (409): its post is at Buffer, which the row's deletion wouldn't recall.
+6. The dashboard supports listing, creating, and editing hotel profiles, displaying hotel asset records, and generating and reviewing drafts: **Generate new drafts** (`POST /dashboard/hotels/{hotel_id}/generate`) queues that hotel's generation task now, as the weekly CronJob does for every hotel; a hotel's page lists its drafts in `pending_review` (text, network, images), with Approve and publish and Reject (optional feedback) buttons, and its ten latest decided drafts with their outcome (`approved`, `scheduled`, `published`, `failed`). The buttons post to `/dashboard/hotels/{hotel_id}/drafts/{draft_id}/approve` and `/reject`, which act only on a draft of that hotel still in `pending_review`; a second click changes nothing. Files and drafts can be deleted there too (`…/assets/{asset_id}/delete`, `…/drafts/{draft_id}/delete`, each after a browser confirmation): a file with its Storage object; a draft that isn't at Buffer (`pending_review`, `rejected`, `failed`) with its translations and publish log (cascade) and the image copies a publish attempt made in `published-media`. An approved, scheduled or published draft can't be deleted (409): its post is at Buffer, which the row's deletion wouldn't recall.
 7. Session records are server-side in Redis; Redis availability is therefore required for operator sign-in and authenticated browser requests.
 
 Hotel-level isolation is not yet implemented for operator accounts: any authenticated operator can access all hotel records because the backend uses its Supabase service-role client.
@@ -98,8 +98,9 @@ The translation task tolerates individual language failures by logging and skipp
 1. An authenticated operator reads drafts in `pending_review`, on the hotel's dashboard page or through `/api/v1/content`.
 2. Approving a draft changes its status to `approved` and enqueues a publish task. Rejecting changes its status to `rejected` and optionally stores feedback.
 3. The publish task sends the Turkish body to the Buffer channel configured for the draft's network (`hotels.buffer_profiles`), through Buffer's GraphQL API (`createPost` at `https://api.buffer.com`, mode `shareNext`: the top of that channel's queue; for Instagram with `metadata.instagram` `{type: post, shouldShareToFeed: true}`, without which Buffer refuses the post), with the draft's images: each ready JPEG or PNG among its `asset_ids`, in order and at most 10 (Instagram's carousel limit), copied from `hotel-assets` into the public `published-media` bucket (`<hotel>/<draft>/<asset>.<ext>`). Buffer fetches media when the post goes out, possibly days later, so it gets those permanent public URLs, not signed ones that would expire. Instagram refuses text-only posts: an Instagram draft without a ready image fails before Buffer is called. Videos are not sent yet. The task then writes a `publish_log` row with Buffer's post ID and marks the draft `scheduled`. Buffer answers HTTP 200 even when it refuses a post; the refusal (`MutationError` or the `errors` array) raises `BufferError`, so nothing is logged and the task retries.
+4. The hourly `sync-buffer` CronJob queues `tasks.sync_buffer_posts`, which asks Buffer (the `post` query) about each `publish_log` row still `scheduled`. A post Buffer sent (`sent`) marks the row and its draft `published`, the row's `published_at` being Buffer's `sentAt`; one it couldn't send (`error`, a disconnected channel say) marks both `failed` and logs Buffer's message. Any other status (`scheduled`, `sending`, ...) waits for the next run. A post Buffer won't return (deleted in Buffer's app, say) is logged and skipped, so it doesn't hold up the others; the rate limit (429) ends the run.
 
-Publishing currently sends one Turkish post per draft; translations are not sent to Buffer. Buffer scheduling outcomes are not synchronized back into draft status by a webhook or polling process in this repository.
+Publishing currently sends one Turkish post per draft; translations are not sent to Buffer. Buffer's outcome comes back by that hourly poll, not a webhook: a draft shows `published` up to an hour after its post goes out.
 
 ## API surface
 
@@ -143,6 +144,7 @@ Since 5.9 postitglobal runs on the platform's Kubernetes cluster, rendered by th
 | Worker | `workers.worker`: the same image running `celery … worker --concurrency=2`, 120 s to finish its tasks on SIGTERM |
 | Redis | `redis.enabled`: the chart's in-namespace Redis 8, its URL templated into `REDIS_URL`, reachable only from this app's pods |
 | Weekly generation | `cronJobs.generate-weekly`, prod only (staging shares prod's Supabase, so a second run would duplicate every hotel's drafts): Mondays 06:00 UTC, `celery … call tasks.generate_all_hotels` queues the task and exits. It replaced Railway's cron, which called the HTTP endpoint |
+| Buffer sync | `cronJobs.sync-buffer`, prod only (staging shares prod's rows and the one Buffer quota): hourly at :15, `celery … call tasks.sync_buffer_posts` queues the task and exits |
 | Keys | `secretEnv.store: postitglobal`: the platform's store for this app, loaded by hand from `.env`; each secret variable reads one key of `postitglobal-env` |
 | Network | Ingress: the app port from the Gateway, metrics from Prometheus. Egress: DNS, the app's Redis, and port 443 outside the private ranges (Supabase and the providers can't be named in a NetworkPolicy) |
 
@@ -181,7 +183,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Asset processing is a placeholder status transition, not media validation or transformation.
 - A hotel-generation task creates drafts before queuing translation. A retry after partial completion may create duplicate drafts.
 - Translation failures can leave a partial set of translation rows without failing the overall task.
-- No periodic Celery beat schedule is configured here. Weekly generation is the cluster's `generate-weekly` CronJob, which queues the task directly; `POST /internal/jobs/generate` does the same by hand.
+- No periodic Celery beat schedule is configured here. Weekly generation is the cluster's `generate-weekly` CronJob, which queues the task directly; `POST /internal/jobs/generate` does the same by hand. The hourly Buffer sync is the `sync-buffer` CronJob.
 - Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
 - Operator authentication has no sign-up, MFA, or role management UI. Magic links and password recovery are supported for existing users only.
 - Logs (plan 5.3): the API and the worker write one JSON object per line to stdout (`app/observability.py`): `ts`, `level`, `logger`, `msg`, and the fields a call adds (a failed translation's `draft_id`, `language`, `error`). Every request gets a request ID, kept from a plain `X-Request-ID` header or generated, echoed in the response and on every line the request logs; one access line per request names its route template (`/api/v1/hotels/{hotel_id}`), never the raw path. Probes are logged at DEBUG.

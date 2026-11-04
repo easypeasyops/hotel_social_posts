@@ -62,12 +62,12 @@ The API and worker are separate processes but use the same source image and envi
 2. The API stores access and refresh tokens in Redis behind a random, HttpOnly cookie (`postitglobal_session`). The cookie is `SameSite=Strict`, has a seven-day lifetime, and uses `Secure` by default; local HTTP development can set `SESSION_COOKIE_SECURE=false`.
 3. **Forgot password?** on the sign-in page opens `/forgot-password`, which asks Supabase for a recovery email and answers the same whether or not the address has an account. Magic-link and password-recovery requests direct Supabase email links to `/auth/callback`. The callback page receives tokens in the URL fragment, removes the fragment from browser history, and posts tokens to the server.
 4. Magic-link tokens are validated and saved in Redis as an operator session. Recovery tokens are saved in a separate, 15-minute Redis record accessible only through a dedicated reset cookie; the reset form changes the password using the recovery session, then removes the temporary record.
-5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie. Session access tokens are refreshed near expiry.
+5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie, and only for an operator: an account whose Supabase `app_metadata.role` is `operator` (`require_operator` in `app/auth/dependencies.py`; any other signed-in account gets 403). Users can't change their own `app_metadata`, so an operator is only ever made by hand in Supabase. Sign-in checks the same role before it creates a session: a password or email-link sign-in without it is refused (403, "This account doesn't have access"), and a password reset without it changes the password but signs nobody in. The role is read from Supabase on each request (`get_user`), so granting or removing it takes effect at once. Session access tokens are refreshed near expiry.
 6. The dashboard supports listing, creating, and editing hotel profiles, displaying hotel asset records, and generating and reviewing drafts: **Generate new drafts** (`POST /dashboard/hotels/{hotel_id}/generate`) queues that hotel's generation task now, as the weekly CronJob does for every hotel; a hotel's page lists its drafts in `pending_review` (text, network, images), with Approve and publish and Reject (optional feedback) buttons, and its ten latest decided drafts with their outcome (`approved`, `scheduled`, `published`, `failed`). The buttons post to `/dashboard/hotels/{hotel_id}/drafts/{draft_id}/approve` and `/reject`, which act only on a draft of that hotel still in `pending_review`; a second click changes nothing. Files and drafts can be deleted there too (`…/assets/{asset_id}/delete`, `…/drafts/{draft_id}/delete`, each after a browser confirmation): a file with its Storage object; a draft that isn't at Buffer (`pending_review`, `rejected`, `failed`) with its translations and publish log (cascade) and the image copies a publish attempt made in `published-media`. An approved, scheduled or published draft can't be deleted (409): its post is at Buffer, which the row's deletion wouldn't recall.
 7. The sign-in pages (`/login`, `/forgot-password`, `/auth/callback`, `/reset-password`) share `app/templates/auth/_layout.html`, in the customer layer of the design system (lagoon and sand, Figtree). Password fields have a Show/Hide toggle, and the reset form checks the length, strength and match as the password is typed (the server still enforces at least 8 characters and the match). They load no third-party script, since they handle passwords and the callback's URL carries tokens: their styles are inline CSS rather than the Tailwind CDN the dashboard uses.
 8. Session records are server-side in Redis; Redis availability is therefore required for operator sign-in and authenticated browser requests.
 
-Hotel-level isolation is not yet implemented for operator accounts: any authenticated operator can access all hotel records because the backend uses its Supabase service-role client.
+Hotel-level isolation is not implemented for operator accounts: any operator can access all hotel records because the backend uses its Supabase service-role client.
 
 ## Request and job flows
 
@@ -113,12 +113,12 @@ All API route prefixes below are registered in `app/main.py`.
 | `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
 | `GET /login`, `POST /login`, `POST /login/magic-link`, `GET/POST /forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or magic-link sign-in, password recovery, sign-out |
 | `GET /` | None | Redirects to `/dashboard/hotels` (signed out, on to `/login`) |
-| `/dashboard/*` | Operator session or Supabase bearer JWT | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
+| `/dashboard/*` | Operator session or Supabase bearer JWT; operator role | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
 | `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
-| `/api/v1/hotels` | Supabase bearer JWT or operator session | List, create, retrieve, update, and delete hotel profiles |
-| `/api/v1/assets` | Supabase bearer JWT or operator session | List assets, create operator upload URLs, confirm uploads, and delete assets |
+| `/api/v1/hotels` | Supabase bearer JWT or operator session; operator role | List, create, retrieve, update, and delete hotel profiles |
+| `/api/v1/assets` | Supabase bearer JWT or operator session; operator role | List assets, create operator upload URLs, confirm uploads, and delete assets |
 | `/api/v1/upload-capabilities/{hotel_id}/*` | 24-hour hotel-scoped signed capability | Create upload URL and confirm an asset upload |
-| `/api/v1/content` | Supabase bearer JWT or operator session | List/retrieve drafts, approve/reject drafts, and retrieve translations |
+| `/api/v1/content` | Supabase bearer JWT or operator session; operator role | List/retrieve drafts, approve/reject drafts, and retrieve translations |
 | `/internal/jobs/generate` | `X-Cron-Secret` | Enqueue generation for all hotels |
 | `/internal/jobs/generate/{hotel_id}` | `X-Cron-Secret` | Enqueue generation for one hotel |
 | `/docs` | None, debug mode only | Interactive OpenAPI docs; disabled when `DEBUG` is false |
@@ -172,7 +172,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 | `REDIS_URL` | Optional; defaults to local Redis URL |
 | `SESSION_COOKIE_SECURE` | Optional; defaults to true, set false only for local HTTP development |
 
-`CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional overrides. API bearer tokens and browser-session access tokens are validated through Supabase Auth. Browser refresh tokens are stored in Redis, not in the cookie. The database dependency uses the service-role key for application queries, so route authentication verifies an identity but does not itself enforce hotel-level tenancy; all authenticated API users currently share the same application data access. Upload capabilities are HMAC-signed with `SECRET_KEY`, scoped to one hotel and one purpose, and expire after 24 hours.
+`CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional overrides. API bearer tokens and browser-session access tokens are validated through Supabase Auth. Browser refresh tokens are stored in Redis, not in the cookie. The database dependency uses the service-role key for application queries, so route authentication verifies an identity and the operator role but does not enforce hotel-level tenancy; all operators share the same application data access. Upload capabilities are HMAC-signed with `SECRET_KEY`, scoped to one hotel and one purpose, and expire after 24 hours.
 
 ## Reliability and current design limits
 

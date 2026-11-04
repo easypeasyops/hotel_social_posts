@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from supabase import Client
 
 from app.assets import service as asset_service
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require_operator
 from app.auth.upload_tokens import create_upload_token, UPLOAD_TOKEN_TTL_SECONDS
 from app.content import service as content_service
 from app.database import get_supabase
@@ -14,7 +14,7 @@ from app.hotels import service as hotel_service
 from app.hotels.models import HotelCreate, HotelUpdate
 from app.jobs import tasks
 
-router = APIRouter(prefix="/dashboard", dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/dashboard", dependencies=[Depends(require_operator)])
 templates = Jinja2Templates(directory="app/templates")
 
 

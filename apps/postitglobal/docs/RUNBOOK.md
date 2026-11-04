@@ -36,7 +36,15 @@ PUBLIC_BASE_URL=http://localhost:8000
 
 The blank values above are placeholders; supply secrets through your secret manager. `REDIS_URL` defaults to the local URL shown. `SESSION_COOKIE_SECURE=false` is required only when using plain HTTP on local development; keep it true in deployed environments. `CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional. Keep the Supabase service-role key server-side only; it bypasses row-level security.
 
-Create operator accounts through the Supabase Auth administration process. The application provides password and magic-link sign-in plus a forgot-password flow, but does not provide sign-up or MFA. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
+Create operator accounts through the Supabase Auth administration process. The application provides password and magic-link sign-in plus a forgot-password flow, but does not provide sign-up or MFA. An account reaches the dashboard and the operator API only with the operator role, which you set by hand. Staging and prod share one Supabase project, so this covers both. In the Supabase **SQL editor**:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "operator"}'
+where email in ('operator@example.com');
+```
+
+Remove the role with `raw_app_meta_data - 'role'`. The app reads the role from Supabase on every request, so either change applies at once with no new sign-in. Run the update for every existing operator **before** deploying a version with the role check: without it they get "This account doesn't have access to postitglobal." To list the operators: `select email from auth.users where raw_app_meta_data->>'role' = 'operator';`. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
 
 In Supabase **Authentication → URL Configuration**, set the Site URL to the app origin and add the callback URL to the redirect allow list:
 

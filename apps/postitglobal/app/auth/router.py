@@ -142,7 +142,12 @@ def request_magic_link(request: Request, email: str = Form(...)):
     )
 
 
-@router.post("/login/forgot-password")
+@router.get("/forgot-password", name="forgot_password_page")
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse(request, "auth/forgot_password.html", {"request": request})
+
+
+@router.post("/forgot-password")
 def request_password_reset(request: Request, email: str = Form(...)):
     settings = get_settings()
     callback_url = f"{settings.public_base_url.rstrip('/')}/auth/callback"
@@ -162,22 +167,16 @@ def request_password_reset(request: Request, email: str = Form(...)):
         logger.exception("Password-reset email request failed")
         return templates.TemplateResponse(
             request,
-            "auth/login.html",
+            "auth/forgot_password.html",
             {
                 "request": request,
-                "password_reset_error": "Could not send a reset link right now. Try again later.",
+                "error": "Could not send a reset link right now. Try again later.",
             },
             status_code=502,
         )
 
     return templates.TemplateResponse(
-        request,
-        "auth/login.html",
-        {
-            "request": request,
-            "password_reset_sent": True,
-            "password_reset_email": email,
-        },
+        request, "auth/forgot_password.html", {"request": request, "sent_to": email}
     )
 
 

@@ -14,14 +14,6 @@
     {% if magic_link_error %}
     <div role="alert" class="alert alert-error">{{ magic_link_error }}</div>
     {% endif %}
-    {% if password_reset_sent %}
-    <div role="status" class="alert alert-ok">
-      If an account exists for {{ password_reset_email }}, a password reset link has been sent.
-    </div>
-    {% endif %}
-    {% if password_reset_error %}
-    <div role="alert" class="alert alert-error">{{ password_reset_error }}</div>
-    {% endif %}
     {% if request.query_params.get("error") == "session" %}
     <div role="alert" class="alert alert-warn">
       The session could not be revoked because the session store is unavailable. The browser cookie was cleared.
@@ -29,7 +21,7 @@
     {% endif %}
     {% if request.query_params.get("error") == "reset" %}
     <div role="alert" class="alert alert-warn">
-      The password reset link is invalid or expired. Request a new one.
+      The password reset link is invalid or expired. <a href="/forgot-password">Request a new one.</a>
     </div>
     {% endif %}
     <form method="post" action="/login" class="stack">
@@ -38,8 +30,11 @@
         <input id="email" name="email" type="email" autocomplete="username" required />
       </div>
       <div>
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <div class="label-row">
+          <label for="password">Password</label>
+          <a class="small" href="/forgot-password">Forgot password?</a>
+        </div>
+        {% with name="password", autocomplete="current-password" %}{% include "auth/_password_input.html" %}{% endwith %}
       </div>
       <button type="submit" class="btn btn-primary">Sign in</button>
     </form>
@@ -51,14 +46,5 @@
       </div>
       <button type="submit" class="btn btn-secondary">Email me a sign-in link</button>
     </form>
-    <details class="foot small">
-      <summary>Forgot your password?</summary>
-      <form method="post" action="/login/forgot-password" class="stack" style="margin-top: 1rem; text-align: left;">
-        <div>
-          <label for="reset-email">Email address</label>
-          <input id="reset-email" name="email" type="email" autocomplete="email" required />
-        </div>
-        <button type="submit" class="btn btn-secondary">Send password reset link</button>
-      </form>
-    </details>
 {% endblock %}
+{% block scripts %}{% include "auth/_password_toggle.html" %}{% endblock %}

@@ -68,7 +68,7 @@ Expected response:
 
 This check does **not** verify Supabase, Redis, or provider connectivity. In local debug mode, `/docs` is available only if `DEBUG=true`. To stop local services, use `Ctrl+C` in the compose session.
 
-Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password or email magic link. Use **Forgot your password?** to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
+Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password or email magic link. Use **Forgot password?** (`/forgot-password`) to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
 
 ## Development checks
 

@@ -103,6 +103,25 @@ def set_draft_images(db: Client, draft_id: str, asset_ids: list[str], choices: l
 DELETABLE_STATUSES = ("pending_review", "rejected", "failed")
 
 
+def sent_asset_ids(db: Client, hotel_id: str) -> set[str]:
+    """The hotel's files a draft has taken to Buffer (any draft not deletable: approved,
+    scheduled or published). Staff can't rename, recategorize or delete them, so the record
+    of what went out stays true."""
+    drafts = (
+        db.table("content_drafts")
+        .select("asset_ids, status")
+        .eq("hotel_id", hotel_id)
+        .execute()
+        .data
+    )
+    return {
+        asset_id
+        for draft in drafts
+        if draft["status"] not in DELETABLE_STATUSES
+        for asset_id in draft.get("asset_ids") or []
+    }
+
+
 def delete_draft(db: Client, draft: dict) -> None:
     """Delete a draft, its translations and publish log (cascade), and the image copies an
     attempt to publish it made in the public bucket (<hotel>/<draft>/)."""

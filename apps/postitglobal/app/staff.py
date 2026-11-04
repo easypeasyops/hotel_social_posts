@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.assets import service as asset_service
+from app.assets.models import AssetCategory
 from app.auth.dependencies import require_staff
 from app.auth.upload_tokens import create_upload_token
 from app.content import service as content_service
@@ -37,6 +38,7 @@ def staff_home(
             "hotel": hotel_service.get_hotel(db, hotel_id),
             "assets": assets,
             "thumbnails": thumbnails,
+            "sent": content_service.sent_asset_ids(db, hotel_id),
             "pending_count": len(content_service.list_drafts(db, hotel_id, "pending_review")),
         },
     )
@@ -48,6 +50,39 @@ def staff_upload(hotel_id: str = Depends(require_staff), db: Client = Depends(ge
     hotel = hotel_service.get_hotel(db, hotel_id)
     capability = quote(create_upload_token(hotel_id), safe="")
     return RedirectResponse(f"/upload/{quote(hotel['slug'], safe='')}#token={capability}", 303)
+
+
+def _own_unsent_file(db: Client, hotel_id: str, asset_id: str) -> dict:
+    """The file, if it belongs to the staff member's hotel (else 404) and no draft has taken it
+    to Buffer (else 409)."""
+    asset = asset_service.get_asset(db, asset_id)
+    if asset.get("hotel_id") != hotel_id:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    if asset_id in content_service.sent_asset_ids(db, hotel_id):
+        raise HTTPException(status_code=409, detail="Bu dosya Buffer'a gönderilen bir paylaşımda")
+    return asset
+
+
+@router.post("/files/{asset_id}/edit")
+def staff_edit_file(
+    asset_id: str,
+    name: str = Form(...),
+    category: AssetCategory = Form(...),
+    hotel_id: str = Depends(require_staff),
+    db: Client = Depends(get_supabase),
+):
+    asset_service.edit_asset(db, _own_unsent_file(db, hotel_id, asset_id), name, category)
+    return RedirectResponse(f"/hotel#file-{asset_id}", status_code=303)
+
+
+@router.post("/files/{asset_id}/delete")
+def staff_delete_file(
+    asset_id: str, hotel_id: str = Depends(require_staff), db: Client = Depends(get_supabase)
+):
+    """Delete a file and its record. Pending drafts that named it go on without it."""
+    _own_unsent_file(db, hotel_id, asset_id)
+    asset_service.delete_asset(db, asset_id)
+    return RedirectResponse("/hotel#files", status_code=303)
 
 
 def _own_draft(db: Client, hotel_id: str, draft_id: str) -> dict:

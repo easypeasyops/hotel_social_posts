@@ -142,7 +142,7 @@ From 5.9 postitglobal runs on the platform's Kubernetes cluster, rendered by the
 | API | The release image, 2 replicas in prod and 1 in staging (no autoscaling), probes on `/healthz` and `/readyz`, behind the Gateway at `postitglobal.localhost` and `staging.postitglobal.localhost` |
 | Worker | `workers.worker`: the same image running `celery … worker --concurrency=2`, 120 s to finish its tasks on SIGTERM |
 | Redis | `redis.enabled`: the chart's in-namespace Redis 8, its URL templated into `REDIS_URL`, reachable only from this app's pods |
-| Weekly generation | `cronJobs.generate-weekly`: Mondays 06:00 UTC, `celery … call tasks.generate_all_hotels` queues the task and exits (Railway's cron, which called the HTTP endpoint, goes with 5.9) |
+| Weekly generation | `cronJobs.generate-weekly`, prod only (staging shares prod's Supabase, so a second run would duplicate every hotel's drafts): Mondays 06:00 UTC, `celery … call tasks.generate_all_hotels` queues the task and exits (Railway's cron, which called the HTTP endpoint, goes with 5.9) |
 | Keys | `secretEnv.store: postitglobal`: the platform's store for this app, loaded by hand from `.env`; each secret variable reads one key of `postitglobal-env` |
 | Network | Ingress: the app port from the Gateway, metrics from Prometheus. Egress: DNS, the app's Redis, and port 443 outside the private ranges (Supabase and the providers can't be named in a NetworkPolicy) |
 

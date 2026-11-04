@@ -52,12 +52,55 @@ jobs:
       context: apps/postitglobal
       smoke-command: POSTITGLOBAL_IMAGE="$IMAGE" apps/postitglobal/scripts/smoke.sh
 
+  # postitglobal's deploy values (apps/postitglobal/deploy/), rendered for each environment
+  # with the platform's service chart as Argo CD will, and schema-checked. The chart is the
+  # release the platform's apps/postitglobal/envs/ pin: move CHART with them.
+  deploy:
+    name: deploy values
+    needs: scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CHART: oci://ghcr.io/easypeasyops/charts/service@sha256:ca3d68b758d57577660a870180415210590c9ed299d80756102debb502d012f4 # 1.2.1
+      CRDS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/501527ab9c40c827144c8f45945b25a023e344ce
+      KUBECONFORM: ghcr.io/yannh/kubeconform:v0.8.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.scope.outputs.full == 'true'
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        if: needs.scope.outputs.full == 'true'
+        with:
+          version: v4.3.1
+      - name: Render each environment and validate it
+        if: needs.scope.outputs.full == 'true'
+        working-directory: apps/postitglobal/deploy
+        run: |
+          # An env file without a release yet renders with a placeholder digest.
+          placeholder="sha256:$(printf '0%.0s' {1..64})"
+          for env_file in envs/*.yaml; do
+            env=$(basename "$env_file" .yaml)
+            digest=$(yq -r '.image.digest // ""' "$env_file")
+            helm template postitglobal "$CHART" --namespace "postitglobal-$env" \
+              --values service/values.yaml --values "$env_file" \
+              --set "image.digest=${digest:-$placeholder}" \
+              --kube-version 1.37.0 \
+              --api-versions monitoring.coreos.com/v1/ServiceMonitor \
+              --api-versions monitoring.coreos.com/v1/PodMonitor >"/tmp/$env.yaml"
+            echo "$env: $(grep -c '^kind:' "/tmp/$env.yaml") objects"
+          done
+          docker run --rm -v /tmp:/r:ro -w /r "$KUBECONFORM" -strict -summary \
+            -kubernetes-version 1.37.0 -schema-location default \
+            -schema-location "$CRDS/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
+            staging.yaml prod.yaml
+
   # The one required check: green only when every job above passed (or was skipped as
   # docs-only by its own input, which still reports success).
   gate:
     name: ci
     if: always()
-    needs: [scope, check, image]
+    needs: [scope, check, image, deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

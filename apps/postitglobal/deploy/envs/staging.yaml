@@ -1,0 +1,14 @@
+# Staging: the same chart and image digest prod will get, smaller. It uses prod's keys and
+# Supabase (platform plan 5, decided): what it generates and publishes is real.
+# The release this environment runs. Argo CD deploys whatever is here on main, so changing
+# the digest in a merged PR IS the deploy; the first one lands with platform plan 5.9.
+environment: staging
+image:
+  digest: "" # postitglobal/v0.1.0's, once released
+replicaCount: 1
+gateway:
+  hostnames: ["staging.postitglobal.localhost"]
+config:
+  publicBaseUrl: "http://staging.postitglobal.localhost:8080"
+  sessionCookieSecure: "false" # the kind front door is plain HTTP
+  logLevel: DEBUG

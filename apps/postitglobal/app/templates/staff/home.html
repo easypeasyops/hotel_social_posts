@@ -22,13 +22,13 @@
   <span class="shrink-0 font-semibold text-iris-600" aria-hidden="true">→</span>
 </a>
 
-<section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
+<section id="files" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
   <h2 class="font-semibold">Yüklenen dosyalar</h2>
   {% if assets %}
   <ul class="mt-3 divide-y divide-sand-100">
     {% for asset in assets %}
     {% set status = statuses.get(asset.status, (asset.status, "bg-sand-100 text-sand-700")) %}
-    <li class="py-3 flex items-center justify-between gap-4">
+    <li id="file-{{ asset.id }}" class="py-3 flex items-start justify-between gap-4">
       {% if thumbnails[asset.id] %}
       <button type="button" data-view="{{ thumbnails[asset.id] }}" data-name="{{ asset.filename }}"
               aria-label="{{ asset.filename }} görselini büyüt"
@@ -41,6 +41,36 @@
       <div class="min-w-0 flex-1">
         <p class="font-medium truncate">{{ asset.filename }}</p>
         <p class="text-sm text-sand-700">{{ categories.get(asset.category, asset.category) }} · {{ (asset.created_at or "")[:10] }}</p>
+        {% if asset.id in sent %}
+        <p class="mt-1 text-sm text-sand-500">Buffer'a gönderilen bir paylaşımda; değiştirilemez.</p>
+        {% else %}
+        {% set stem, dot, ext = asset.filename.rpartition(".") if "." in asset.filename else (asset.filename, "", "") %}
+        <details class="mt-1 group">
+          <summary class="inline-flex items-center min-h-11 text-sm font-medium text-iris-600 cursor-pointer hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">Düzenle</summary>
+          <form method="post" action="/hotel/files/{{ asset.id }}/edit" class="mt-2 space-y-3">
+            <label class="block text-sm">
+              <span class="text-sand-700">Dosya adı</span>
+              <span class="mt-1 flex items-center gap-1">
+                <input name="name" value="{{ stem }}" required maxlength="200" class="min-w-0 flex-1 min-h-11 px-3 rounded-lg border border-sand-100 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600" />
+                {% if dot %}<span class="text-sand-700">.{{ ext }}</span>{% endif %}
+              </span>
+            </label>
+            <label class="block text-sm">
+              <span class="text-sand-700">Kategori</span>
+              <select name="category" class="mt-1 block w-full min-h-11 px-3 rounded-lg border border-sand-100 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">
+                {% for value, label in categories.items() %}
+                <option value="{{ value }}" {% if value == asset.category %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <button class="min-h-11 px-4 rounded-lg bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Kaydet</button>
+              <button formaction="/hotel/files/{{ asset.id }}/delete" data-confirm="{{ asset.filename }} silinsin mi? Bu geri alınamaz."
+                      class="min-h-11 px-4 rounded-lg border border-red-200 text-red-800 font-semibold hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Sil</button>
+            </div>
+          </form>
+        </details>
+        {% endif %}
       </div>
       <span class="shrink-0 rounded-full px-3 py-1 text-sm {{ status[1] }}">{{ status[0] }}</span>
     </li>
@@ -66,6 +96,11 @@
         });
       });
       viewer.addEventListener("click", (event) => { if (event.target === viewer) viewer.close(); });
+      document.querySelectorAll("[data-confirm]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          if (!confirm(button.dataset.confirm)) event.preventDefault();
+        });
+      });
     })();
   </script>
   {% else %}

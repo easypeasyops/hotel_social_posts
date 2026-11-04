@@ -1,8 +1,9 @@
 import uuid
+from pathlib import PurePosixPath
 
 from fastapi import HTTPException
 
-from app.assets.models import UploadUrlRequest, UploadUrlResponse
+from app.assets.models import AssetCategory, UploadUrlRequest, UploadUrlResponse
 from supabase import Client
 
 STORAGE_BUCKET = "hotel-assets"
@@ -83,3 +84,17 @@ def delete_asset(db: Client, asset_id: str) -> None:
     asset = get_asset(db, asset_id)
     db.storage.from_(STORAGE_BUCKET).remove([asset["storage_path"]])
     db.table("assets").delete().eq("id", asset_id).execute()
+
+
+def edit_asset(db: Client, asset: dict, name: str, category: AssetCategory) -> None:
+    """Rename a file and change its category. The name keeps the file's extension, which says
+    whether a post can carry it; the stored object keeps its path."""
+    suffix = PurePosixPath(asset["filename"]).suffix
+    stem = name.strip()
+    if suffix and stem.lower().endswith(suffix.lower()):
+        stem = stem[: -len(suffix)].strip()
+    if not stem or "/" in stem:
+        raise HTTPException(status_code=422, detail="Dosya adı boş olamaz ve / içeremez")
+    db.table("assets").update({"filename": stem + suffix, "category": category.value}).eq(
+        "id", asset["id"]
+    ).execute()

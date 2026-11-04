@@ -10,17 +10,29 @@
 
 {% if done == "approved" %}
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Onaylandı. Paylaşım kuyruğa ekleniyor.</p></div>
+{% elif done == "edited" %}
+<div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Kaydedildi. Çeviriler yeni metinden hazırlanıyor.</p></div>
 {% elif done == "rejected" %}
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-sand-100 text-sand-700"><span aria-hidden="true">✓</span><p>Reddedildi. Bu paylaşım yayınlanmayacak.</p></div>
 {% endif %}
 
 {% for draft in pending %}
-<article class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-4">
+<article id="draft-{{ draft.id }}" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-4">
   <div class="flex items-center justify-between gap-4">
     <span class="rounded-full bg-iris-50 text-iris-700 px-3 py-1 text-sm font-medium">{{ channels.get(draft.channel, draft.channel) }}</span>
     <span class="text-sm text-sand-700">{{ (draft.created_at or "")[:10] }}</span>
   </div>
   {% with images = preview_images.get(draft.id, []) %}{% include "preview/post.html" %}{% endwith %}
+  <details>
+    <summary class="cursor-pointer font-medium text-iris-600 underline">Metni düzenle</summary>
+    <form method="post" action="/hotel/drafts/{{ draft.id }}/edit" class="mt-3 space-y-3">
+      <label for="body-{{ draft.id }}" class="sr-only">Bu paylaşımın metni</label>
+      <textarea id="body-{{ draft.id }}" name="body_tr" rows="8" required
+                class="w-full px-3 py-2 rounded-xl border border-sand-500 text-base">{{ draft.body_tr }}</textarea>
+      <p class="text-sm text-sand-700">Kaydettiğinizde önizleme ve çeviriler bu metinden yenilenir.</p>
+      <button type="submit" class="inline-flex items-center min-h-12 px-5 rounded-xl border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Metni kaydet</button>
+    </form>
+  </details>
   <div class="flex flex-wrap items-start gap-3 pt-2 border-t border-sand-100">
     <form method="post" action="/hotel/drafts/{{ draft.id }}/approve">
       <button type="submit" class="inline-flex items-center min-h-12 px-6 rounded-xl bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Onayla ve yayınla</button>

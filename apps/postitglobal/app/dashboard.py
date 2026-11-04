@@ -260,6 +260,20 @@ def approve_draft(hotel_id: str, draft_id: str, db: Client = Depends(get_supabas
     return RedirectResponse(f"/dashboard/hotels/{hotel_id}#review", status_code=303)
 
 
+@router.post("/hotels/{hotel_id}/drafts/{draft_id}/edit")
+def edit_draft(
+    hotel_id: str,
+    draft_id: str,
+    body_tr: str = Form(...),
+    db: Client = Depends(get_supabase),
+):
+    """Save a pending draft's edited text; its translations are made again. A draft decided
+    meanwhile stays as it was."""
+    _hotels_draft(db, hotel_id, draft_id)
+    content_service.edit_draft_text(db, draft_id, body_tr)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#draft-{draft_id}", status_code=303)
+
+
 @router.post("/hotels/{hotel_id}/drafts/{draft_id}/delete")
 def delete_draft(hotel_id: str, draft_id: str, db: Client = Depends(get_supabase)):
     """Delete a draft that isn't at Buffer (pending, rejected or failed), with what hangs on it."""

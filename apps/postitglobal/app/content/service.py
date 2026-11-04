@@ -41,6 +41,26 @@ def approve_draft(db: Client, draft_id: str) -> dict:
     return response.data[0]
 
 
+# Drafts that can be deleted: none of them is at Buffer. An approved draft is being published
+# and a scheduled one is in Buffer's queue: deleting the row wouldn't take the post back.
+DELETABLE_STATUSES = ("pending_review", "rejected", "failed")
+
+
+def delete_draft(db: Client, draft: dict) -> None:
+    """Delete a draft, its translations and publish log (cascade), and the image copies an
+    attempt to publish it made in the public bucket (<hotel>/<draft>/)."""
+    from app.publishing.buffer import PUBLISHED_BUCKET  # avoid a circular import
+
+    if draft["status"] not in DELETABLE_STATUSES:
+        raise HTTPException(status_code=409, detail=f"A {draft['status']} draft can't be deleted")
+    published = db.storage.from_(PUBLISHED_BUCKET)
+    prefix = f"{draft['hotel_id']}/{draft['id']}"
+    copies = [f"{prefix}/{f['name']}" for f in published.list(prefix)]
+    if copies:
+        published.remove(copies)
+    db.table("content_drafts").delete().eq("id", draft["id"]).execute()
+
+
 def reject_draft(db: Client, draft_id: str, feedback: str | None) -> dict:
     update_data = {"status": "rejected"}
     if feedback:

@@ -128,3 +128,51 @@ def test_generate_for_an_unknown_hotel_queues_nothing(monkeypatch: pytest.Monkey
     response = _client(_db()).post("/dashboard/hotels/hotel-9/generate")
     assert response.status_code == 404
     assert queued == []
+
+
+def test_deleting_a_draft_removes_it_and_its_image_copies() -> None:
+    db = _db(_draft("d1", "failed"), _draft("d22", "pending_review"))
+    db.storage.files[("published-media", "hotel-1/d1/asset-1.png")] = b"png"
+    db.storage.files[("published-media", "hotel-1/d22/asset-1.png")] = b"png"
+
+    response = _client(db).post("/dashboard/hotels/hotel-1/drafts/d1/delete")
+
+    assert response.status_code == 303
+    assert [d["id"] for d in db.rows["content_drafts"]] == ["d22"]
+    assert list(db.storage.files) == [("published-media", "hotel-1/d22/asset-1.png")]
+
+
+@pytest.mark.parametrize("status", ["approved", "scheduled"])
+def test_a_draft_at_buffer_cant_be_deleted(status: str) -> None:
+    db = _db(_draft("d1", status))
+    response = _client(db).post("/dashboard/hotels/hotel-1/drafts/d1/delete")
+    assert response.status_code == 409
+    assert len(db.rows["content_drafts"]) == 1
+
+
+def test_the_page_offers_delete_only_where_it_works() -> None:
+    db = _db(_draft("d1", "pending_review"), _draft("d22", "failed"), _draft("d3", "scheduled"))
+    page = _client(db).get("/dashboard/hotels/hotel-1").text
+    assert "/drafts/d1/delete" in page and "/drafts/d22/delete" in page
+    assert "/drafts/d3/delete" not in page
+    assert "/dashboard/hotels/hotel-1/assets/asset-1/delete" in page
+
+
+def test_deleting_an_asset_removes_the_file_and_the_row() -> None:
+    db = _db()
+    db.rows["assets"][0]["storage_path"] = "hotel-1/asset-1/pool.jpg"
+    db.storage.files[("hotel-assets", "hotel-1/asset-1/pool.jpg")] = b"jpg"
+
+    response = _client(db).post("/dashboard/hotels/hotel-1/assets/asset-1/delete")
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/dashboard/hotels/hotel-1#media"
+    assert db.rows["assets"] == []
+    assert db.storage.files == {}
+
+
+def test_another_hotels_asset_is_not_found() -> None:
+    db = FakeDB(hotels=[HOTEL], assets=[{**POOL, "hotel_id": "hotel-2"}], content_drafts=[])
+    response = _client(db).post("/dashboard/hotels/hotel-1/assets/asset-1/delete")
+    assert response.status_code == 404
+    assert len(db.rows["assets"]) == 1

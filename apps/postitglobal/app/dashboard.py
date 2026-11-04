@@ -52,6 +52,7 @@ def _detail_context(
         "upload_link": upload_link,
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
         "generation_queued": request.query_params.get("generation") == "queued",
+        "deletable": content_service.DELETABLE_STATUSES,
     }
 
 
@@ -216,6 +217,22 @@ def approve_draft(hotel_id: str, draft_id: str, db: Client = Depends(get_supabas
         if exc.status_code != 404:
             raise
     return RedirectResponse(f"/dashboard/hotels/{hotel_id}#review", status_code=303)
+
+
+@router.post("/hotels/{hotel_id}/drafts/{draft_id}/delete")
+def delete_draft(hotel_id: str, draft_id: str, db: Client = Depends(get_supabase)):
+    """Delete a draft that isn't at Buffer (pending, rejected or failed), with what hangs on it."""
+    content_service.delete_draft(db, _hotels_draft(db, hotel_id, draft_id))
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#review", status_code=303)
+
+
+@router.post("/hotels/{hotel_id}/assets/{asset_id}/delete")
+def delete_asset(hotel_id: str, asset_id: str, db: Client = Depends(get_supabase)):
+    """Delete an uploaded file and its record. Drafts that named it publish without it."""
+    if asset_service.get_asset(db, asset_id).get("hotel_id") != hotel_id:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    asset_service.delete_asset(db, asset_id)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#media", status_code=303)
 
 
 @router.post("/hotels/{hotel_id}/drafts/{draft_id}/reject")

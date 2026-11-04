@@ -66,8 +66,20 @@
 </section>
 
 <section id="review" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
-  <h2 class="font-semibold">Drafts to review</h2>
-  <p class="text-sm text-gray-600 mt-1">Approving publishes the post to the hotel's Buffer channel for that network, with its images.</p>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 class="font-semibold">Drafts to review</h2>
+      <p class="text-sm text-gray-600 mt-1">Approving publishes the post to the hotel's Buffer channel for that network, with its images.</p>
+    </div>
+    <form method="post" action="/dashboard/hotels/{{ hotel.id }}/generate">
+      <button type="submit" class="border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50">Generate new drafts</button>
+    </form>
+  </div>
+  {% if generation_queued %}
+  <p role="status" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-900">
+    Generation queued: one draft per channel ({{ hotel.channels|join(", ") }}), using the hotel's ready images. They appear here in about a minute; refresh the page.
+  </p>
+  {% endif %}
   {% if pending %}
   <div class="mt-5 divide-y divide-gray-200 border-t border-gray-200">
     {% for draft in pending %}

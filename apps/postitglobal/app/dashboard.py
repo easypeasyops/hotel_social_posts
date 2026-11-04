@@ -12,6 +12,7 @@ from app.content import service as content_service
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels.models import HotelCreate, HotelUpdate
+from app.jobs import tasks
 
 router = APIRouter(prefix="/dashboard", dependencies=[Depends(get_current_user)])
 templates = Jinja2Templates(directory="app/templates")
@@ -50,6 +51,7 @@ def _detail_context(
         "decided": decided[:10],
         "upload_link": upload_link,
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
+        "generation_queued": request.query_params.get("generation") == "queued",
     }
 
 
@@ -190,6 +192,17 @@ def create_hotel_upload_link(
     )
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@router.post("/hotels/{hotel_id}/generate")
+def generate_drafts(hotel_id: str, db: Client = Depends(get_supabase)):
+    """Queue draft generation for this hotel now, as the weekly CronJob does for every hotel:
+    the worker writes a draft per channel (Claude), then translates them (DeepL)."""
+    hotel_service.get_hotel(db, hotel_id)  # 404 for an unknown hotel, before queueing
+    tasks.generate_content_task.delay(hotel_id)
+    return RedirectResponse(
+        f"/dashboard/hotels/{hotel_id}?generation=queued#review", status_code=303
+    )
 
 
 @router.post("/hotels/{hotel_id}/drafts/{draft_id}/approve")

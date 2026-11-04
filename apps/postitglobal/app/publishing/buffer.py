@@ -32,6 +32,14 @@ IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
 MAX_IMAGES = 10  # Instagram's carousel limit
 NEEDS_IMAGE = {"instagram"}  # Instagram refuses text-only posts
 
+# What Buffer requires per network (CreatePostInput.metadata). Instagram: the kind of post
+# and whether it shows in the feed. Without it Buffer refuses the post ("Instagram posts
+# require a type (post, story, or reel)"). Ours are feed posts of photos; reels and stories
+# would need vertical video.
+METADATA: dict[str, dict[str, Any]] = {
+    "instagram": {"instagram": {"type": "post", "shouldShareToFeed": True}},
+}
+
 
 class BufferError(RuntimeError):
     """Buffer refused the post. GraphQL answers HTTP 200 either way: the error is in the body."""
@@ -79,13 +87,17 @@ def _publish_images(db: Client, hotel_id: str, draft_id: str, asset_ids: list[st
     return urls
 
 
-def _create_post(channel_id: str, text: str, api_key: str, image_urls: list[str]) -> str:
+def _create_post(
+    channel_id: str, text: str, api_key: str, image_urls: list[str], channel: str
+) -> str:
     post_input: dict[str, Any] = {
         "channelId": channel_id,
         "text": text,
         "schedulingType": "automatic",
         "mode": "shareNext",
     }
+    if channel in METADATA:
+        post_input["metadata"] = METADATA[channel]
     if image_urls:
         post_input["assets"] = [{"image": {"url": url}} for url in image_urls]
     variables = {"input": post_input}
@@ -138,7 +150,9 @@ def publish_draft(db: Client, draft_id: str) -> None:
             f"Draft {draft_id} has no ready image, and {channel} refuses text-only posts"
         )
 
-    post_id = _create_post(channel_id, draft["body_tr"], settings.buffer_access_token, image_urls)
+    post_id = _create_post(
+        channel_id, draft["body_tr"], settings.buffer_access_token, image_urls, channel
+    )
 
     # Record the Buffer post ID for correlation
     db.table("publish_log").insert(

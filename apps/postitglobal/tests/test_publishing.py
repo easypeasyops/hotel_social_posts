@@ -68,6 +68,8 @@ def test_a_draft_goes_to_the_top_of_its_channels_queue_and_is_logged() -> None:
             "text": "Merhaba",
             "schedulingType": "automatic",
             "mode": "shareNext",
+            # Buffer refuses an Instagram post without its type (seen 2026-11-04).
+            "metadata": {"instagram": {"type": "post", "shouldShareToFeed": True}},
             "assets": [
                 {
                     "image": {
@@ -117,7 +119,9 @@ def test_facebook_without_an_image_posts_the_text() -> None:
         return_value=buffer_says({"data": {"createPost": {"post": {"id": "post-2"}}}})
     )
     publish_draft(db_with(channel="facebook", asset_ids=[]), "draft-1")  # type: ignore[arg-type]
-    assert "assets" not in json.loads(route.calls.last.request.content)["variables"]["input"]
+    sent = json.loads(route.calls.last.request.content)["variables"]["input"]
+    assert "assets" not in sent
+    assert "metadata" not in sent  # Buffer requires no settings for a Facebook post
 
 
 @respx.mock

@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # Redis (Celery broker)
     redis_url: str = "redis://localhost:6379/0"
 
-    # Internal cron secret — Railway cron hits /internal/* with this header
+    # Protects the /internal/* job triggers (X-Cron-Secret header)
     cron_secret: str
 
     # Browser session cookie should only travel over HTTPS outside local development.

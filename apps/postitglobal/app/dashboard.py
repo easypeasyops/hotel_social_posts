@@ -15,6 +15,7 @@ from app.auth.upload_tokens import (
     create_upload_token,
 )
 from app.content import service as content_service
+from app.content.preview import preview_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
@@ -53,12 +54,13 @@ def _detail_context(
         d for status in DECIDED_STATUSES for d in content_service.list_drafts(db, hotel_id, status)
     ]
     decided.sort(key=lambda d: d.get("created_at") or "", reverse=True)
+    pending = content_service.list_drafts(db, hotel_id, "pending_review")
     return {
         "request": request,
         "hotel": hotel,
         "assets": assets,
-        "asset_names": {a["id"]: a["filename"] for a in assets},
-        "pending": content_service.list_drafts(db, hotel_id, "pending_review"),
+        "pending": pending,
+        "preview_images": preview_images(db, assets, pending),
         "decided": decided[:10],
         "upload_link": upload_link,
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,

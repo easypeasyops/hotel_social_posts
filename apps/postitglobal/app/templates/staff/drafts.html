@@ -20,10 +20,7 @@
     <span class="rounded-full bg-iris-50 text-iris-700 px-3 py-1 text-sm font-medium">{{ channels.get(draft.channel, draft.channel) }}</span>
     <span class="text-sm text-sand-700">{{ (draft.created_at or "")[:10] }}</span>
   </div>
-  <p class="whitespace-pre-line">{{ draft.body_tr }}</p>
-  {% if draft.asset_ids %}
-  <p class="text-sm text-sand-700">Görseller: {% for id in draft.asset_ids %}{{ asset_names.get(id, "silinmiş dosya") }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
-  {% endif %}
+  {% with images = preview_images.get(draft.id, []) %}{% include "preview/post.html" %}{% endwith %}
   <div class="flex flex-wrap items-start gap-3 pt-2 border-t border-sand-100">
     <form method="post" action="/hotel/drafts/{{ draft.id }}/approve">
       <button type="submit" class="inline-flex items-center min-h-12 px-6 rounded-xl bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Onayla ve yayınla</button>

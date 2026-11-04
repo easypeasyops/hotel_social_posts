@@ -12,6 +12,7 @@ from app.assets import service as asset_service
 from app.auth.dependencies import require_staff
 from app.auth.upload_tokens import create_upload_token
 from app.content import service as content_service
+from app.content.preview import preview_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from supabase import Client
@@ -60,16 +61,16 @@ def staff_drafts(
     hotel_id: str = Depends(require_staff),
     db: Client = Depends(get_supabase),
 ):
+    pending = content_service.list_drafts(db, hotel_id, "pending_review")
+    assets = asset_service.list_assets(db, hotel_id)
     return templates.TemplateResponse(
         request,
         "staff/drafts.html",
         {
             "request": request,
             "hotel": hotel_service.get_hotel(db, hotel_id),
-            "pending": content_service.list_drafts(db, hotel_id, "pending_review"),
-            "asset_names": {
-                a["id"]: a["filename"] for a in asset_service.list_assets(db, hotel_id)
-            },
+            "pending": pending,
+            "preview_images": preview_images(db, assets, pending),
             "done": request.query_params.get("done"),
         },
     )

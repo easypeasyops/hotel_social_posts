@@ -1,0 +1,105 @@
+# postitglobal's values for the platform's service chart (easypeasyops/platform
+# charts/service, 1.2.1 or later), shared by every environment. Argo CD renders postitglobal
+# from that chart, pinned by digest in the platform's apps/postitglobal/envs/<env>.yaml, with
+# these values from this repo, layered as
+#   deploy/service/values.yaml   this file
+#   deploy/envs/<env>.yaml       the environment's settings and image digest
+# CI renders both environments with the chart and validates the result (ci.yml, deploy).
+
+app:
+  name: postitglobal
+
+image:
+  # Each environment names its release's digest (deploy/envs/).
+  repository: ghcr.io/easypeasyops/hotel_social_posts/postitglobal
+
+# The API: a few replicas' worth of operators and hotels, not a traffic service. No
+# autoscaling: its load is the dashboard, and the heavy work (Claude, DeepL) is the worker's.
+autoscaling:
+  enabled: false
+replicaCount: 2
+resources:
+  requests: { cpu: 50m, memory: 192Mi }
+  limits: { memory: 384Mi }
+
+# Uvicorn drains for up to 20 s after SIGTERM (Dockerfile), after the chart's 5 s preStop.
+terminationGracePeriodSeconds: 30
+
+# The broker for Celery and the store for web sessions (app/auth/sessions.py): the chart's
+# in-namespace Redis, reachable only from this app's pods.
+redis:
+  enabled: true
+
+# The Celery worker: generation (Claude) and translation (DeepL) tasks. On SIGTERM it stops
+# taking tasks and finishes the ones it holds (a Claude call takes up to a minute); a task
+# cut off later is redelivered by Redis once the worker's connection is gone.
+workers:
+  worker:
+    command: [celery, -A, app.jobs.tasks.celery_app, worker, --loglevel=info, --concurrency=2]
+    replicas: 1
+    terminationGracePeriodSeconds: 120
+    resources:
+      requests: { cpu: 50m, memory: 256Mi }
+      limits: { memory: 512Mi }
+
+# Weekly content generation for every hotel (Railway's cron until platform plan 5.9): the
+# job queues the task and exits; the worker does the work. Mondays 06:00 UTC, 09:00 in
+# Türkiye.
+cronJobs:
+  generate-weekly:
+    schedule: "0 6 * * 1"
+    command: [celery, -A, app.jobs.tasks.celery_app, call, tasks.generate_all_hotels]
+    activeDeadlineSeconds: 120
+    resources:
+      requests: { cpu: 20m, memory: 192Mi }
+      limits: { memory: 384Mi }
+
+# The keys, from postitglobal's own store in the platform (platform deploy/secrets/
+# app-stores.yaml), loaded there by hand from .env (platform scripts/load-app-env.sh); the
+# chart copies them into the Secret postitglobal-env. Never in git.
+secretEnv:
+  store: postitglobal
+
+# The app's environment (app/config.py). Secrets read one key each from postitglobal-env.
+env:
+  - { name: REDIS_URL, value: '{{ include "service.redisUrl" . }}' }
+  - { name: PUBLIC_BASE_URL, value: "{{ .Values.config.publicBaseUrl }}" }
+  # The kind cluster's front door is plain HTTP on localhost; a cookie marked Secure would
+  # never come back. True wherever the front door is HTTPS.
+  - { name: SESSION_COOKIE_SECURE, value: "{{ .Values.config.sessionCookieSecure }}" }
+  - { name: LOG_LEVEL, value: "{{ .Values.config.logLevel }}" }
+  - { name: METRICS_PORT, value: "{{ .Values.config.metricsPort }}" }
+  - { name: SECRET_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: SECRET_KEY } }
+  - { name: CRON_SECRET, secret: { name: '{{ include "service.fullname" . }}-env', key: CRON_SECRET } }
+  - { name: SUPABASE_URL, secret: { name: '{{ include "service.fullname" . }}-env', key: SUPABASE_URL } }
+  - { name: SUPABASE_ANON_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: SUPABASE_ANON_KEY } }
+  - { name: SUPABASE_SERVICE_ROLE_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: SUPABASE_SERVICE_ROLE_KEY } }
+  - { name: ANTHROPIC_API_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: ANTHROPIC_API_KEY } }
+  - { name: DEEPL_API_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: DEEPL_API_KEY } }
+  - { name: BUFFER_ACCESS_TOKEN, secret: { name: '{{ include "service.fullname" . }}-env', key: BUFFER_ACCESS_TOKEN } }
+
+config:
+  logLevel: INFO
+  metricsPort: 9100
+  publicBaseUrl: "" # each environment's (deploy/envs/)
+  sessionCookieSecure: "true"
+
+networkPolicy:
+  # No database in the cluster (the chart's default database rule matches no pod here):
+  # Supabase, Anthropic, DeepL and Buffer are HTTPS APIs on the internet. A NetworkPolicy
+  # can't name a host, so: port 443 anywhere outside the private ranges the cluster's pods,
+  # Services and API server live in.
+  extraEgress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+      ports:
+        - { port: 443, protocol: TCP }
+
+gateway:
+  enabled: true
+  hostnames: [] # each environment's (deploy/envs/)
+
+monitoring:
+  enabled: true # Prometheus scrapes /metrics on 9100 (http_requests_total and friends)

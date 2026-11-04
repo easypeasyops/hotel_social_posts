@@ -1,0 +1,10 @@
+# Prod, on the laptop cluster for now (platform plan 5, decided 2026-11-03): it replaces
+# Railway once it runs (5.9). Same image digest staging ran.
+environment: prod
+image:
+  digest: "" # postitglobal/v0.1.0's, once staging has run it
+gateway:
+  hostnames: ["postitglobal.localhost"]
+config:
+  publicBaseUrl: "http://postitglobal.localhost:8080"
+  sessionCookieSecure: "false" # the kind front door is plain HTTP

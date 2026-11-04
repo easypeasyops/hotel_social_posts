@@ -12,6 +12,7 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 - **Supabase:** Postgres, Auth, the private `hotel-assets` Storage bucket (uploads) and the public `published-media` bucket (images being posted).
 - **External providers:** Anthropic, DeepL, and Buffer.
 - **Cron:** External Railway cron schedule calling the internal generation endpoint. The schedule itself is not defined in this repository.
+- **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC). Run it now: `kubectl -n postitglobal-<env> create job generate-now --from=cronjob/postitglobal-generate-weekly`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh postitglobal .env`, then restart the API and the worker to read changed keys (`kubectl -n postitglobal-<env> rollout restart deployment`).
 
 ## Prerequisites and configuration
 

@@ -60,6 +60,18 @@
     .muted { color: var(--sand-700); }
     .small { font-size: 0.9rem; }
     .foot { margin-top: 1.5rem; text-align: center; }
+    .label-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .password { position: relative; }
+    .password input { padding-right: 4.5rem; }
+    .password-toggle { position: absolute; top: 0.4rem; right: 0.4rem; min-height: 2.2rem; padding: 0 0.75rem;
+                       font: inherit; font-size: 0.9rem; font-weight: 500; color: var(--lagoon-700);
+                       background: none; border: 0; border-radius: 0.5rem; cursor: pointer; }
+    .password-toggle:hover { background: var(--lagoon-50); }
+    .password-toggle:focus-visible { outline: 2px solid var(--lagoon-700); }
+    .checks { list-style: none; padding: 0; color: var(--sand-700); }
+    .checks li::before { content: "○"; display: inline-block; width: 1.4rem; }
+    .checks li.ok { color: #166534; }
+    .checks li.ok::before { content: "✓"; }
   </style>
 </head>
 <body>

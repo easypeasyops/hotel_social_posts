@@ -15,7 +15,7 @@ from app.auth.upload_tokens import (
     create_upload_token,
 )
 from app.content import service as content_service
-from app.content.preview import preview_images
+from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
@@ -55,12 +55,15 @@ def _detail_context(
     ]
     decided.sort(key=lambda d: d.get("created_at") or "", reverse=True)
     pending = content_service.list_drafts(db, hotel_id, "pending_review")
+    previews, thumbnails = review_images(db, assets, pending)
     return {
         "request": request,
         "hotel": hotel,
         "assets": assets,
         "pending": pending,
-        "preview_images": preview_images(db, assets, pending),
+        "preview_images": previews,
+        "image_choices": image_choices(assets),
+        "thumbnails": thumbnails,
         "decided": decided[:10],
         "upload_link": upload_link,
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
@@ -271,6 +274,23 @@ def edit_draft(
     meanwhile stays as it was."""
     _hotels_draft(db, hotel_id, draft_id)
     content_service.edit_draft_text(db, draft_id, body_tr)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#draft-{draft_id}", status_code=303)
+
+
+@router.post("/hotels/{hotel_id}/drafts/{draft_id}/images")
+def choose_draft_images(
+    hotel_id: str,
+    draft_id: str,
+    choice: list[str] = Form([]),
+    order: list[str] = Form([]),
+    asset_ids: list[str] = Form([]),
+    db: Client = Depends(get_supabase),
+):
+    """Save which of the hotel's photos a pending draft carries, in the order given."""
+    _hotels_draft(db, hotel_id, draft_id)
+    choices = image_choices(asset_service.list_assets(db, hotel_id))
+    chosen = content_service.chosen_images(choice, order, asset_ids)
+    content_service.set_draft_images(db, draft_id, chosen, choices)
     return RedirectResponse(f"/dashboard/hotels/{hotel_id}#draft-{draft_id}", status_code=303)
 
 

@@ -148,6 +148,15 @@
           <button type="submit" class="border border-gray-300 rounded px-4 py-2 hover:bg-gray-50">Save text</button>
         </form>
       </details>
+      <div class="mt-2 max-w-3xl">
+        {% with action = "/dashboard/hotels/" ~ hotel.id ~ "/drafts/" ~ draft.id ~ "/images",
+                labels = {"summary": "Choose images", "summary_class": "text-gray-700 hover:underline",
+                          "help": "Tick the photos this post carries (at most 10). Number them for their order; unnumbered ones follow.",
+                          "order": "Order", "save": "Save images", "none": "This hotel has no ready photos yet.",
+                          "button_class": "border border-gray-300 rounded px-4 py-2 hover:bg-gray-50"} %}
+        {% include "preview/_image_picker.html" %}
+        {% endwith %}
+      </div>
       <div class="mt-3 flex flex-wrap items-start gap-3">
         <form method="post" action="/dashboard/hotels/{{ hotel.id }}/drafts/{{ draft.id }}/approve">
           <button type="submit" class="bg-black text-white rounded px-4 py-2 hover:bg-gray-800">Approve and publish</button>

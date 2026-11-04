@@ -12,7 +12,7 @@ from app.assets import service as asset_service
 from app.auth.dependencies import require_staff
 from app.auth.upload_tokens import create_upload_token
 from app.content import service as content_service
-from app.content.preview import preview_images
+from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from supabase import Client
@@ -63,6 +63,7 @@ def staff_drafts(
 ):
     pending = content_service.list_drafts(db, hotel_id, "pending_review")
     assets = asset_service.list_assets(db, hotel_id)
+    previews, thumbnails = review_images(db, assets, pending)
     return templates.TemplateResponse(
         request,
         "staff/drafts.html",
@@ -70,7 +71,9 @@ def staff_drafts(
             "request": request,
             "hotel": hotel_service.get_hotel(db, hotel_id),
             "pending": pending,
-            "preview_images": preview_images(db, assets, pending),
+            "preview_images": previews,
+            "image_choices": image_choices(assets),
+            "thumbnails": thumbnails,
             "done": request.query_params.get("done"),
         },
     )
@@ -101,6 +104,23 @@ def staff_edit(
     _own_draft(db, hotel_id, draft_id)
     content_service.edit_draft_text(db, draft_id, body_tr)
     return RedirectResponse(f"/hotel/drafts?done=edited#draft-{draft_id}", status_code=303)
+
+
+@router.post("/drafts/{draft_id}/images")
+def staff_choose_images(
+    draft_id: str,
+    choice: list[str] = Form([]),
+    order: list[str] = Form([]),
+    asset_ids: list[str] = Form([]),
+    hotel_id: str = Depends(require_staff),
+    db: Client = Depends(get_supabase),
+):
+    """As on the dashboard: which of the hotel's photos a pending draft carries, in order."""
+    _own_draft(db, hotel_id, draft_id)
+    choices = image_choices(asset_service.list_assets(db, hotel_id))
+    chosen = content_service.chosen_images(choice, order, asset_ids)
+    content_service.set_draft_images(db, draft_id, chosen, choices)
+    return RedirectResponse(f"/hotel/drafts?done=images#draft-{draft_id}", status_code=303)
 
 
 @router.post("/drafts/{draft_id}/reject")

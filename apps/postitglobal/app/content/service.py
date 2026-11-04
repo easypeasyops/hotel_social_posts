@@ -63,6 +63,41 @@ def edit_draft_text(db: Client, draft_id: str, body_tr: str) -> bool:
     return True
 
 
+def chosen_images(choice: list[str], order: list[str], ticked: list[str]) -> list[str]:
+    """The ticked photos in the order given: `choice` lists every offered photo and `order`
+    its order box (a number, or blank), as the picker's form sends them. Ticked photos
+    without a number follow the numbered ones, as offered."""
+    position = {asset_id: n for n, asset_id in enumerate(choice)}
+    given = dict(zip(choice, order, strict=False))
+
+    def key(asset_id: str) -> tuple[float, int]:
+        number = given.get(asset_id, "").strip()
+        return (float(number) if number.isdigit() else float("inf"), position.get(asset_id, 0))
+
+    return sorted(dict.fromkeys(ticked), key=key)
+
+
+def set_draft_images(db: Client, draft_id: str, asset_ids: list[str], choices: list[dict]) -> bool:
+    """Give a draft still waiting for review these photos, in this order. Each must be one
+    of `choices` (the hotel's photos a post can carry), at most MAX_IMAGES: else 422. False
+    when the draft has been decided meanwhile: it stays as it was."""
+    from app.publishing.buffer import MAX_IMAGES  # avoid a circular import
+
+    allowed = {a["id"] for a in choices}
+    if any(asset_id not in allowed for asset_id in asset_ids):
+        raise HTTPException(status_code=422, detail="Only the hotel's ready photos can be chosen")
+    if len(asset_ids) > MAX_IMAGES:
+        raise HTTPException(status_code=422, detail=f"A post carries at most {MAX_IMAGES} photos")
+    response = (
+        db.table("content_drafts")
+        .update({"asset_ids": asset_ids})
+        .eq("id", draft_id)
+        .eq("status", "pending_review")
+        .execute()
+    )
+    return bool(response.data)
+
+
 # Drafts that can be deleted: none of them is at Buffer. An approved draft is being published
 # and a scheduled one is in Buffer's queue: deleting the row wouldn't take the post back.
 DELETABLE_STATUSES = ("pending_review", "rejected", "failed")

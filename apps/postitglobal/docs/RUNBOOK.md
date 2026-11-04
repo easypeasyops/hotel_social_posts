@@ -16,7 +16,7 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 
 ## Prerequisites and configuration
 
-Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket), and configure provider credentials.
+Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff), and configure provider credentials.
 
 Set the following environment variables in the local `.env`; in the cluster they come from the platform's store, loaded from that file (below):
 
@@ -44,7 +44,17 @@ set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "o
 where email in ('operator@example.com');
 ```
 
-Remove the role with `raw_app_meta_data - 'role'`. The app reads the role from Supabase on every request, so either change applies at once with no new sign-in. Run the update for every existing operator **before** deploying a version with the role check: without it they get "This account doesn't have access to postitglobal." To list the operators: `select email from auth.users where raw_app_meta_data->>'role' = 'operator';`. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
+Remove the role with `raw_app_meta_data - 'role'`. The app reads the role from Supabase on every request, so either change applies at once with no new sign-in. Run the update for every existing operator **before** deploying a version with the role check: without it they get "This account doesn't have access to postitglobal." To list the operators: `select email from auth.users where raw_app_meta_data->>'role' = 'operator';`.
+
+Hotel staff are accounts without the operator role that belong to one hotel. They sign in at the same `/login` and land on `/hotel`, which shows their hotel's files and lets them upload more. To make one, create the user in Supabase **Authentication → Users → Add user** (with a password, auto-confirmed), then in the SQL editor:
+
+```sql
+insert into hotel_members (user_id, hotel_id, email)
+select u.id, h.id, u.email from auth.users u, hotels h
+where u.email = 'staff@example.com' and h.slug = 'the-hotel-slug';
+```
+
+Delete the row to take their access away (`delete from hotel_members where email = '…';`); it takes effect on their next request. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
 
 In Supabase **Authentication → URL Configuration**, set the Site URL to the app origin and add the callback URL to the redirect allow list:
 

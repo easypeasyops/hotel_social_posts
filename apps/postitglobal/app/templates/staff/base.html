@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ hotel.name }}{% endblock %} — postitglobal</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&display=swap" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: {
+        lagoon: { 50: '#edf6f5', 100: '#d3eae7', 700: '#0f5c5a', 800: '#0b4644', 950: '#1f2a29' },
+        sand: { 50: '#faf7f2', 100: '#f3ece1', 500: '#8a8178', 700: '#5c554f' },
+      },
+      fontFamily: { customer: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      boxShadow: { soft: '0 1px 2px 0 rgba(31, 42, 41, 0.06), 0 8px 24px -8px rgba(31, 42, 41, 0.12)' },
+    } } };
+  </script>
+</head>
+<body class="min-h-screen bg-sand-50 text-lagoon-950 font-customer text-base">
+  <header class="bg-white border-b border-sand-100">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <a href="/hotel" class="font-semibold text-lg tracking-tight truncate">{{ hotel.name }}</a>
+      <form method="post" action="/logout">
+        <button type="submit" class="min-h-11 px-3 rounded-lg text-sand-700 hover:text-lagoon-950 hover:bg-sand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lagoon-700">Çıkış yap</button>
+      </form>
+    </div>
+  </header>
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

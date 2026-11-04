@@ -9,14 +9,15 @@ import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 
-from app.auth import router, sessions
+from app.auth import dependencies, router, sessions
 from app.auth.dependencies import get_current_user
 from app.database import get_supabase
 from app.hotels import service
 from app.main import create_app
+from tests.fakes import FakeDB
 
-OPERATOR = SimpleNamespace(app_metadata={"role": "operator"})
-NOBODY = SimpleNamespace(app_metadata={"provider": "email"})
+OPERATOR = SimpleNamespace(id="operator-1", app_metadata={"role": "operator"})
+NOBODY = SimpleNamespace(id="nobody-1", app_metadata={"provider": "email"})
 TOKENS = {"access_token": "access", "refresh_token": "refresh", "expires_at": 1_900_000_000}
 SESSION = SimpleNamespace(**TOKENS)
 
@@ -68,6 +69,7 @@ class FakeAuth:
 
 def supabase_with(monkeypatch: pytest.MonkeyPatch, user: object) -> None:
     client = SimpleNamespace(auth=FakeAuth(user))
+    monkeypatch.setattr(dependencies, "get_supabase", FakeDB)  # no hotel staff
     monkeypatch.setattr(router, "get_supabase_anon", lambda: client)
     monkeypatch.setattr(router, "create_client", lambda url, key: client)
 

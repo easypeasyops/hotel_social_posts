@@ -3,7 +3,7 @@
 /login/google keeps a PKCE verifier in a short-lived cookie and sends the browser to Supabase,
 which sends it to Google and back to /auth/callback/google with a one-time code. That code and
 the verifier make a Supabase session. Supabase creates no account here (its "Allow new users to
-sign up" is off, see the runbook), and only an operator gets a session."""
+sign up" is off, see the runbook), and only an operator or hotel staff gets a session."""
 
 import logging
 from urllib.parse import urlencode
@@ -14,7 +14,7 @@ from redis.exceptions import RedisError
 from supabase_auth.errors import AuthApiError
 from supabase_auth.helpers import generate_pkce_challenge, generate_pkce_verifier
 
-from app.auth.dependencies import is_operator
+from app.auth.dependencies import landing_page
 from app.auth.router import NO_ACCESS, _set_session_cookie, templates
 from app.auth.sessions import create_session
 from app.config import get_settings
@@ -92,7 +92,8 @@ def finish_google_sign_in(request: Request, code: str | None = None, error_code:
     session = auth_response.session
     if session is None:
         return _login_error(request, "Sign-in did not return a session.", 502)
-    if not is_operator(auth_response.user):
+    next_page = landing_page(auth_response.user)
+    if next_page is None:
         return _login_error(request, NO_ACCESS, 403)
     try:
         session_id = create_session(session.access_token, session.refresh_token, session.expires_at)
@@ -102,7 +103,7 @@ def finish_google_sign_in(request: Request, code: str | None = None, error_code:
     # The session cookie is SameSite=Strict, so a redirect in this chain, which began at
     # Google, would arrive without it. A page of ours moves on, and that navigation is ours.
     response = templates.TemplateResponse(
-        request, "auth/continue.html", {"request": request, "next": "/dashboard/hotels"}
+        request, "auth/continue.html", {"request": request, "next": next_page}
     )
     _set_session_cookie(response, session_id)
     response.delete_cookie(VERIFIER_COOKIE, path=CALLBACK_PATH, httponly=True)

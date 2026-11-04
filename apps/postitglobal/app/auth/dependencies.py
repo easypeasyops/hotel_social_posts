@@ -12,7 +12,8 @@ from app.auth.sessions import (
 )
 from app.auth.upload_tokens import verify_upload_token
 from app.config import get_settings
-from app.database import get_supabase_anon
+from app.database import get_supabase, get_supabase_anon
+from app.hotels.staff import hotel_of
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -86,6 +87,24 @@ def require_operator(user=Depends(get_current_user)):
     if not is_operator(user):
         raise HTTPException(status_code=403, detail="This account has no operator access")
     return user
+
+
+def landing_page(user) -> str | None:
+    """Where a new session starts: the dashboard for an operator, the hotel's own pages for
+    its staff; None for an account with no access, which then gets no session."""
+    if is_operator(user):
+        return "/dashboard/hotels"
+    if hotel_of(get_supabase(), user.id):
+        return "/hotel"
+    return None
+
+
+def require_staff(user=Depends(get_current_user), db=Depends(get_supabase)) -> str:
+    """The staff pages: the hotel this account works for; 403 for anyone else."""
+    hotel_id = hotel_of(db, user.id)
+    if hotel_id is None:
+        raise HTTPException(status_code=403, detail="This account is not hotel staff")
+    return hotel_id
 
 
 def verify_hotel_upload_token(

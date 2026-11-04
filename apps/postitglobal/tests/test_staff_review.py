@@ -80,7 +80,28 @@ def test_reject_keeps_the_feedback(published: list[str]) -> None:
     assert published == []
 
 
-@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_delete_removes_a_pending_draft() -> None:
+    db = _db(_draft("d1", "pending_review"), _draft("d2", "pending_review"))
+    client = _staff(db)
+    assert "/hotel/drafts/d1/delete" in client.get("/hotel/drafts").text
+
+    response = client.post("/hotel/drafts/d1/delete")
+
+    assert (response.status_code, response.headers["location"]) == (
+        303,
+        "/hotel/drafts?done=deleted",
+    )
+    assert [d["id"] for d in db.rows["content_drafts"]] == ["d2"]
+
+
+@pytest.mark.parametrize("status", ["approved", "scheduled", "published"])
+def test_a_draft_at_buffer_cant_be_deleted(status: str) -> None:
+    db = _db(_draft("d1", status))
+    assert _staff(db).post("/hotel/drafts/d1/delete").status_code == 409
+    assert len(db.rows["content_drafts"]) == 1
+
+
+@pytest.mark.parametrize("action", ["approve", "reject", "delete"])
 def test_another_hotels_draft_is_out_of_reach(action: str, published: list[str]) -> None:
     db = _db(_draft("d3", "pending_review", hotel_id="hotel-2"))
     assert _staff(db).post(f"/hotel/drafts/d3/{action}").status_code == 404

@@ -16,6 +16,8 @@
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Görseller kaydedildi.</p></div>
 {% elif done == "rejected" %}
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-sand-100 text-sand-700"><span aria-hidden="true">✓</span><p>Reddedildi. Bu paylaşım yayınlanmayacak.</p></div>
+{% elif done == "deleted" %}
+<div role="status" class="flex gap-3 p-4 rounded-xl bg-sand-100 text-sand-700"><span aria-hidden="true">✓</span><p>Silindi.</p></div>
 {% endif %}
 
 {% for draft in pending %}
@@ -51,6 +53,10 @@
       <input id="feedback-{{ draft.id }}" name="feedback" placeholder="Geri bildirim (isteğe bağlı)"
              class="min-h-12 w-64 max-w-full px-3 rounded-xl border border-sand-500 text-base" />
       <button type="submit" class="inline-flex items-center min-h-12 px-5 rounded-xl border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Reddet</button>
+    </form>
+    <form method="post" action="/hotel/drafts/{{ draft.id }}/delete" class="sm:ml-auto"
+          onsubmit="return confirm('Bu paylaşım silinsin mi? Bu geri alınamaz.')">
+      <button type="submit" class="inline-flex items-center min-h-12 px-5 rounded-xl border border-red-200 bg-white text-red-800 font-semibold hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">Sil</button>
     </form>
   </div>
 </article>

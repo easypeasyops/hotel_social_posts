@@ -14,6 +14,14 @@
   </a>
 </section>
 
+<a href="/hotel/drafts" class="flex items-center justify-between gap-4 bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:px-8 hover:border-lagoon-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lagoon-700">
+  <span>
+    <span class="block font-semibold">Onay bekleyen paylaşımlar</span>
+    <span class="text-sand-700">{% if pending_count %}{{ pending_count }} paylaşım kararınızı bekliyor.{% else %}Şu an bekleyen yok.{% endif %}</span>
+  </span>
+  <span class="shrink-0 font-semibold text-lagoon-700" aria-hidden="true">→</span>
+</a>
+
 <section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
   <h2 class="font-semibold">Yüklenen dosyalar</h2>
   {% if assets %}

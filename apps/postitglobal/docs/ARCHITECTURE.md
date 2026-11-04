@@ -76,6 +76,7 @@ Hotel staff are Supabase accounts tied to one hotel by a row in `hotel_members` 
 
 - `GET /hotel` lists the hotel's uploaded files with their category and status.
 - `GET /hotel/upload` redirects to `/upload/{slug}#token=…` with a fresh 24-hour upload capability for that hotel, so staff use the same upload page and API as an upload link.
+- `GET /hotel/drafts` lists the hotel's drafts in `pending_review` (text, network, images). **Onayla ve yayınla** (`POST /hotel/drafts/{draft_id}/approve`) and **Reddet** with optional feedback (`…/reject`) act as the dashboard's buttons do: approval queues the publish task, a draft that is no longer pending stays as it is, and another hotel's draft is a 404. Staff can't delete drafts or files. `GET /hotel` shows how many drafts wait.
 
 `/hotel` pages get `Cache-Control: no-store`, and a signed-out visit goes to `/login`, as for the dashboard.
 
@@ -108,7 +109,7 @@ The translation task tolerates individual language failures by logging and skipp
 
 ### Review and publishing
 
-1. An authenticated operator reads drafts in `pending_review`, on the hotel's dashboard page or through `/api/v1/content`.
+1. An operator reads drafts in `pending_review`, on the hotel's dashboard page or through `/api/v1/content`, and the hotel's own staff read theirs at `/hotel/drafts`; either may decide.
 2. Approving a draft changes its status to `approved` and enqueues a publish task. Rejecting changes its status to `rejected` and optionally stores feedback.
 3. The publish task sends the Turkish body to the Buffer channel configured for the draft's network (`hotels.buffer_profiles`), through Buffer's GraphQL API (`createPost` at `https://api.buffer.com`, mode `shareNext`: the top of that channel's queue; for Instagram with `metadata.instagram` `{type: post, shouldShareToFeed: true}`, without which Buffer refuses the post), with the draft's images: each ready JPEG or PNG among its `asset_ids`, in order and at most 10 (Instagram's carousel limit), copied from `hotel-assets` into the public `published-media` bucket (`<hotel>/<draft>/<asset>.<ext>`). Buffer fetches media when the post goes out, possibly days later, so it gets those permanent public URLs, not signed ones that would expire. Instagram refuses text-only posts: an Instagram draft without a ready image fails before Buffer is called. Videos are not sent yet. The task then writes a `publish_log` row with Buffer's post ID and marks the draft `scheduled`. Buffer answers HTTP 200 even when it refuses a post; the refusal (`MutationError` or the `errors` array) raises `BufferError`, so nothing is logged and the task retries.
 4. The hourly `sync-buffer` CronJob queues `tasks.sync_buffer_posts`, which asks Buffer (the `post` query) about each `publish_log` row still `scheduled`. A post Buffer sent (`sent`) marks the row and its draft `published`, the row's `published_at` being Buffer's `sentAt`; one it couldn't send (`error`, a disconnected channel say) marks both `failed` and logs Buffer's message. Any other status (`scheduled`, `sending`, ...) waits for the next run. A post Buffer won't return (deleted in Buffer's app, say) is logged and skipped, so it doesn't hold up the others; the rate limit (429) ends the run.
@@ -122,7 +123,7 @@ All API route prefixes below are registered in `app/main.py`.
 | Route | Authentication | Purpose |
 |---|---|---|
 | `GET/POST /signup` | A staff invite (form field from the link's fragment) | Hotel staff sign-up |
-| `GET /hotel`, `GET /hotel/upload` | Session or bearer JWT of hotel staff (`hotel_members`) | The staff member's own hotel: its files, and the upload page with a fresh upload link |
+| `GET /hotel`, `GET /hotel/upload`, `GET /hotel/drafts`, `POST /hotel/drafts/{draft_id}/approve`, `…/reject` | Session or bearer JWT of hotel staff (`hotel_members`) | The staff member's own hotel: its files, the upload page with a fresh upload link, and its drafts to approve or reject |
 | `GET /healthz` | None | Liveness (`{"status":"ok"}`): the process answers. Checks no dependency |
 | `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
 | `GET /login`, `POST /login`, `POST /login/magic-link`, `GET/POST /forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `GET /login/google`, `GET /auth/callback/google`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password, magic-link or Google sign-in, password recovery, sign-out |

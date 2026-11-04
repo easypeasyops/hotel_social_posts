@@ -65,7 +65,7 @@ def test_a_published_draft_shows_among_the_recent_decisions() -> None:
 
 
 def test_a_network_without_its_own_look_gets_a_plain_card() -> None:
-    db = _db(_draft("d1", "pending_review", channel="google_business"))
+    db = _db(_draft("d1", "pending_review", channel="linkedin"))  # not a network we know
     page = _client(db).get("/dashboard/hotels/hotel-1").text
     assert 'data-preview="card"' in page and f'src="{POOL_SIGNED}"' in page
 

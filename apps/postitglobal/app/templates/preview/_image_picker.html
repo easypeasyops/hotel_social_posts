@@ -1,0 +1,34 @@
+{#- Choose a pending draft's photos: `draft`, `image_choices` (the hotel's photos a post can
+    carry), `thumbnails` (signed links by asset id), `action` (where the form posts) and
+    `labels` (the page's language). Every photo sends its id (`choice`) and order box
+    (`order`, blank or a number); the ticked ones send `asset_ids`. No script. -#}
+<details>
+  <summary class="cursor-pointer {{ labels.summary_class }}">{{ labels.summary }}</summary>
+  {% if image_choices %}
+  <form method="post" action="{{ action }}" class="mt-3 space-y-3">
+    <p class="text-sm opacity-80">{{ labels.help }}</p>
+    <ul class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {% for asset in image_choices %}
+      {%- set position = draft.asset_ids.index(asset.id) + 1 if asset.id in (draft.asset_ids or []) else "" -%}
+      <li class="rounded-lg border border-gray-200 bg-white p-2 text-sm">
+        <input type="hidden" name="choice" value="{{ asset.id }}" />
+        <label class="block cursor-pointer">
+          {% if thumbnails.get(asset.id) %}<img src="{{ thumbnails[asset.id] }}" alt="" loading="lazy" class="aspect-square w-full rounded object-cover" />{% endif %}
+          <span class="mt-2 flex items-center gap-2">
+            <input type="checkbox" name="asset_ids" value="{{ asset.id }}"{% if position %} checked{% endif %} class="h-4 w-4" />
+            <span class="truncate">{{ asset.filename }}</span>
+          </span>
+        </label>
+        <label class="mt-1 flex items-center gap-2">
+          <span class="opacity-80">{{ labels.order }}</span>
+          <input type="number" name="order" value="{{ position }}" min="1" max="10" class="w-16 rounded border border-gray-300 px-2 py-1" />
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+    <button type="submit" class="{{ labels.button_class }}">{{ labels.save }}</button>
+  </form>
+  {% else %}
+  <p class="mt-2 text-sm opacity-80">{{ labels.none }}</p>
+  {% endif %}
+</details>

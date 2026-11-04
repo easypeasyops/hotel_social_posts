@@ -12,6 +12,8 @@
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Onaylandı. Paylaşım kuyruğa ekleniyor.</p></div>
 {% elif done == "edited" %}
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Kaydedildi. Çeviriler yeni metinden hazırlanıyor.</p></div>
+{% elif done == "images" %}
+<div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Görseller kaydedildi.</p></div>
 {% elif done == "rejected" %}
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-sand-100 text-sand-700"><span aria-hidden="true">✓</span><p>Reddedildi. Bu paylaşım yayınlanmayacak.</p></div>
 {% endif %}
@@ -33,6 +35,13 @@
       <button type="submit" class="inline-flex items-center min-h-12 px-5 rounded-xl border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Metni kaydet</button>
     </form>
   </details>
+  {% with action = "/hotel/drafts/" ~ draft.id ~ "/images",
+          labels = {"summary": "Görselleri seç", "summary_class": "font-medium text-iris-600 underline",
+                    "help": "Bu paylaşımda olacak fotoğrafları işaretleyin (en fazla 10). Sırası için numara verin; numarasızlar sona eklenir.",
+                    "order": "Sıra", "save": "Görselleri kaydet", "none": "Henüz hazır fotoğraf yok.",
+                    "button_class": "inline-flex items-center min-h-12 px-5 rounded-xl border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600"} %}
+  {% include "preview/_image_picker.html" %}
+  {% endwith %}
   <div class="flex flex-wrap items-start gap-3 pt-2 border-t border-sand-100">
     <form method="post" action="/hotel/drafts/{{ draft.id }}/approve">
       <button type="submit" class="inline-flex items-center min-h-12 px-6 rounded-xl bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Onayla ve yayınla</button>

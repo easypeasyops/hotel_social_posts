@@ -1,8 +1,8 @@
 {% extends "auth/_layout.html" %}
-{% block title %}Signing in{% endblock %}
+{% block title %}Password recovery{% endblock %}
 {% block content %}
-    <h1 id="heading">Email sign-in</h1>
-    <p id="status" role="status" class="lead">Verifying your sign-in link…</p>
+    <h1>Password recovery</h1>
+    <p id="status" role="status" class="lead">Verifying your reset link…</p>
     <a id="login-link" hidden class="btn btn-secondary" href="/login">Return to sign in</a>
 {% endblock %}
 {% block scripts %}
@@ -19,21 +19,16 @@
     const flowType = params.get('type');
     const issuedAt = Math.floor(Date.now() / 1000);
     const error = params.get('error_description') || params.get('error');
-    if (flowType === 'recovery') {
-      document.getElementById('heading').textContent = 'Password recovery';
-    }
 
     history.replaceState(null, '', window.location.pathname);
 
     async function completeSignIn() {
-      if (error || !accessToken || !refreshToken) {
-        throw new Error('This sign-in link is invalid or has expired.');
+      // Only password-recovery links come here; email sign-in links are no longer offered.
+      if (error || !accessToken || !refreshToken || flowType !== 'recovery') {
+        throw new Error('This link is invalid or has expired.');
       }
 
-      const callbackPath = flowType === 'recovery'
-        ? '/auth/callback/recovery'
-        : '/auth/callback/session';
-      const response = await fetch(callbackPath, {
+      const response = await fetch('/auth/callback/recovery', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -48,13 +43,11 @@
 
       if (!response.ok) {
         throw new Error(response.status === 401
-          ? 'This sign-in link is invalid or has expired.'
-          : response.status === 403
-            ? "This account doesn't have access to postitglobal."
-            : 'Sign-in is temporarily unavailable. Please try again.');
+          ? 'This link is invalid or has expired.'
+          : 'Password recovery is temporarily unavailable. Please try again.');
       }
 
-      window.location.assign(response.url || '/dashboard/hotels');
+      window.location.assign(response.url || '/reset-password');
     }
 
     completeSignIn().catch((err) => {

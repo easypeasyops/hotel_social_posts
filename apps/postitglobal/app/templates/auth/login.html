@@ -6,14 +6,6 @@
     {% if error %}
     <div role="alert" class="alert alert-error">{{ error }}</div>
     {% endif %}
-    {% if magic_link_sent %}
-    <div role="status" class="alert alert-ok">
-      If an operator account exists for {{ magic_link_email }}, a sign-in link has been sent.
-    </div>
-    {% endif %}
-    {% if magic_link_error %}
-    <div role="alert" class="alert alert-error">{{ magic_link_error }}</div>
-    {% endif %}
     {% if request.query_params.get("signup") == "done" %}
     <div role="status" class="alert alert-ok">Your account is ready. Sign in to continue.</div>
     {% endif %}
@@ -47,14 +39,6 @@
         {% with name="password", autocomplete="current-password" %}{% include "auth/_password_input.html" %}{% endwith %}
       </div>
       <button type="submit" class="btn btn-primary">Sign in</button>
-    </form>
-    <div class="divider">or</div>
-    <form method="post" action="/login/magic-link" class="stack">
-      <div>
-        <label for="magic-email">Sign in with an email link</label>
-        <input id="magic-email" name="email" type="email" autocomplete="email" required />
-      </div>
-      <button type="submit" class="btn btn-secondary">Email me a sign-in link</button>
     </form>
 {% endblock %}
 {% block scripts %}{% include "auth/_password_toggle.html" %}{% endblock %}

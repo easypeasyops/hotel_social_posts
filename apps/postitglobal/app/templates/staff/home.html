@@ -9,17 +9,17 @@
     <p class="mt-1 text-sand-700">Sosyal medya paylaşımları buradaki dosyalardan hazırlanır.</p>
   </div>
   <a href="/hotel/upload"
-     class="inline-flex items-center justify-center min-h-12 px-6 rounded-xl bg-lagoon-700 text-white font-semibold hover:bg-lagoon-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon-700">
+     class="inline-flex items-center justify-center min-h-12 px-6 rounded-xl bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">
     Dosya yükle
   </a>
 </section>
 
-<a href="/hotel/drafts" class="flex items-center justify-between gap-4 bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:px-8 hover:border-lagoon-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lagoon-700">
+<a href="/hotel/drafts" class="flex items-center justify-between gap-4 bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:px-8 hover:border-iris-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">
   <span>
     <span class="block font-semibold">Onay bekleyen paylaşımlar</span>
     <span class="text-sand-700">{% if pending_count %}{{ pending_count }} paylaşım kararınızı bekliyor.{% else %}Şu an bekleyen yok.{% endif %}</span>
   </span>
-  <span class="shrink-0 font-semibold text-lagoon-700" aria-hidden="true">→</span>
+  <span class="shrink-0 font-semibold text-iris-600" aria-hidden="true">→</span>
 </a>
 
 <section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
@@ -38,7 +38,7 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="mt-3 text-sand-700">Henüz dosya yok. <a href="/hotel/upload" class="font-medium text-lagoon-700 underline">İlk dosyalarınızı yükleyin.</a></p>
+  <p class="mt-3 text-sand-700">Henüz dosya yok. <a href="/hotel/upload" class="font-medium text-iris-600 underline">İlk dosyalarınızı yükleyin.</a></p>
   {% endif %}
 </section>
 {% endblock %}

@@ -12,24 +12,24 @@
      the customer layer of the design system (see upload/index.html), written out as CSS. #}
   <style>
     :root {
-      --lagoon-50: #edf6f5; --lagoon-700: #0f5c5a; --lagoon-800: #0b4644; --lagoon-950: #1f2a29;
+      --iris-50: #f4f1fe; --iris-600: #3b05c1; --iris-700: #2f04a6; --iris-950: #030923;
       --sand-50: #faf7f2; --sand-100: #f3ece1; --sand-500: #8a8178; --sand-700: #5c554f;
     }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
     body { margin: 0; min-height: 100vh; font: 16px/1.5 Figtree, ui-sans-serif, system-ui, sans-serif;
-           color: var(--lagoon-950); background: var(--sand-50); }
+           color: var(--iris-950); background: var(--sand-50); }
     .shell { min-height: 100vh; display: grid; }
     .brand { display: none; }
     .content { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
     .logo { display: block; height: 2rem; width: auto; align-self: flex-start; }
     .content > .logo { align-self: center; margin-bottom: 1.5rem; }
     .card { width: 100%; max-width: 26rem; background: #fff; border: 1px solid var(--sand-100); border-radius: 1rem;
-            padding: 2rem 1.5rem; box-shadow: 0 1px 2px 0 rgba(31, 42, 41, 0.06), 0 8px 24px -8px rgba(31, 42, 41, 0.12); }
+            padding: 2rem 1.5rem; box-shadow: 0 1px 2px 0 rgba(3, 9, 35, 0.06), 0 8px 24px -8px rgba(3, 9, 35, 0.12); }
     @media (min-width: 900px) {
       .shell { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
       .brand { display: flex; flex-direction: column; justify-content: space-between; padding: 3rem;
-               background: var(--lagoon-50); }
+               background: var(--iris-50); }
       .brand h2 { font-size: 2.25rem; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em; max-width: 26rem; margin: 0 0 1rem; }
       .brand p { color: var(--sand-700); max-width: 26rem; margin: 0; }
       .content > .logo { display: none; }
@@ -43,13 +43,13 @@
       width: 100%; min-height: 3rem; padding: 0.6rem 0.85rem; font: inherit; color: inherit;
       border: 1px solid var(--sand-500); border-radius: 0.6rem; background: #fff; }
     input:focus-visible, .btn:focus-visible, a:focus-visible, summary:focus-visible {
-      outline: 2px solid var(--lagoon-700); outline-offset: 2px; }
+      outline: 2px solid var(--iris-600); outline-offset: 2px; }
     .btn { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 0.6rem;
            min-height: 3rem; padding: 0.6rem 1.25rem; font: inherit; font-weight: 600; border-radius: 0.75rem;
            cursor: pointer; text-decoration: none; }
-    .btn-primary { color: #fff; background: var(--lagoon-700); border: 1px solid var(--lagoon-700); }
-    .btn-primary:hover { background: var(--lagoon-800); }
-    .btn-secondary { color: var(--lagoon-950); background: #fff; border: 1px solid var(--sand-500); }
+    .btn-primary { color: #fff; background: var(--iris-600); border: 1px solid var(--iris-600); }
+    .btn-primary:hover { background: var(--iris-700); }
+    .btn-secondary { color: var(--iris-950); background: #fff; border: 1px solid var(--sand-500); }
     .btn-secondary:hover { background: var(--sand-50); }
     .alert { display: flex; gap: 0.6rem; padding: 0.85rem 1rem; border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1rem; }
     .alert-error { color: #991b1b; background: #fee2e2; }
@@ -57,7 +57,7 @@
     .alert-warn { color: #78350f; background: #fef3c7; }
     .divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0; color: var(--sand-700); font-size: 0.85rem; }
     .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--sand-100); }
-    a, summary { color: var(--lagoon-700); font-weight: 500; }
+    a, summary { color: var(--iris-600); font-weight: 500; }
     summary { cursor: pointer; }
     .muted { color: var(--sand-700); }
     .small { font-size: 0.9rem; }
@@ -66,10 +66,10 @@
     .password { position: relative; }
     .password input { padding-right: 4.5rem; }
     .password-toggle { position: absolute; top: 0.4rem; right: 0.4rem; min-height: 2.2rem; padding: 0 0.75rem;
-                       font: inherit; font-size: 0.9rem; font-weight: 500; color: var(--lagoon-700);
+                       font: inherit; font-size: 0.9rem; font-weight: 500; color: var(--iris-600);
                        background: none; border: 0; border-radius: 0.5rem; cursor: pointer; }
-    .password-toggle:hover { background: var(--lagoon-50); }
-    .password-toggle:focus-visible { outline: 2px solid var(--lagoon-700); }
+    .password-toggle:hover { background: var(--iris-50); }
+    .password-toggle:focus-visible { outline: 2px solid var(--iris-600); }
     .checks { list-style: none; padding: 0; color: var(--sand-700); }
     .checks li::before { content: "○"; display: inline-block; width: 1.4rem; }
     .checks li.ok { color: #166534; }

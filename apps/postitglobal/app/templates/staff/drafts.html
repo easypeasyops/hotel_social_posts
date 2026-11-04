@@ -3,7 +3,7 @@
 {% set channels = {"instagram": "Instagram", "facebook": "Facebook", "tiktok": "TikTok", "google_business": "Google İşletme"} %}
 {% block content %}
 <div>
-  <a href="/hotel" class="text-sm font-medium text-lagoon-700 underline">← Dosyalarınız</a>
+  <a href="/hotel" class="text-sm font-medium text-iris-600 underline">← Dosyalarınız</a>
   <h1 class="mt-2 text-2xl font-semibold tracking-tight">Onay bekleyen paylaşımlar</h1>
   <p class="mt-1 text-sand-700">Onayladığınız paylaşım sosyal medya kuyruğunuza eklenir. Reddettiğiniz yayınlanmaz.</p>
 </div>
@@ -17,7 +17,7 @@
 {% for draft in pending %}
 <article class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-4">
   <div class="flex items-center justify-between gap-4">
-    <span class="rounded-full bg-lagoon-50 text-lagoon-800 px-3 py-1 text-sm font-medium">{{ channels.get(draft.channel, draft.channel) }}</span>
+    <span class="rounded-full bg-iris-50 text-iris-700 px-3 py-1 text-sm font-medium">{{ channels.get(draft.channel, draft.channel) }}</span>
     <span class="text-sm text-sand-700">{{ (draft.created_at or "")[:10] }}</span>
   </div>
   <p class="whitespace-pre-line">{{ draft.body_tr }}</p>
@@ -26,13 +26,13 @@
   {% endif %}
   <div class="flex flex-wrap items-start gap-3 pt-2 border-t border-sand-100">
     <form method="post" action="/hotel/drafts/{{ draft.id }}/approve">
-      <button type="submit" class="inline-flex items-center min-h-12 px-6 rounded-xl bg-lagoon-700 text-white font-semibold hover:bg-lagoon-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon-700">Onayla ve yayınla</button>
+      <button type="submit" class="inline-flex items-center min-h-12 px-6 rounded-xl bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Onayla ve yayınla</button>
     </form>
     <form method="post" action="/hotel/drafts/{{ draft.id }}/reject" class="flex flex-wrap items-start gap-2">
       <label for="feedback-{{ draft.id }}" class="sr-only">Bu paylaşım için geri bildirim</label>
       <input id="feedback-{{ draft.id }}" name="feedback" placeholder="Geri bildirim (isteğe bağlı)"
              class="min-h-12 w-64 max-w-full px-3 rounded-xl border border-sand-500 text-base" />
-      <button type="submit" class="inline-flex items-center min-h-12 px-5 rounded-xl border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon-700">Reddet</button>
+      <button type="submit" class="inline-flex items-center min-h-12 px-5 rounded-xl border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Reddet</button>
     </form>
   </div>
 </article>

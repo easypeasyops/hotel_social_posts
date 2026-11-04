@@ -15,7 +15,10 @@ from tests.fakes import FakeDB
 HOTEL = {"id": "hotel-1", "name": "Ege Konak", "location": "Bodrum", "slug": "ege-konak",
          "tier": "standard", "channels": ["instagram"], "contact_email": "a@b.invalid"}  # fmt: skip
 POOL = {"id": "asset-1", "hotel_id": "hotel-1", "filename": "pool.jpg", "category": "pool",
-        "status": "ready"}  # fmt: skip
+        "status": "ready", "storage_path": "hotel-1/asset-1/pool.jpg"}  # fmt: skip
+POOL_SIGNED = (
+    "https://supabase.invalid/storage/v1/object/sign/hotel-assets/hotel-1/asset-1/pool.jpg?token=t"
+)
 
 
 def _draft(draft_id: str, status: str, **extra: Any) -> dict[str, Any]:
@@ -47,7 +50,9 @@ def test_the_hotel_page_lists_drafts_to_review_with_their_images() -> None:
     db = _db(_draft("d1", "pending_review"), _draft("d22", "scheduled"), _draft("d3", "rejected"))
     page = _client(db).get("/dashboard/hotels/hotel-1").text
 
-    assert "Merhaba d1" in page and "Images: pool.jpg" in page
+    # A preview in the network's look: the post's image (a signed link) and its text.
+    assert "Merhaba d1" in page and 'data-preview="instagram"' in page
+    assert f'src="{POOL_SIGNED}"' in page
     assert "/dashboard/hotels/hotel-1/drafts/d1/approve" in page
     assert "/drafts/d22/approve" not in page  # decided: listed, but no buttons
     assert "Recent decisions" in page and "Scheduled" in page
@@ -57,6 +62,12 @@ def test_the_hotel_page_lists_drafts_to_review_with_their_images() -> None:
 def test_a_published_draft_shows_among_the_recent_decisions() -> None:
     page = _client(_db(_draft("d1", "published"))).get("/dashboard/hotels/hotel-1").text
     assert "Merhaba d1" in page and "Published" in page
+
+
+def test_a_network_without_its_own_look_gets_a_plain_card() -> None:
+    db = _db(_draft("d1", "pending_review", channel="google_business"))
+    page = _client(db).get("/dashboard/hotels/hotel-1").text
+    assert 'data-preview="card"' in page and f'src="{POOL_SIGNED}"' in page
 
 
 def test_an_instagram_draft_without_images_is_flagged() -> None:

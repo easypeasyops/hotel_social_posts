@@ -14,8 +14,10 @@ from app.main import create_app
 from tests.fakes import FakeDB
 
 STAFF = SimpleNamespace(id="staff-1", app_metadata={})
+SIGNED = "https://supabase.invalid/storage/v1/object/sign/hotel-assets"
 HOTEL = {"id": "hotel-1", "name": "Ege Konak", "slug": "ege-konak"}
-POOL = {"id": "asset-1", "hotel_id": "hotel-1", "filename": "pool.jpg", "category": "pool"}
+POOL = {"id": "asset-1", "hotel_id": "hotel-1", "filename": "pool.jpg", "category": "pool",
+        "status": "ready", "storage_path": "hotel-1/asset-1/pool.jpg"}  # fmt: skip
 
 
 def _draft(draft_id: str, status: str, hotel_id: str = "hotel-1") -> dict[str, Any]:
@@ -55,7 +57,8 @@ def test_the_page_lists_their_hotels_pending_drafts_only() -> None:
     assert page.status_code == 200
     assert "Merhaba d1" in page.text
     assert "Merhaba d2" not in page.text and "Merhaba d3" not in page.text
-    assert "pool.jpg" in page.text
+    assert 'data-preview="instagram"' in page.text  # the post as it will look, with its image
+    assert f'src="{SIGNED}/hotel-1/asset-1/pool.jpg?token=t"' in page.text
     assert "1 paylaşım kararınızı bekliyor" in _staff(db).get("/hotel").text
 
 

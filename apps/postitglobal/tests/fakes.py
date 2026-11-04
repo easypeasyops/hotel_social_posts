@@ -108,11 +108,17 @@ class FakeBucket:
     def get_public_url(self, path: str) -> str:
         return f"https://supabase.invalid/storage/v1/object/public/{self.bucket}/{path}"
 
+    def create_signed_urls(self, paths: builtins.list[str], expires_in: int) -> builtins.list[dict]:
+        self.storage.signed.append((self.bucket, builtins.list(paths), expires_in))
+        base = f"https://supabase.invalid/storage/v1/object/sign/{self.bucket}"
+        return [{"path": p, "signedURL": f"{base}/{p}?token=t", "error": None} for p in paths]
+
 
 class FakeStorage:
     def __init__(self) -> None:
         self.files: dict[tuple[str, str], bytes] = {}
         self.uploads: list[tuple[str, str, dict[str, str]]] = []
+        self.signed: list[tuple[str, list[str], int]] = []
 
     def from_(self, bucket: str) -> FakeBucket:
         return FakeBucket(self, bucket)

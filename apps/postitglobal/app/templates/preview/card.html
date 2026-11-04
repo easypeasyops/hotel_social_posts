@@ -1,0 +1,9 @@
+<figure data-preview="card" class="w-full max-w-sm overflow-hidden rounded-lg border border-gray-200 bg-white text-sm text-neutral-900 font-sans">
+  <div class="px-3 py-2.5 font-semibold truncate">{{ hotel.name }}</div>
+  <figcaption class="whitespace-pre-line px-3 pb-3">{{ draft.body_tr }}</figcaption>
+  {% if images %}
+  <div class="grid gap-0.5 {% if images|length > 1 %}grid-cols-2{% endif %}">
+    {% for url in images[:4] %}<img src="{{ url }}" alt="" loading="lazy" class="aspect-square w-full object-cover {% if images|length == 3 and loop.first %}col-span-2 aspect-video{% endif %}" />{% endfor %}
+  </div>
+  {% endif %}
+</figure>

@@ -1,0 +1,5 @@
+{#- A draft as its post will look on its network: `draft`, `hotel`, and `images` (signed links
+    to the images the post carries, app/content/preview.py). Networks without a look of
+    their own get a plain card. -#}
+{%- set looks = {"instagram": "preview/instagram.html"} -%}
+{%- include looks.get(draft.channel, "preview/card.html") -%}

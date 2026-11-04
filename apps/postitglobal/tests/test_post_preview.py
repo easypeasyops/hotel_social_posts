@@ -62,3 +62,26 @@ def test_storage_failing_leaves_the_text_to_review(
     monkeypatch.setattr("tests.fakes.FakeBucket.create_signed_urls", down)
     assert preview_images(db, ASSETS, [{"id": "d1", "asset_ids": ["pool"]}]) == {"d1": []}  # type: ignore[arg-type]
     assert "storage unavailable" in caplog.text
+
+
+def _render(channel: str, images: list[str]) -> str:
+    from app.main import templates
+
+    return templates.get_template("preview/post.html").render(
+        draft={"channel": channel, "body_tr": "Merhaba"},
+        hotel={"name": "Ege Konak", "slug": "ege-konak"},
+        images=images,
+    )
+
+
+@pytest.mark.parametrize(
+    ("count", "shown", "more"), [(1, 1, None), (2, 2, None), (3, 3, None), (5, 4, "+1")]
+)
+def test_facebook_shows_the_text_then_up_to_four_images(
+    count: int, shown: int, more: str | None
+) -> None:
+    page = _render("facebook", [f"https://img.invalid/{n}.jpg" for n in range(count)])
+    assert 'data-preview="facebook"' in page
+    assert page.index("Merhaba") < page.index("<img")  # the text above the images, as on Facebook
+    assert page.count("<img") == shown
+    assert (more in page) if more else ("+" not in page.split("<img", 1)[1])

@@ -2,7 +2,7 @@
 # ran it before 5.9. Same image digest staging ran.
 environment: prod
 image:
-  digest: "sha256:a76dbe5f043a2a245069ff540a80a8cf2284b220d401128316e46d4a467bfdc5" # v0.2.3, as staging
+  digest: "sha256:1728b38387289393109697d5b44264ec40af802f7e7042c5a82831410b30de6e" # v0.3.4, as staging
 gateway:
   hostnames: ["postitglobal.localhost"]
 config:

@@ -54,7 +54,7 @@ select u.id, h.id, u.email from auth.users u, hotels h
 where u.email = 'staff@example.com' and h.slug = 'the-hotel-slug';
 ```
 
-Delete the row to take their access away (`delete from hotel_members where email = '…';`); it takes effect on their next request. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
+To take someone's access away, use **Remove** next to their email in the hotel's "Hotel staff" section (or delete their `hotel_members` row). It takes effect on their next request. Their Supabase account stays, with no access; delete it in **Authentication → Users** if it shouldn't exist at all. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
 
 In Supabase **Authentication → URL Configuration**, set the Site URL to the app origin and add the callback URL to the redirect allow list:
 

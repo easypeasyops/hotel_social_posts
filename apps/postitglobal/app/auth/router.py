@@ -8,6 +8,7 @@ from redis.exceptions import RedisError
 from supabase_auth.errors import AuthApiError
 from supabase import create_client
 
+from app.auth.dependencies import is_operator
 from app.auth.sessions import (
     PASSWORD_RESET_COOKIE,
     PASSWORD_RESET_TTL_SECONDS,
@@ -25,6 +26,8 @@ from app.database import get_supabase_anon
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 logger = logging.getLogger(__name__)
+
+NO_ACCESS = "This account doesn't have access to postitglobal."
 
 
 class MagicLinkSession(BaseModel):
@@ -80,6 +83,10 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
             "auth/login.html",
             {"request": request, "error": "Sign-in did not return a session."},
             status_code=502,
+        )
+    if not is_operator(auth_response.user):
+        return templates.TemplateResponse(
+            request, "auth/login.html", {"request": request, "error": NO_ACCESS}, status_code=403
         )
 
     try:
@@ -211,6 +218,8 @@ def create_magic_link_session(payload: MagicLinkSession):
 
     if response.user is None:
         raise HTTPException(status_code=401, detail="Invalid or expired sign-in link")
+    if not is_operator(response.user):
+        raise HTTPException(status_code=403, detail=NO_ACCESS)
 
     try:
         session_id = create_session(payload.access_token, payload.refresh_token, payload.expires_at)
@@ -325,7 +334,8 @@ def update_password(
         )
         auth.update_user({"password": password})
         session = auth.get_session()
-        if session is None:
+        # The password changed either way; only an account with access is signed in.
+        if session is None or not is_operator(session.user):
             delete_password_reset_session(reset_id)
             response = templates.TemplateResponse(
                 request,

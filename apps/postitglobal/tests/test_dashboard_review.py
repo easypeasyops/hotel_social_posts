@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require_operator
 from app.database import get_supabase
 from app.jobs import tasks
 from app.main import create_app
@@ -34,7 +34,7 @@ def published(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 def _client(db: FakeDB) -> TestClient:
     app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: {"id": "operator"}
+    app.dependency_overrides[require_operator] = lambda: {"id": "operator"}
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)
 

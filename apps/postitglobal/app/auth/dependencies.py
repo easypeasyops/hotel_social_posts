@@ -1,6 +1,6 @@
 import time
 
-from fastapi import Header, HTTPException, Request, Security
+from fastapi import Depends, Header, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase_auth.errors import AuthApiError
 
@@ -72,6 +72,20 @@ def get_current_user(
     if response.user is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return response.user
+
+
+def is_operator(user) -> bool:
+    """Operators are marked by hand in Supabase: app_metadata.role = "operator". Users can't
+    edit their own app_metadata, so a self-made account never passes this."""
+    return (user.app_metadata or {}).get("role") == "operator"
+
+
+def require_operator(user=Depends(get_current_user)):
+    """The dashboard and the operator API: a signed-in account without the operator role is
+    refused (403), not sent to sign in again."""
+    if not is_operator(user):
+        raise HTTPException(status_code=403, detail="This account has no operator access")
+    return user
 
 
 def verify_hotel_upload_token(

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require_operator
 from app.database import get_supabase
 from app.hotels import service
 from app.hotels.models import HotelCreate, HotelUpdate
@@ -12,7 +12,7 @@ router = APIRouter()
 @router.get("")
 def list_hotels(
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     return service.list_hotels(db)
 
@@ -21,7 +21,7 @@ def list_hotels(
 def create_hotel(
     payload: HotelCreate,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     return service.create_hotel(db, payload)
 
@@ -30,7 +30,7 @@ def create_hotel(
 def get_hotel(
     hotel_id: str,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     return service.get_hotel(db, hotel_id)
 
@@ -40,7 +40,7 @@ def update_hotel(
     hotel_id: str,
     payload: HotelUpdate,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     return service.update_hotel(db, hotel_id, payload)
 
@@ -49,6 +49,6 @@ def update_hotel(
 def delete_hotel(
     hotel_id: str,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     service.delete_hotel(db, hotel_id)

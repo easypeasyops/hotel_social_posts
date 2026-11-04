@@ -25,6 +25,15 @@ ASSETS = [
         "filename": "pool.jpg",
         "category": "pool",
         "status": "ready",
+        "storage_path": "hotel-1/a1/pool.jpg",
+    },
+    {
+        "id": "a3",
+        "hotel_id": "hotel-1",
+        "filename": "tour.mp4",
+        "category": "exterior",
+        "status": "ready",
+        "storage_path": "hotel-1/a3/tour.mp4",
     },
     {
         "id": "a2",
@@ -83,6 +92,18 @@ def test_the_home_lists_their_own_hotels_files_only() -> None:
     assert "pool.jpg" in response.text
     assert "other.jpg" not in response.text
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_photos_show_as_thumbnails_that_open_the_full_image() -> None:
+    page = signed_in_as(STAFF).get("/hotel").text
+
+    signed = (
+        "https://supabase.invalid/storage/v1/object/sign/hotel-assets/hotel-1/a1/pool.jpg?token=t"
+    )
+    assert f'<img src="{signed}"' in page
+    assert f'data-view="{signed}"' in page and 'id="viewer"' in page
+    # A video has no thumbnail yet, only its type; nothing of it is signed.
+    assert "MP4" in page and "hotel-1/a3/tour.mp4" not in page
 
 
 def test_upload_opens_the_upload_page_with_a_link_for_their_hotel() -> None:

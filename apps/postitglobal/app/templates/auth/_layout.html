@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="referrer" content="no-referrer" />
   <title>{% block title %}{% endblock %} — postitglobal</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&display=swap" />
   {# No third-party scripts on these pages: they handle passwords and tokens. The colours are
      the customer layer of the design system (see upload/index.html), written out as CSS. #}
@@ -20,16 +22,16 @@
     .shell { min-height: 100vh; display: grid; }
     .brand { display: none; }
     .content { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
-    .logo { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: 1.15rem; letter-spacing: -0.01em; }
-    .content > .logo { margin-bottom: 1.5rem; }
+    .logo { display: block; height: 2rem; width: auto; align-self: flex-start; }
+    .content > .logo { align-self: center; margin-bottom: 1.5rem; }
     .card { width: 100%; max-width: 26rem; background: #fff; border: 1px solid var(--sand-100); border-radius: 1rem;
             padding: 2rem 1.5rem; box-shadow: 0 1px 2px 0 rgba(31, 42, 41, 0.06), 0 8px 24px -8px rgba(31, 42, 41, 0.12); }
     @media (min-width: 900px) {
       .shell { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
       .brand { display: flex; flex-direction: column; justify-content: space-between; padding: 3rem;
-               color: #fff; background: var(--lagoon-800); }
+               background: var(--lagoon-50); }
       .brand h2 { font-size: 2.25rem; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em; max-width: 26rem; margin: 0 0 1rem; }
-      .brand p { color: var(--lagoon-50); max-width: 26rem; margin: 0; }
+      .brand p { color: var(--sand-700); max-width: 26rem; margin: 0; }
       .content > .logo { display: none; }
       .card { padding: 2.5rem; }
     }
@@ -65,7 +67,7 @@
 <body>
   <div class="shell">
     <aside class="brand" aria-hidden="true">
-      <div class="logo">{% include "auth/_logo.html" %}postitglobal</div>
+      <img class="logo" src="/static/logo.png" alt="" width="142" height="32" />
       <div>
         <h2>Your hotel's social posts, drafted every week.</h2>
         <p>Share your photos, review the drafts, and we queue them on your social channels.</p>
@@ -73,7 +75,7 @@
       <p class="small">© postitglobal</p>
     </aside>
     <div class="content">
-      <div class="logo">{% include "auth/_logo.html" %}postitglobal</div>
+      <img class="logo" src="/static/logo.png" alt="postitglobal" width="142" height="32" />
       <main class="card">
         {% block content %}{% endblock %}
       </main>

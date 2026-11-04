@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import anyio
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.assets.public_router import router as public_upload_router
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(public_upload_router, tags=["upload capabilities"])
     app.include_router(auth_router, tags=["authentication"])
     app.include_router(dashboard_router, tags=["dashboard"])
+    app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
     @app.middleware("http")
     async def protect_dashboard_pages(request: Request, call_next):

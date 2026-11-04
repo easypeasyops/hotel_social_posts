@@ -9,12 +9,28 @@ import secrets
 import time
 
 from app.config import get_settings
+from app.hotels.staff import ROLES
 
 UPLOAD_PURPOSE = "hotel-media-upload"
 UPLOAD_TOKEN_TTL_SECONDS = 24 * 60 * 60
 # A hotel's staff invite: anyone with it can make a staff account for that hotel (/signup).
 STAFF_INVITE_PURPOSE = "staff-invite"
 STAFF_INVITE_TTL_SECONDS = 7 * 24 * 60 * 60
+
+
+def staff_invite_purpose(role: str) -> str:
+    """Each role's invite is its own purpose. A hotel admin's is the purpose invites had before
+    roles, so links sent then still make hotel admins, as they did."""
+    return STAFF_INVITE_PURPOSE if role == "hotel_admin" else f"{STAFF_INVITE_PURPOSE}:{role}"
+
+
+def read_staff_invite(token: str) -> tuple[str, str] | None:
+    """The hotel and role a valid staff invite names, or None."""
+    for role in ROLES:
+        hotel_id = read_token(token, staff_invite_purpose(role))
+        if hotel_id is not None:
+            return hotel_id, role
+    return None
 
 
 def _sign(encoded_payload: str) -> bytes:

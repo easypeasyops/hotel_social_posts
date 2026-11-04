@@ -14,7 +14,12 @@ from supabase_auth.errors import AuthApiError
 
 from app.auth import sessions, signup
 from app.auth.dependencies import require_operator
-from app.auth.upload_tokens import STAFF_INVITE_PURPOSE, create_token, read_token
+from app.auth.upload_tokens import (
+    STAFF_INVITE_PURPOSE,
+    create_token,
+    read_token,
+    staff_invite_purpose,
+)
 from app.database import get_supabase
 from app.main import create_app
 from tests.fakes import FakeDB
@@ -93,7 +98,12 @@ def test_an_invite_makes_a_staff_account_for_its_hotel_and_signs_it_in(
         (
             "hotel_members",
             "insert",
-            {"user_id": "new-user", "hotel_id": "hotel-1", "email": "staff@example.com"},
+            {
+                "user_id": "new-user",
+                "hotel_id": "hotel-1",
+                "email": "staff@example.com",
+                "role": "hotel_admin",
+            },  # an invite from before roles: as it did then
         )
     ]
     session_id = response.cookies[sessions.SESSION_COOKIE]
@@ -157,3 +167,11 @@ def test_the_page_asks_for_an_invite() -> None:
     assert page.status_code == 200
     assert "needs an invite link" in page.text
     assert page.headers["cache-control"] == "no-store"
+
+
+def test_an_invite_for_a_role_makes_staff_in_that_role(
+    monkeypatch: pytest.MonkeyPatch, store: fakeredis.FakeRedis
+) -> None:
+    db, _ = supabase_with(monkeypatch)
+    sign_up(create_token("hotel-1", staff_invite_purpose("content_creator"), 60))
+    assert db.written("hotel_members")[0]["role"] == "content_creator"

@@ -32,9 +32,15 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h2 class="font-semibold">Hotel staff</h2>
-      <p class="text-sm text-gray-600 mt-1">Staff accounts see this hotel only: its files, uploads and drafts. Invite links last {{ staff_invite_expires_days }} days.</p>
+      <p class="text-sm text-gray-600 mt-1">Staff accounts see this hotel only: its files, uploads and drafts. Hotel admins and content moderators edit and decide content; content creators upload and look. Invite links last {{ staff_invite_expires_days }} days.</p>
     </div>
-    <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff-invite">
+    <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff-invite" class="flex flex-wrap items-center gap-2">
+      <label for="staff-invite-role" class="text-sm text-gray-600">Role</label>
+      <select id="staff-invite-role" name="role" class="border border-gray-300 rounded px-2 py-2 text-sm">
+        {% for value, label in staff_roles.items() %}
+        <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
       <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">
         Create staff invite link
       </button>
@@ -42,7 +48,7 @@
   </div>
   {% if staff_invite_link %}
   <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
-    <label for="staff-invite-link" class="block text-sm font-medium">Send this link to the hotel's staff</label>
+    <label for="staff-invite-link" class="block text-sm font-medium">Send this link to the hotel's staff: they join as {{ staff_roles[staff_invite_role] }}</label>
     <input id="staff-invite-link" readonly value="{{ staff_invite_link }}"
            class="mt-2 w-full border border-blue-200 bg-white rounded px-3 py-2 text-sm" />
     <p class="text-xs text-blue-900 mt-2">Anyone with this link can create a staff account for this hotel until it expires, and several people can use it. Treat it like a password.</p>
@@ -56,6 +62,15 @@
         <p class="font-medium truncate">{{ member.email }}</p>
         <p class="text-gray-500">Joined {{ (member.created_at or "")[:10] }}</p>
       </div>
+      <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff/{{ member.user_id }}/role" class="ml-auto flex items-center gap-2">
+        <label for="role-{{ member.user_id }}" class="sr-only">Role of {{ member.email }}</label>
+        <select id="role-{{ member.user_id }}" name="role" class="border border-gray-300 rounded px-2 py-1 text-xs">
+          {% for value, label in staff_roles.items() %}
+          <option value="{{ value }}" {% if value == member.role %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="text-xs text-blue-700 hover:underline">Change</button>
+      </form>
       <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff/{{ member.user_id }}/remove"
             onsubmit='return confirm({{ ("Remove " ~ member.email ~ " from this hotel? They lose access at once.")|tojson }})'>
         <button type="submit" class="text-xs text-red-700 hover:underline">Remove</button>

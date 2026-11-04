@@ -4,6 +4,7 @@ from typing import cast
 
 from supabase import Client
 
+ROLES = ("hotel_admin", "content_moderator", "content_creator")
 MODERATORS = ("hotel_admin", "content_moderator")
 
 
@@ -28,7 +29,7 @@ def can_moderate(member: dict) -> bool:
 def list_members(db: Client, hotel_id: str) -> list[dict]:
     response = (
         db.table("hotel_members")
-        .select("user_id, email, created_at")
+        .select("user_id, email, role, created_at")
         .eq("hotel_id", hotel_id)
         .order("created_at")
         .execute()
@@ -40,3 +41,10 @@ def remove_member(db: Client, hotel_id: str, user_id: str) -> None:
     """Take a staff account's access to this hotel away. The Supabase account stays, with no
     access; its open session gets 403 on its next request."""
     db.table("hotel_members").delete().eq("hotel_id", hotel_id).eq("user_id", user_id).execute()
+
+
+def set_role(db: Client, hotel_id: str, user_id: str, role: str) -> None:
+    """Change a staff account's role in this hotel; it applies on the account's next request."""
+    db.table("hotel_members").update({"role": role}).eq("hotel_id", hotel_id).eq(
+        "user_id", user_id
+    ).execute()

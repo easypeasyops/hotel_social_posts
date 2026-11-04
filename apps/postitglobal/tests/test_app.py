@@ -17,12 +17,10 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_the_bare_host_leads_a_signed_out_visitor_to_sign_in() -> None:
-    client = TestClient(create_app(), follow_redirects=False)
-    root = client.get("/")
-    assert (root.status_code, root.headers["location"]) == (303, "/dashboard/hotels")
-    hotels = client.get(root.headers["location"])
-    assert (hotels.status_code, hotels.headers["location"]) == (303, "/login")
+def test_the_bare_host_shows_a_signed_out_visitor_the_home_page() -> None:
+    root = TestClient(create_app(), follow_redirects=False).get("/")
+    assert root.status_code == 200
+    assert 'href="/login"' in root.text
 
 
 def test_api_docs_are_hidden_unless_debug(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -65,6 +65,12 @@ def create_app() -> FastAPI:
                 return RedirectResponse("/login", status_code=303)
         return response
 
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        """The front door's bare host lands on the hotel list; signed out, the dashboard's
+        401 sends the visitor on to /login (protect_dashboard_pages)."""
+        return RedirectResponse("/dashboard/hotels", status_code=303)
+
     # Probes (platform plan 5.3), answered on the event loop (`async def`), so they never
     # queue behind request work in the thread pool: a slow liveness answer under load would
     # get every pod restarted at once.

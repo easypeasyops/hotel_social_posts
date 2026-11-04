@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>postitglobal — Oteller için sosyal medya</title>
+  <meta name="description" content="Otelinizin fotoğraflarından her hafta Instagram, Facebook, TikTok ve Google İşletme için gönderi taslakları. Yapay zekâ yazar, siz onaylarsınız." />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
+  {# The customer layer of the design system (the logo's colours), written out as CSS like
+     auth/_layout.html: the page runs no script. #}
+  <style>
+    :root {
+      --iris-50: #f4f1fe; --iris-100: #e7e0fd; --iris-600: #3b05c1; --iris-700: #2f04a6; --iris-950: #030923;
+      --zest-400: #7be904; --sand-50: #faf7f2; --sand-100: #f3ece1; --sand-500: #8a8178; --sand-700: #5c554f;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.5 Figtree, ui-sans-serif, system-ui, sans-serif; color: var(--iris-950); background: var(--sand-50); }
+    a { color: var(--iris-600); }
+    a:focus-visible, summary:focus-visible { outline: 2px solid var(--iris-600); outline-offset: 2px; }
+    h1, h2, h3, p, ul { margin: 0; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .band { background: #fff; border-top: 1px solid var(--sand-100); border-bottom: 1px solid var(--sand-100); }
+    .section { padding: 96px 0; }
+    .muted { color: var(--sand-700); }
+    .kicker { color: var(--iris-600); font-weight: 600; }
+    .h2 { margin-top: 8px; font-size: clamp(32px, 3.6vw, 44px); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; max-width: 760px; }
+    .lead { margin-top: 16px; font-size: 18px; max-width: 620px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 26px;
+           border-radius: 12px; font-weight: 600; font-size: 17px; text-decoration: none; }
+    .btn-primary { background: var(--iris-600); color: #fff; }
+    .btn-primary:hover { background: var(--iris-700); }
+    .btn-secondary { background: #fff; color: var(--iris-600); border: 1px solid var(--sand-500); }
+    .btn-secondary:hover { background: var(--iris-50); }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px;
+            background: var(--iris-50); color: var(--iris-700); font-size: 13px; font-weight: 600; }
+    .cards { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+    .card { background: #fff; border: 1px solid var(--sand-100); border-radius: 20px; padding: 32px; }
+    .card h3 { margin-top: 20px; font-size: 21px; font-weight: 700; }
+    .card p { margin-top: 8px; }
+    .icon { display: inline-flex; width: 48px; height: 48px; border-radius: 14px; background: var(--iris-50);
+            align-items: center; justify-content: center; }
+
+    header { background: #fff; border-bottom: 1px solid var(--sand-100); }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-top: 16px; padding-bottom: 16px; }
+    .top nav { display: flex; gap: 28px; font-weight: 500; }
+    .top nav a { color: var(--iris-950); text-decoration: none; }
+    .top nav a:hover { color: var(--iris-600); }
+    .top .btn { min-height: 44px; font-size: 16px; padding: 0 20px; }
+
+    .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 56px; padding-top: 72px; padding-bottom: 88px; }
+    .hero-text { flex: 1 1 460px; min-width: 0; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 9999px;
+               background: var(--iris-50); color: var(--iris-700); font-weight: 600; font-size: 14px; }
+    .hero h1 { margin-top: 20px; font-size: clamp(40px, 5.2vw, 64px); line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; }
+    .hero-lead { margin-top: 24px; font-size: 20px; line-height: 1.55; max-width: 560px; }
+    .actions { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .checks { margin-top: 32px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 15px; }
+    .checks li { display: flex; align-items: center; gap: 8px; }
+
+    .hero-visual { flex: 1 1 420px; min-width: 0; position: relative; padding: 24px 8px; }
+    .float { position: absolute; z-index: 1; display: flex; align-items: center; gap: 10px; font-size: 14px;
+             box-shadow: 0 8px 24px -8px rgba(3, 9, 35, 0.3); }
+    .float-dark { top: -4px; right: 0; padding: 10px 16px; border-radius: 9999px; background: var(--iris-950); color: #fff; font-weight: 600; }
+    .float-light { bottom: -8px; left: 0; padding: 12px 16px; border-radius: 14px; background: #fff; border: 1px solid var(--sand-100); }
+    .ok-dot { display: inline-flex; width: 28px; height: 28px; border-radius: 9999px; background: #dcfce7; align-items: center; justify-content: center; }
+    .draft { max-width: 460px; margin: 0 auto; background: #fff; border: 1px solid var(--sand-100); border-radius: 20px; padding: 20px;
+             box-shadow: 0 1px 2px 0 rgba(3, 9, 35, 0.06), 0 24px 48px -16px rgba(3, 9, 35, 0.18); }
+    .draft-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
+    .draft-head span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+    .photo { margin-top: 16px; height: 220px; border-radius: 14px; background: var(--iris-100); display: flex; flex-direction: column;
+             align-items: center; justify-content: center; gap: 10px; color: var(--iris-700); font-size: 14px; font-weight: 500; }
+    .draft-text { margin-top: 16px; }
+    .tags { margin-top: 8px; font-size: 15px; color: var(--iris-600); font-weight: 500; }
+    .fake-buttons { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .fake-buttons span { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 12px; font-weight: 600; }
+    .fake-buttons span:first-child { flex: 1 1 180px; background: var(--iris-600); color: #fff; }
+    .fake-buttons span:last-child { border: 1px solid var(--sand-500); }
+
+    .channels { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 40px; padding-top: 24px; padding-bottom: 24px; font-weight: 600; }
+
+    .split { display: flex; flex-wrap: wrap; gap: 56px; align-items: center; }
+    .split > div { flex: 1 1 420px; min-width: 0; }
+    .features { margin-top: 32px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px 32px; }
+    .features h3 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .features p { margin-top: 6px; }
+    .examples { background: var(--sand-50); border: 1px solid var(--sand-100); border-radius: 24px; padding: 24px; }
+    .example { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; background: #fff; border: 1px solid var(--sand-100); border-radius: 16px; padding: 14px 16px; font-size: 15px; }
+    .example .pill { flex: none; }
+
+    .faq { max-width: 800px; }
+    .faq-list { margin-top: 32px; border-top: 1px solid var(--sand-100); }
+    details { border-bottom: 1px solid var(--sand-100); }
+    summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; cursor: pointer; font-size: 18px; font-weight: 600; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; flex: none; font-size: 26px; color: var(--iris-600); transition: transform 0.15s; }
+    details[open] summary::after { transform: rotate(45deg); }
+    details p { padding-bottom: 20px; }
+
+    footer { background: #fff; border-top: 1px solid var(--sand-100); }
+    .bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-top: 32px; padding-bottom: 32px; font-size: 15px; }
+
+    @media (max-width: 760px) {
+      .top nav, .float { display: none; }
+      .section { padding: 72px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap top">
+      <a href="/"><img src="/static/logo.png" alt="postitglobal" width="142" height="32" style="display: block; height: 32px; width: auto;" /></a>
+      <nav aria-label="Sayfa bölümleri">
+        <a href="#nasil">Nasıl çalışır</a>
+        <a href="#yapay-zeka">Yapay zekâ</a>
+        <a href="#ekip">Ekibiniz için</a>
+        <a href="#sss">Sorular</a>
+      </nav>
+      <a class="btn btn-primary" href="/login">Giriş yap</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <div class="hero-text">
+        <p class="eyebrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.6 4.6 2.4 6.9 7 8-4.6 1.1-6.4 3.4-7 8-.6-4.6-2.4-6.9-7-8 4.6-1.1 6.4-3.4 7-8z" fill="#7be904" stroke="#030923" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          Oteller için sosyal medya
+        </p>
+        <h1>Fotoğrafları siz yükleyin, gönderileri yapay zekâ yazsın.</h1>
+        <p class="hero-lead muted">postitglobal, otelinizin fotoğraflarından her hafta Instagram, Facebook, TikTok ve Google İşletme için gönderi taslakları hazırlar. Siz okuyup onaylarsınız; gönderiler hesaplarınızda sıraya girer.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="#nasil">Nasıl çalıştığını görün</a>
+          <a class="btn btn-secondary" href="/login">Giriş yap</a>
+        </div>
+        <ul class="checks muted">
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Uygulama kurulumu yok</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Onayınız olmadan hiçbir şey yayınlanmaz</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Türkçe yazılır, yabancı dillere çevrilir</li>
+        </ul>
+      </div>
+
+      <div class="hero-visual" role="img" aria-label="Örnek: onay bekleyen, yapay zekânın yazdığı bir Instagram gönderisi taslağı">
+        <div class="float float-dark" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2c.6 4.6 2.4 6.9 7 8-4.6 1.1-6.4 3.4-7 8-.6-4.6-2.4-6.9-7-8 4.6-1.1 6.4-3.4 7-8z" fill="#7be904"/></svg>
+          Bu hafta 4 taslak hazır
+        </div>
+        <div class="draft" aria-hidden="true">
+          <div class="draft-head">
+            <span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#030923" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.8" fill="#030923"/></svg>Instagram</span>
+            <span class="pill"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 2c.6 4.6 2.4 6.9 7 8-4.6 1.1-6.4 3.4-7 8-.6-4.6-2.4-6.9-7-8 4.6-1.1 6.4-3.4 7-8z" fill="#3b05c1"/></svg>Yapay zekâ taslağı</span>
+          </div>
+          <div class="photo">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="15.5" cy="9" r="1.8"/><path d="M3.5 18l5.5-6 4 4.5 2.5-2.5 5 4.5"/></svg>
+            havuz-gun-batimi.jpg
+          </div>
+          <p class="draft-text">Gün batımında havuz başında bir kokteyl, ardından denize nazır bir akşam yemeği. Yaz bitmeden sizi bekliyoruz.</p>
+          <p class="tags">#yaz #havuz #tatil</p>
+          <div class="fake-buttons"><span>Onayla ve yayınla</span><span>Reddet</span></div>
+        </div>
+        <div class="float float-light" aria-hidden="true">
+          <span class="ok-dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+          <span><strong>12 fotoğraf yüklendi</strong><br /><span class="muted">Resepsiyon, telefondan</span></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" aria-label="Desteklenen kanallar">
+      <div class="wrap channels">
+        <span class="muted">Gönderileriniz şuralarda yayınlanır:</span>
+        <span>Instagram</span><span>Facebook</span><span>TikTok</span><span>Google İşletme</span>
+      </div>
+    </section>
+
+    <section id="nasil" class="wrap section">
+      <p class="kicker">Nasıl çalışır</p>
+      <h2 class="h2">Üç adımda, haftada birkaç dakika.</h2>
+      <div class="cards">
+        <div class="card">
+          <span class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
+          <h3>1. Fotoğrafları yükleyin</h3>
+          <p class="muted">Ekibiniz fotoğrafları telefondan, size verdiğimiz bağlantıyla ya da ekip hesabıyla yükler. Hangi alana ait olduğunu seçmek yeterli: oda, havuz, yemek, lobi.</p>
+        </div>
+        <div class="card">
+          <span class="icon"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.6 4.6 2.4 6.9 7 8-4.6 1.1-6.4 3.4-7 8-.6-4.6-2.4-6.9-7-8 4.6-1.1 6.4-3.4 7-8z" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linejoin="round"/><path d="M19 15.5c.25 1.6.9 2.3 2.5 2.5-1.6.25-2.25.9-2.5 2.5-.25-1.6-.9-2.25-2.5-2.5 1.6-.2 2.25-.9 2.5-2.5z" fill="#3b05c1"/></svg></span>
+          <h3>2. Yapay zekâ yazar</h3>
+          <p class="muted">Her hafta, seçtiğiniz her kanal için otelinize özel bir taslak hazırlanır: hazır fotoğraflarınızla ve otelinizin tanıtımıyla.</p>
+        </div>
+        <div class="card">
+          <span class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/></svg></span>
+          <h3>3. Onaylayın, yayınlansın</h3>
+          <p class="muted">Beğendiğinizi tek tıkla onaylayın; gönderi sosyal medya hesaplarınızda sıraya girer. Beğenmediğinizi bir notla geri gönderin.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="yapay-zeka" class="band">
+      <div class="wrap section split">
+        <div>
+          <p class="kicker">Yapay zekâ</p>
+          <h2 class="h2">Yapay zekâ yazar. Son söz sizde.</h2>
+          <p class="lead muted">Boş sayfayla uğraşmazsınız: taslak hazır gelir. Ama ne yayınlanacağına her zaman siz karar verirsiniz.</p>
+          <ul class="features">
+            <li><h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-5h6v5"/></svg>Otelinizi tanır</h3>
+              <p class="muted">Taslaklar otelinizin tanıtımından ve kendi fotoğraflarınızdan yazılır; kalıp metinlerden değil.</p></li>
+            <li><h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Her kanala ayrı</h3>
+              <p class="muted">Instagram, Facebook, TikTok ve Google İşletme için ayrı taslaklar; her biri kendi kanalına uygun.</p></li>
+            <li><h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>Türkçe yazar, çevirir</h3>
+              <p class="muted">Taslaklar Türkçe hazırlanır, paketinize göre yabancı misafirleriniz için başka dillere çevrilir.</p></li>
+            <li><h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg>Onaysız yayın yok</h3>
+              <p class="muted">Her taslağı siz görürsünüz. Reddederken bir not bırakabilirsiniz.</p></li>
+          </ul>
+        </div>
+        <div>
+          <div class="examples">
+            <p class="muted" style="font-size: 14px; font-weight: 600;">Bir fotoğraftan dört taslak</p>
+            <div class="example"><span class="pill">Instagram</span><p>Gün batımında havuz başında bir kokteyl. Yaz bitmeden sizi bekliyoruz.</p></div>
+            <div class="example"><span class="pill">Facebook</span><p>Havuzumuz sezonun son haftalarında da her akşam gün batımına kadar açık. Rezervasyon için bize yazın.</p></div>
+            <div class="example"><span class="pill">TikTok</span><p>Havuzdan gün batımına 30 saniye. Sesi açın.</p></div>
+            <div class="example"><span class="pill">Google İşletme</span><p>Açık havuz her gün 09.00–19.00 arası misafirlerimize açık.</p></div>
+            <p class="muted" style="margin-top: 16px; font-size: 13px;">Örnek metinler. Taslaklar sizin fotoğraflarınızdan ve tanıtımınızdan yazılır.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ekip" class="wrap section">
+      <p class="kicker">Ekibiniz için</p>
+      <h2 class="h2">Resepsiyondan mutfağa, herkes katkı verebilir.</h2>
+      <p class="lead muted">Sosyal medya tek bir kişinin işi olmaktan çıkar. Fotoğrafı çeken yükler, yetkili olan onaylar.</p>
+      <div class="cards">
+        <div class="card">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>
+          <h3>Telefondan yükleme</h3>
+          <p class="muted">Yükleme sayfası telefonda açılır. Fotoğrafı seçin, alanı işaretleyin, yükleyin. Uygulama indirmek gerekmez.</p>
+        </div>
+        <div class="card">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.4 3.4-5.5 6.5-5.5s5.7 2.1 6.5 5.5"/><path d="M18 8v6"/><path d="M15 11h6"/></svg>
+          <h3>Davetle katılım</h3>
+          <p class="muted">Ekip arkadaşlarınızı bir davet bağlantısıyla eklersiniz. Her biri yalnızca kendi otelinin dosyalarını görür.</p>
+        </div>
+        <div class="card">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b05c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5z"/><path d="M8.5 10.5l2.2 2.2 4.8-4.8"/></svg>
+          <h3>Taslakları birlikte inceleyin</h3>
+          <p class="muted">Ekibiniz bekleyen taslakları görür; onaylar ya da bir notla geri gönderir.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="sss" class="band">
+      <div class="wrap section faq">
+        <h2 class="h2">Sık sorulan sorular</h2>
+        <div class="faq-list">
+          <details><summary>Yapay zekâ yanlış bir şey yazarsa ne olur?</summary>
+            <p class="muted">Hiçbir taslak siz onaylamadan yayınlanmaz. Beğenmediğiniz taslağı reddeder, isterseniz nedenini bir notla belirtirsiniz.</p></details>
+          <details><summary>Hangi kanallarda paylaşabiliyoruz?</summary>
+            <p class="muted">Instagram, Facebook, TikTok ve Google İşletme. Oteliniz için hangilerinin kullanılacağını siz seçersiniz.</p></details>
+          <details><summary>Taslaklar ne sıklıkla hazırlanır?</summary>
+            <p class="muted">Her hafta, seçtiğiniz her kanal için otomatik olarak. Hazır olduklarında onayınızı bekler.</p></details>
+          <details><summary>Ekibimin teknik bilgisi olması gerekir mi?</summary>
+            <p class="muted">Hayır. Yükleme sayfası telefonda açılır; fotoğrafı seçip yüklemek yeterli.</p></details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap bottom muted">
+      <img src="/static/logo.png" alt="postitglobal" width="124" height="28" style="display: block; height: 28px; width: auto;" />
+      <a href="/login" style="color: inherit;">Giriş yap</a>
+      <span>© postitglobal</span>
+    </div>
+  </footer>
+</body>
+</html>

@@ -119,6 +119,18 @@ def signed_in_staff_hotel(request: Request) -> str | None:
     return hotel_of(get_supabase(), user.id)
 
 
+def signed_in_landing_page(request: Request) -> str | None:
+    """Where this browser's signed-in account belongs (landing_page), or None: no session, an
+    expired one, or an account with no access. For pages anyone can open, such as the home page."""
+    if not request.cookies.get(SESSION_COOKIE):
+        return None
+    try:
+        user = get_current_user(request, None)
+    except HTTPException:
+        return None
+    return landing_page(user)
+
+
 def verify_hotel_upload_token(
     hotel_id: str,
     credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),

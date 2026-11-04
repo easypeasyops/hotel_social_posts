@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 import anyio
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from app.assets.public_router import router as public_upload_router
 from app.assets.router import router as assets_router
 from app.auth import sessions
-from app.auth.dependencies import signed_in_staff_hotel
+from app.auth.dependencies import signed_in_landing_page, signed_in_staff_hotel
 from app.auth.google import router as google_router
 from app.auth.router import router as auth_router
 from app.auth.signup import router as signup_router
@@ -75,11 +75,14 @@ def create_app() -> FastAPI:
                 return RedirectResponse("/login", status_code=303)
         return response
 
-    @app.get("/", include_in_schema=False)
-    def root() -> RedirectResponse:
-        """The front door's bare host lands on the hotel list; signed out, the dashboard's
-        401 sends the visitor on to /login (protect_dashboard_pages)."""
-        return RedirectResponse("/dashboard/hotels", status_code=303)
+    @app.get("/", include_in_schema=False, response_model=None)
+    def root(request: Request) -> Response:
+        """The home page, for hotels that don't use postitglobal yet. A signed-in operator or
+        staff member goes on to their own pages, as a new session would."""
+        destination = signed_in_landing_page(request)
+        if destination:
+            return RedirectResponse(destination, status_code=303)
+        return templates.TemplateResponse(request, "home.html", {"request": request})
 
     # Probes (platform plan 5.3), answered on the event loop (`async def`), so they never
     # queue behind request work in the thread pool: a slow liveness answer under load would

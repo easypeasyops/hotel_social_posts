@@ -129,7 +129,7 @@ All API route prefixes below are registered in `app/main.py`.
 | `GET /healthz` | None | Liveness (`{"status":"ok"}`): the process answers. Checks no dependency |
 | `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
 | `GET /login`, `POST /login`, `GET/POST /forgot-password`, `GET /auth/callback`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `GET /login/google`, `GET /auth/callback/google`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or Google sign-in, password recovery, sign-out |
-| `GET /` | None | Redirects to `/dashboard/hotels` (signed out, on to `/login`) |
+| `GET /` | None | The home page (`templates/home.html`, Turkish, for hotels; no script). A browser already signed in goes on to its own pages, as a new session would: an operator to `/dashboard/hotels`, hotel staff to `/hotel` |
 | `/dashboard/*` | Operator session or Supabase bearer JWT; operator role | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
 | `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
 | `GET /static/*` | None | Brand images: the logo and the browser-tab icons, from `app/static` |

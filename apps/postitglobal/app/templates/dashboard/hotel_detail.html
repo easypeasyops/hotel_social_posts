@@ -64,4 +64,50 @@
   <p class="text-sm text-gray-600 mt-5 border-t border-gray-200 pt-4">No media uploaded yet.</p>
   {% endif %}
 </section>
+
+<section id="review" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+  <h2 class="font-semibold">Drafts to review</h2>
+  <p class="text-sm text-gray-600 mt-1">Approving publishes the post to the hotel's Buffer channel for that network, with its images.</p>
+  {% if pending %}
+  <div class="mt-5 divide-y divide-gray-200 border-t border-gray-200">
+    {% for draft in pending %}
+    <article class="py-4 text-sm">
+      <div class="flex items-center justify-between gap-4">
+        <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs">{{ draft.channel|replace("_", " ")|capitalize }}</span>
+        <span class="text-xs text-gray-500">{{ draft.created_at }}</span>
+      </div>
+      <p class="mt-3 whitespace-pre-line">{{ draft.body_tr }}</p>
+      {% if draft.asset_ids %}
+      <p class="mt-2 text-xs text-gray-500">Images: {% for id in draft.asset_ids %}{{ asset_names.get(id, id) }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+      {% else %}
+      <p class="mt-2 text-xs text-amber-700">No images{% if draft.channel == "instagram" %}: Instagram will refuse it{% endif %}.</p>
+      {% endif %}
+      <div class="mt-3 flex flex-wrap items-start gap-3">
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/drafts/{{ draft.id }}/approve">
+          <button type="submit" class="bg-black text-white rounded px-4 py-2 hover:bg-gray-800">Approve and publish</button>
+        </form>
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/drafts/{{ draft.id }}/reject" class="flex flex-wrap items-start gap-2">
+          <input name="feedback" placeholder="Feedback (optional)" aria-label="Feedback for this draft"
+                 class="border border-gray-300 rounded px-3 py-2 w-64" />
+          <button type="submit" class="border border-gray-300 rounded px-4 py-2 hover:bg-gray-50">Reject</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-600 mt-5 border-t border-gray-200 pt-4">No drafts waiting for review.</p>
+  {% endif %}
+  {% if decided %}
+  <h3 class="font-medium text-sm mt-6">Recent decisions</h3>
+  <div class="mt-2 divide-y divide-gray-200 border-t border-gray-200">
+    {% for draft in decided %}
+    <div class="py-2 flex items-center justify-between gap-4 text-sm">
+      <p class="min-w-0 truncate">{{ draft.channel|replace("_", " ")|capitalize }}: {{ draft.body_tr }}</p>
+      <span class="shrink-0 rounded-full px-2.5 py-1 text-xs {% if draft.status == 'failed' %}bg-red-50 text-red-800{% elif draft.status == 'scheduled' %}bg-green-50 text-green-800{% else %}bg-gray-100{% endif %}">{{ draft.status|capitalize }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
 {% endblock %}

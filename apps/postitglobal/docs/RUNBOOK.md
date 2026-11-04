@@ -53,6 +53,23 @@ In Supabase **Authentication → URL Configuration**, set the Site URL to the ap
 
 Keep the Supabase magic-link and password-recovery email templates configured to redirect to the provided redirect URL. Supabase must allow the callback URL or it may fall back to the Site URL.
 
+In Supabase **Authentication → Sign In / Providers**, keep **Allow new users to sign up** off. The app never needs Supabase to create users on its own, and Google sign-in relies on this setting to stay limited to existing accounts.
+
+### Google sign-in
+
+The **Continue with Google** button shows only when `GOOGLE_SIGN_IN=true` (deploy value `config.googleSignIn`, per environment in `deploy/envs/`). Set it up once; staging and prod share the Supabase project, so they share the provider:
+
+1. In [Google Cloud console](https://console.cloud.google.com/) → **APIs & Services → OAuth consent screen**: user type External, app name postitglobal, your support email. Scopes: `openid`, `email`, `profile` only. Publish the app (in Testing, only listed test users can sign in).
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID**, type Web application. Under **Authorized redirect URIs** add Supabase's callback, shown on the Supabase Google provider page: `https://<project-ref>.supabase.co/auth/v1/callback`. Google sends people back to Supabase, not to the app, so no app URL goes here.
+3. In Supabase **Authentication → Sign In / Providers → Google**: enable it and paste the client ID and client secret. Keep the secret out of git; it lives only in Supabase.
+4. In Supabase **Authentication → URL Configuration → Redirect URLs**, add each origin's Google callback next to `/auth/callback`:
+   - Local: `http://localhost:8000/auth/callback/google`
+   - Staging: `http://staging.postitglobal.localhost:8080/auth/callback/google`
+   - Prod: `http://postitglobal.localhost:8080/auth/callback/google` (the HTTPS origin once prod has one)
+5. Set `GOOGLE_SIGN_IN=true` (`.env` locally; `config.googleSignIn: "true"` in the environment's values) and redeploy.
+
+Check it: an operator whose account email is the Google address signs in and lands on the hotel list. A Google address without an account sees "There's no postitglobal account for that Google address", and no user appears in Supabase **Authentication → Users**. To turn it off, set `GOOGLE_SIGN_IN=false`; Google identities already linked stay in Supabase, harmlessly.
+
 ## Local startup
 
 From the project root:
@@ -76,7 +93,7 @@ Expected response:
 
 This check does **not** verify Supabase, Redis, or provider connectivity. In local debug mode, `/docs` is available only if `DEBUG=true`. To stop local services, use `Ctrl+C` in the compose session.
 
-Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password or email magic link. Use **Forgot password?** (`/forgot-password`) to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
+Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password, an email magic link or, with `GOOGLE_SIGN_IN=true`, Google. Use **Forgot password?** (`/forgot-password`) to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
 
 ## Development checks
 

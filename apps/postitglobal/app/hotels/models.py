@@ -29,6 +29,7 @@ class HotelCreate(BaseModel):
 
 class HotelUpdate(BaseModel):
     name: str | None = None
+    location: str | None = None
     description: str | None = None
     tier: SubscriptionTier | None = None
     channels: list[SocialChannel] | None = None

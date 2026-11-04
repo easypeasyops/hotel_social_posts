@@ -1,0 +1,40 @@
+{% extends "staff/base.html" %}
+{% block title %}Otel bilgileri{% endblock %}
+{% set labels = {"instagram": "Instagram", "facebook": "Facebook", "tiktok": "TikTok", "google_business": "Google İşletme"} %}
+{% set field = "mt-1 block w-full min-h-11 px-3 rounded-lg border border-sand-500 bg-white text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600" %}
+{% block content %}
+<div>
+  <a href="/hotel" class="text-sm font-medium text-iris-600 underline">← Dosyalarınız</a>
+  <h1 class="mt-2 text-2xl font-semibold tracking-tight">Otel bilgileri</h1>
+  <p class="mt-1 text-sand-700">Paylaşımlar bu bilgilerle hazırlanır.</p>
+</div>
+
+{% if saved %}
+<div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Kaydedildi.</p></div>
+{% elif error %}
+<div role="alert" class="flex gap-3 p-4 rounded-xl bg-red-100 text-red-800"><span aria-hidden="true">!</span><p>Ad, konum ve iletişim adresi gerekli; kanallar listedekilerden olmalı.</p></div>
+{% endif %}
+
+<form method="post" action="/hotel/details" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-4">
+  <label class="block"><span class="font-medium">Otel adı</span>
+    <input name="name" value="{{ hotel.name }}" required class="{{ field }}" /></label>
+  <label class="block"><span class="font-medium">Konum</span>
+    <input name="location" value="{{ hotel.location }}" required class="{{ field }}" /></label>
+  <label class="block"><span class="font-medium">İletişim e-postası</span>
+    <input name="contact_email" type="email" value="{{ hotel.contact_email }}" required class="{{ field }}" /></label>
+  <label class="block"><span class="font-medium">Tanıtım</span>
+    <textarea name="description" rows="5" class="{{ field }} py-2">{{ hotel.description or "" }}</textarea></label>
+  <fieldset>
+    <legend class="font-medium">Paylaşım kanalları</legend>
+    <div class="mt-2 flex flex-wrap gap-4">
+      {% for channel in channels %}
+      <label class="inline-flex items-center gap-2 min-h-11">
+        <input type="checkbox" name="channels" value="{{ channel }}" {% if channel in hotel.channels %}checked{% endif %} class="size-5" />
+        {{ labels.get(channel, channel) }}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <button class="min-h-12 px-6 rounded-xl bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Kaydet</button>
+</form>
+{% endblock %}

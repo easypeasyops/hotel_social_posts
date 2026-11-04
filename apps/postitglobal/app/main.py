@@ -10,6 +10,7 @@ from app.assets.router import router as assets_router
 from app.auth import sessions
 from app.auth.google import router as google_router
 from app.auth.router import router as auth_router
+from app.auth.signup import router as signup_router
 from app.config import get_settings
 from app.content.router import router as content_router
 from app.dashboard import router as dashboard_router
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
     app.include_router(public_upload_router, tags=["upload capabilities"])
     app.include_router(auth_router, tags=["authentication"])
     app.include_router(google_router, tags=["authentication"])
+    app.include_router(signup_router, tags=["authentication"])
     app.include_router(dashboard_router, tags=["dashboard"])
     app.include_router(staff_router, tags=["hotel staff"])
 

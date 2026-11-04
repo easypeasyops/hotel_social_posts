@@ -7,7 +7,13 @@ from supabase import Client
 
 from app.assets import service as asset_service
 from app.auth.dependencies import require_operator
-from app.auth.upload_tokens import create_upload_token, UPLOAD_TOKEN_TTL_SECONDS
+from app.auth.upload_tokens import (
+    STAFF_INVITE_PURPOSE,
+    STAFF_INVITE_TTL_SECONDS,
+    UPLOAD_TOKEN_TTL_SECONDS,
+    create_token,
+    create_upload_token,
+)
 from app.content import service as content_service
 from app.database import get_supabase
 from app.hotels import service as hotel_service
@@ -34,7 +40,11 @@ DECIDED_STATUSES = ("approved", "scheduled", "published", "failed")
 
 
 def _detail_context(
-    request: Request, db: Client, hotel_id: str, upload_link: str | None = None
+    request: Request,
+    db: Client,
+    hotel_id: str,
+    upload_link: str | None = None,
+    staff_invite_link: str | None = None,
 ) -> dict:
     hotel = hotel_service.get_hotel(db, hotel_id)
     assets = asset_service.list_assets(db, hotel_id)
@@ -51,6 +61,8 @@ def _detail_context(
         "decided": decided[:10],
         "upload_link": upload_link,
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
+        "staff_invite_link": staff_invite_link,
+        "staff_invite_expires_days": STAFF_INVITE_TTL_SECONDS // 86400,
         "generation_queued": request.query_params.get("generation") == "queued",
         "deletable": content_service.DELETABLE_STATUSES,
     }
@@ -190,6 +202,25 @@ def create_hotel_upload_link(
         request,
         "dashboard/hotel_detail.html",
         _detail_context(request, db, hotel_id, upload_link),
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.post("/hotels/{hotel_id}/staff-invite")
+def create_staff_invite_link(
+    hotel_id: str,
+    request: Request,
+    db: Client = Depends(get_supabase),
+):
+    """A link with which the hotel's staff make their own accounts (/signup), for 7 days."""
+    hotel_service.get_hotel(db, hotel_id)
+    invite = create_token(hotel_id, STAFF_INVITE_PURPOSE, STAFF_INVITE_TTL_SECONDS)
+    link = f"{str(request.base_url).rstrip('/')}/signup#invite={quote(invite, safe='')}"
+    response = templates.TemplateResponse(
+        request,
+        "dashboard/hotel_detail.html",
+        _detail_context(request, db, hotel_id, staff_invite_link=link),
     )
     response.headers["Cache-Control"] = "no-store"
     return response

@@ -79,6 +79,8 @@ Hotel staff are Supabase accounts tied to one hotel by a row in `hotel_members` 
 
 `/hotel` pages get `Cache-Control: no-store`, and a signed-out visit goes to `/login`, as for the dashboard.
 
+Staff make their own accounts from an invite. On a hotel's dashboard page, **Create staff invite link** (`POST /dashboard/hotels/{hotel_id}/staff-invite`) gives `/signup#invite=…`: a capability signed like the upload link (purpose `staff-invite`, 7 days, `app/auth/upload_tokens.py`). Several people can use it until it expires, and only rotating `SECRET_KEY` revokes it early. The sign-up page (`app/auth/signup.py`) moves the invite from the URL fragment into its form. `POST /signup` reads the hotel from the invite (an invalid, expired or other-purpose token, or a deleted hotel, makes nothing). It then creates the user with the service role (`auth.admin.create_user`, email confirmed, since the invite is what vouches for the person; Supabase's own sign-up stays off), inserts the `hotel_members` row (or deletes the user again if that fails), signs the account in and goes to `/hotel`. An email that already has an account is refused (409); an operator adds an existing account to a hotel by SQL (RUNBOOK).
+
 ## Request and job flows
 
 ### Hotel media intake
@@ -119,6 +121,7 @@ All API route prefixes below are registered in `app/main.py`.
 
 | Route | Authentication | Purpose |
 |---|---|---|
+| `GET/POST /signup` | A staff invite (form field from the link's fragment) | Hotel staff sign-up |
 | `GET /hotel`, `GET /hotel/upload` | Session or bearer JWT of hotel staff (`hotel_members`) | The staff member's own hotel: its files, and the upload page with a fresh upload link |
 | `GET /healthz` | None | Liveness (`{"status":"ok"}`): the process answers. Checks no dependency |
 | `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
@@ -199,7 +202,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Translation failures can leave a partial set of translation rows without failing the overall task.
 - No periodic Celery beat schedule is configured here. Weekly generation is the cluster's `generate-weekly` CronJob, which queues the task directly; `POST /internal/jobs/generate` does the same by hand. The hourly Buffer sync is the `sync-buffer` CronJob.
 - Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
-- Authentication has no sign-up, MFA, or role management UI. Operators and hotel staff are made by hand in Supabase. Magic links and password recovery are supported for existing users only.
+- Authentication has no MFA or role management UI. Operators are made by hand in Supabase; hotel staff sign up from an invite link (or are added by SQL). Invite links can't be revoked one by one. Magic links and password recovery are supported for existing users only.
 - Logs (plan 5.3): the API and the worker write one JSON object per line to stdout (`app/observability.py`): `ts`, `level`, `logger`, `msg`, and the fields a call adds (a failed translation's `draft_id`, `language`, `error`). Every request gets a request ID, kept from a plain `X-Request-ID` header or generated, echoed in the response and on every line the request logs; one access line per request names its route template (`/api/v1/hotels/{hotel_id}`), never the raw path. Probes are logged at DEBUG.
 - Metrics (plan 5.3): the API serves Prometheus metrics on their own port, `METRICS_PORT` (9100), not the public one: `http_requests_total{method, route, status}` and `http_request_duration_seconds{method, route}`, shortly's names, so the platform's SLO rules and dashboards read both apps alike. Routes are templates, never raw paths. The worker exports no metrics yet. The deploy values have Prometheus scrape the API (`monitoring.enabled`); alert rules come once the app has run long enough to set its SLOs.
 

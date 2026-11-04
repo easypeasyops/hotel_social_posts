@@ -12,6 +12,9 @@ from app.config import get_settings
 
 UPLOAD_PURPOSE = "hotel-media-upload"
 UPLOAD_TOKEN_TTL_SECONDS = 24 * 60 * 60
+# A hotel's staff invite: anyone with it can make a staff account for that hotel (/signup).
+STAFF_INVITE_PURPOSE = "staff-invite"
+STAFF_INVITE_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
 def _sign(encoded_payload: str) -> bytes:

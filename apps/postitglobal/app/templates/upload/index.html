@@ -4,117 +4,197 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ hotel.name }} — Medya Yükle</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&display=swap" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: {
+        lagoon: { 50: '#edf6f5', 100: '#d3eae7', 700: '#0f5c5a', 800: '#0b4644', 950: '#1f2a29' },
+        sand: { 50: '#faf7f2', 100: '#f3ece1', 500: '#8a8178', 700: '#5c554f' },
+      },
+      fontFamily: { customer: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      boxShadow: { soft: '0 1px 2px 0 rgba(31, 42, 41, 0.06), 0 8px 24px -8px rgba(31, 42, 41, 0.12)' },
+    } } };
+  </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center px-4">
+<body class="min-h-screen bg-sand-50 text-lagoon-950 font-customer text-base flex items-center justify-center px-4 py-8">
 
-  <div class="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-lg p-8">
-    <h1 class="text-xl font-semibold mb-1">{{ hotel.name }}</h1>
-    <p class="text-sm text-gray-500 mb-6">Fotoğraf ve video yükleyin</p>
-    <p id="access-error" role="alert" class="hidden text-sm text-red-700 bg-red-50 rounded p-3 mb-4">
-      Yükleme bağlantısı geçersiz veya süresi dolmuş. Otel yetkilisinden yeni bir bağlantı isteyin.
-    </p>
+  <main class="w-full max-w-xl bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-6">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">{{ hotel.name }}</h1>
+      <p class="mt-1 text-sand-700">Otelinizin fotoğraf ve videolarını buradan paylaşın. Sosyal medya paylaşımları bunlardan hazırlanır.</p>
+    </div>
 
-    <form id="upload-form" class="space-y-4">
-      <!-- Category -->
-      <div>
-        <label class="block text-sm font-medium mb-1">Kategori</label>
-        <select name="category" id="category"
-                class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
-          <option value="room">Oda</option>
-          <option value="pool">Havuz</option>
-          <option value="food">Yemek</option>
-          <option value="exterior">Dış Cephe</option>
-          <option value="lobby">Lobi</option>
-          <option value="beach">Sahil</option>
-          <option value="other">Diğer</option>
-        </select>
-      </div>
+    <div id="access-error" role="alert" class="hidden flex gap-3 p-4 rounded-xl bg-red-100 text-red-800">
+      <span class="flex-none font-semibold" aria-hidden="true">✗</span>
+      <p>Bu bağlantı geçersiz veya süresi dolmuş. Yeni bir bağlantı için sizi davet eden kişiye yazın.</p>
+    </div>
 
-      <!-- File picker -->
-      <div>
-        <label class="block text-sm font-medium mb-1">Dosyalar</label>
-        <input type="file" id="files" name="files" multiple accept="image/*,video/*"
-               class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+    <form id="upload-form" class="space-y-6">
+      <fieldset class="flex flex-wrap gap-2">
+        <legend class="mb-2 font-medium">Ne yüklüyorsunuz?</legend>
+        {% for value, label in [("room", "Oda"), ("pool", "Havuz"), ("food", "Yemek"), ("exterior", "Dış cephe"), ("lobby", "Lobi"), ("beach", "Sahil"), ("other", "Diğer")] %}
+        <label class="cursor-pointer">
+          <input type="radio" name="category" value="{{ value }}" class="peer sr-only" {% if loop.first %}checked{% endif %} />
+          <span class="inline-flex items-center min-h-11 px-4 rounded-full border border-sand-500 bg-white font-medium peer-checked:bg-lagoon-700 peer-checked:border-lagoon-700 peer-checked:text-white peer-checked:before:content-['✓'] peer-checked:before:mr-2 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lagoon-700">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </fieldset>
+
+      <label class="relative block px-6 py-8 text-center rounded-2xl border-2 border-dashed border-sand-500 bg-sand-50 cursor-pointer hover:border-lagoon-700 hover:bg-lagoon-50 focus-within:border-lagoon-700 focus-within:bg-lagoon-50">
+        <input type="file" id="files" name="files" multiple accept="image/*,video/*" aria-describedby="files-help"
+               class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+        <span class="block font-semibold text-lagoon-700">Dosyaları seçin veya buraya sürükleyin</span>
+        <span id="files-help" class="text-sand-700">Fotoğraf ve video. Birden fazla seçebilirsiniz.</span>
+      </label>
+
+      <ul id="file-list" class="hidden border-t border-sand-100" aria-live="polite"></ul>
+
+      <div id="summary" role="status" class="hidden flex gap-3 p-4 rounded-xl bg-green-100 text-green-800">
+        <span class="flex-none font-semibold" aria-hidden="true">✓</span>
+        <p id="summary-text"></p>
       </div>
 
       <button id="upload-button" type="submit"
-              class="w-full bg-black text-white rounded py-2 text-sm font-medium hover:bg-gray-800">
-        Yükle
+              class="w-full inline-flex items-center justify-center min-h-12 px-6 py-3 rounded-xl bg-lagoon-700 text-white font-semibold hover:bg-lagoon-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon-700 disabled:bg-sand-100 disabled:text-sand-700 disabled:cursor-not-allowed">
+        Dosyaları yükle
       </button>
     </form>
-
-    <div id="status" class="mt-4 text-sm text-gray-600 hidden"></div>
-  </div>
+  </main>
 
   <script>
     const form = document.getElementById('upload-form');
-    const status = document.getElementById('status');
+    const filesInput = document.getElementById('files');
+    const fileList = document.getElementById('file-list');
+    const summary = document.getElementById('summary');
+    const summaryText = document.getElementById('summary-text');
+    const uploadButton = document.getElementById('upload-button');
+    const accessError = document.getElementById('access-error');
     const hotelId = "{{ hotel.id }}";
     const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
-    const accessError = document.getElementById('access-error');
-    const uploadButton = document.getElementById('upload-button');
     history.replaceState(null, '', window.location.pathname);
 
-    if (!token) {
+    // Each chosen file, its row in the list, and whether it is uploaded yet.
+    let queue = [];
+
+    function showAccessError() {
       accessError.classList.remove('hidden');
-      uploadButton.disabled = true;
-      uploadButton.classList.add('opacity-50', 'cursor-not-allowed');
+      form.classList.add('hidden');
     }
 
+    if (!token) showAccessError();
+
+    function setState(item, state, percent) {
+      const labels = {
+        waiting: ['Sırada', 'text-sand-700'],
+        uploading: ['Yükleniyor…', 'text-sand-700'],
+        done: ['✓ Yüklendi', 'text-green-800'],
+        failed: ['✗ Yüklenemedi', 'text-red-700'],
+      };
+      const [text, color] = labels[state];
+      item.state = state;
+      item.status.textContent = text;
+      item.status.className = 'flex-none text-sm ' + color;
+      item.track.classList.toggle('hidden', state !== 'uploading');
+      item.bar.style.width = (percent || 0) + '%';
+    }
+
+    filesInput.addEventListener('change', () => {
+      fileList.replaceChildren();
+      summary.classList.add('hidden');
+      queue = Array.from(filesInput.files).map((file) => {
+        const row = document.createElement('li');
+        row.className = 'flex items-center justify-between gap-4 py-3 border-b border-sand-100';
+        const left = document.createElement('div');
+        left.className = 'flex-1 min-w-0';
+        const name = document.createElement('span');
+        name.className = 'block truncate';
+        name.textContent = file.name;
+        const track = document.createElement('div');
+        track.className = 'mt-1 h-1 rounded-full bg-sand-100 overflow-hidden';
+        const bar = document.createElement('div');
+        bar.className = 'h-full bg-lagoon-700';
+        track.append(bar);
+        left.append(name, track);
+        const status = document.createElement('span');
+        row.append(left, status);
+        fileList.append(row);
+        const item = { file, status, track, bar };
+        setState(item, 'waiting');
+        return item;
+      });
+      fileList.classList.toggle('hidden', queue.length === 0);
+      uploadButton.disabled = false;
+      uploadButton.textContent = 'Dosyaları yükle';
+    });
+
+    class LinkExpired extends Error {}
+
     async function readResponse(response) {
-      if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(`Request failed (${response.status}): ${detail}`);
-      }
+      if (response.status === 401 || response.status === 403) throw new LinkExpired();
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
       return response.json();
+    }
+
+    // XHR rather than fetch, so the row can show upload progress.
+    function putFile(url, file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', url);
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total * 100); };
+        xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(`Storage upload failed (${xhr.status})`)));
+        xhr.onerror = () => reject(new Error('Storage upload failed'));
+        xhr.send(file);
+      });
     }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!token) return;
-      const files = document.getElementById('files').files;
-      const category = document.getElementById('category').value;
-      if (!files.length) return;
+      const pending = queue.filter((item) => item.state !== 'done');
+      if (!pending.length) return;
+      const category = form.querySelector('input[name="category"]:checked').value;
 
-      status.classList.remove('hidden');
+      summary.classList.add('hidden');
       uploadButton.disabled = true;
+      uploadButton.textContent = 'Yükleniyor…';
 
-      for (const file of files) {
+      for (const item of pending) {
         try {
-          status.textContent = `${file.name}: yükleme bağlantısı alınıyor...`;
+          setState(item, 'uploading', 0);
           const result = await readResponse(await fetch(`/api/v1/upload-capabilities/${hotelId}/upload-url`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ filename: file.name, category, content_type: file.type }),
+            body: JSON.stringify({ filename: item.file.name, category, content_type: item.file.type }),
           }));
-
-          status.textContent = `${file.name}: yükleniyor...`;
-          const uploadResponse = await fetch(result.upload_url, {
-            method: 'PUT',
-            headers: { 'Content-Type': file.type },
-            body: file,
-          });
-          if (!uploadResponse.ok) {
-            throw new Error(`Storage upload failed (${uploadResponse.status})`);
-          }
-
+          await putFile(result.upload_url, item.file, (percent) => setState(item, 'uploading', percent));
           await readResponse(await fetch(
             `/api/v1/upload-capabilities/${hotelId}/assets/${result.asset_id}/confirm`,
-            {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` },
-            }
+            { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }
           ));
-          status.textContent = `✓ ${file.name} yüklendi`;
+          setState(item, 'done');
         } catch (err) {
-          status.textContent = `✗ ${file.name} yüklenemedi: ${err.message}`;
+          if (err instanceof LinkExpired) {
+            showAccessError();
+            return;
+          }
+          console.error(item.file.name, err);
+          setState(item, 'failed');
         }
       }
-      uploadButton.disabled = false;
+
+      const done = queue.filter((item) => item.state === 'done').length;
+      const failed = queue.length - done;
+      if (done) {
+        summaryText.textContent = `${done} dosya yüklendi. Teşekkür ederiz.`;
+        summary.classList.remove('hidden');
+      }
+      uploadButton.disabled = failed === 0;
+      uploadButton.textContent = failed ? 'Yüklenemeyenleri tekrar dene' : 'Dosyaları yükle';
     });
   </script>
 

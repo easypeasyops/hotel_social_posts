@@ -1,23 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="referrer" content="no-referrer" />
-  <title>Signing in — postitglobal</title>
-  <style>
-    body { font: 16px system-ui, sans-serif; color: #111827; background: #f9fafb; }
-    main { box-sizing: border-box; width: min(100% - 2rem, 28rem); margin: 20vh auto; padding: 2rem; background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; }
-    .muted { color: #4b5563; }
-    .error { color: #b91c1c; }
-  </style>
-</head>
-<body>
-  <main>
+{% extends "auth/_layout.html" %}
+{% block title %}Signing in{% endblock %}
+{% block content %}
     <h1 id="heading">Email sign-in</h1>
-    <p id="status" role="status" class="muted">Verifying your sign-in link…</p>
-    <a id="login-link" hidden href="/login">Return to sign in</a>
-  </main>
+    <p id="status" role="status" class="lead">Verifying your sign-in link…</p>
+    <a id="login-link" hidden class="btn btn-secondary" href="/login">Return to sign in</a>
+{% endblock %}
+{% block scripts %}
   <script>
     const status = document.getElementById('status');
     const loginLink = document.getElementById('login-link');
@@ -69,10 +57,8 @@
 
     completeSignIn().catch((err) => {
       status.textContent = err.message;
-      status.classList.remove('muted');
-      status.classList.add('error');
+      status.className = 'alert alert-error';
       loginLink.hidden = false;
     });
   </script>
-</body>
-</html>
+{% endblock %}

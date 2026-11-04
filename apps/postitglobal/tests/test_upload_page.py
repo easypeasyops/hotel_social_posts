@@ -27,3 +27,10 @@ def test_the_page_offers_every_category_the_api_accepts(page: str) -> None:
 def test_the_page_greets_the_hotel_and_hides_the_expired_link_notice(page: str) -> None:
     assert "Lykia Resort" in page
     assert '<div id="access-error" role="alert" class="hidden' in page
+
+
+def test_the_page_shows_the_logo_and_the_logo_is_served(page: str) -> None:
+    assert '<img src="/static/logo.png" alt="postitglobal"' in page
+    response = TestClient(create_app()).get("/static/logo.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"

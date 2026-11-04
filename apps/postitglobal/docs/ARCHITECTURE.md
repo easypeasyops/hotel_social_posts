@@ -112,6 +112,7 @@ All API route prefixes below are registered in `app/main.py`.
 | `GET /login`, `POST /login`, `POST /login/magic-link`, `POST /login/forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or magic-link sign-in, password recovery, sign-out |
 | `/dashboard/*` | Operator session or Supabase bearer JWT | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
 | `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
+| `GET /static/*` | None | Brand images (the logo), served from `app/static` |
 | `/api/v1/hotels` | Supabase bearer JWT or operator session | List, create, retrieve, update, and delete hotel profiles |
 | `/api/v1/assets` | Supabase bearer JWT or operator session | List assets, create operator upload URLs, confirm uploads, and delete assets |
 | `/api/v1/upload-capabilities/{hotel_id}/*` | 24-hour hotel-scoped signed capability | Create upload URL and confirm an asset upload |

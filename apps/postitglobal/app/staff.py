@@ -171,3 +171,12 @@ def staff_reject(
     if _own_draft(db, hotel_id, draft_id).get("status") == "pending_review":
         content_service.reject_draft(db, draft_id, feedback.strip() or None)
     return RedirectResponse("/hotel/drafts?done=rejected", status_code=303)
+
+
+@router.post("/drafts/{draft_id}/delete")
+def staff_delete_draft(
+    draft_id: str, hotel_id: str = Depends(require_staff), db: Client = Depends(get_supabase)
+):
+    """As on the dashboard: delete a draft that isn't at Buffer (409 for one that is)."""
+    content_service.delete_draft(db, _own_draft(db, hotel_id, draft_id))
+    return RedirectResponse("/hotel/drafts?done=deleted", status_code=303)

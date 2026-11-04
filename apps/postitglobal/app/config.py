@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Browser session cookie should only travel over HTTPS outside local development.
     session_cookie_secure: bool = True
 
+    # "Continue with Google" on /login: on only once Supabase's Google provider is set up.
+    google_sign_in: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

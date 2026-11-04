@@ -1,0 +1,10 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Signing in{% endblock %}
+{% block content %}
+    <h1>You're signed in</h1>
+    <p class="lead">Taking you to your dashboard…</p>
+    <a id="next" class="btn btn-primary" href="{{ next }}">Continue</a>
+{% endblock %}
+{% block scripts %}
+<script>window.location.replace(document.getElementById('next').getAttribute('href'));</script>
+{% endblock %}

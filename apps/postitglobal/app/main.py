@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from app.assets.public_router import router as public_upload_router
 from app.assets.router import router as assets_router
 from app.auth import sessions
+from app.auth.google import router as google_router
 from app.auth.router import router as auth_router
 from app.config import get_settings
 from app.content.router import router as content_router
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs_router, prefix="/internal/jobs", tags=["jobs"])
     app.include_router(public_upload_router, tags=["upload capabilities"])
     app.include_router(auth_router, tags=["authentication"])
+    app.include_router(google_router, tags=["authentication"])
     app.include_router(dashboard_router, tags=["dashboard"])
 
     @app.middleware("http")

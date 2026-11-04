@@ -25,6 +25,7 @@ from app.database import get_supabase_anon
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["google_sign_in"] = lambda: get_settings().google_sign_in
 logger = logging.getLogger(__name__)
 
 NO_ACCESS = "This account doesn't have access to postitglobal."

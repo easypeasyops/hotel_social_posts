@@ -77,6 +77,8 @@ env:
   # The kind cluster's front door is plain HTTP on localhost; a cookie marked Secure would
   # never come back. True wherever the front door is HTTPS.
   - { name: SESSION_COOKIE_SECURE, value: "{{ .Values.config.sessionCookieSecure }}" }
+  # "Continue with Google": true once Supabase's Google provider is set up (RUNBOOK).
+  - { name: GOOGLE_SIGN_IN, value: "{{ .Values.config.googleSignIn }}" }
   - { name: LOG_LEVEL, value: "{{ .Values.config.logLevel }}" }
   - { name: METRICS_PORT, value: "{{ .Values.config.metricsPort }}" }
   - { name: SECRET_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: SECRET_KEY } }
@@ -93,6 +95,7 @@ config:
   metricsPort: 9100
   publicBaseUrl: "" # each environment's (deploy/envs/)
   sessionCookieSecure: "true"
+  googleSignIn: "false"
 
 networkPolicy:
   # No database in the cluster (the chart's default database rule matches no pod here):

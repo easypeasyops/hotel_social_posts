@@ -14,6 +14,9 @@
     {% if magic_link_error %}
     <div role="alert" class="alert alert-error">{{ magic_link_error }}</div>
     {% endif %}
+    {% if request.query_params.get("signup") == "done" %}
+    <div role="status" class="alert alert-ok">Your account is ready. Sign in to continue.</div>
+    {% endif %}
     {% if request.query_params.get("error") == "session" %}
     <div role="alert" class="alert alert-warn">
       The session could not be revoked because the session store is unavailable. The browser cookie was cleared.

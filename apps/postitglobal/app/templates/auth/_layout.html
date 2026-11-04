@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <title>{% block title %}{% endblock %} — postitglobal</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&display=swap" />
+  {# No third-party scripts on these pages: they handle passwords and tokens. The colours are
+     the customer layer of the design system (see upload/index.html), written out as CSS. #}
+  <style>
+    :root {
+      --lagoon-50: #edf6f5; --lagoon-700: #0f5c5a; --lagoon-800: #0b4644; --lagoon-950: #1f2a29;
+      --sand-50: #faf7f2; --sand-100: #f3ece1; --sand-500: #8a8178; --sand-700: #5c554f;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; min-height: 100vh; font: 16px/1.5 Figtree, ui-sans-serif, system-ui, sans-serif;
+           color: var(--lagoon-950); background: var(--sand-50); }
+    .shell { min-height: 100vh; display: grid; }
+    .brand { display: none; }
+    .content { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
+    .logo { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: 1.15rem; letter-spacing: -0.01em; }
+    .content > .logo { margin-bottom: 1.5rem; }
+    .card { width: 100%; max-width: 26rem; background: #fff; border: 1px solid var(--sand-100); border-radius: 1rem;
+            padding: 2rem 1.5rem; box-shadow: 0 1px 2px 0 rgba(31, 42, 41, 0.06), 0 8px 24px -8px rgba(31, 42, 41, 0.12); }
+    @media (min-width: 900px) {
+      .shell { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+      .brand { display: flex; flex-direction: column; justify-content: space-between; padding: 3rem;
+               color: #fff; background: var(--lagoon-800); }
+      .brand h2 { font-size: 2.25rem; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em; max-width: 26rem; margin: 0 0 1rem; }
+      .brand p { color: var(--lagoon-50); max-width: 26rem; margin: 0; }
+      .content > .logo { display: none; }
+      .card { padding: 2.5rem; }
+    }
+    h1 { font-size: 1.6rem; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+    .lead { color: var(--sand-700); margin: 0.4rem 0 1.5rem; }
+    .stack > * + * { margin-top: 1rem; }
+    label { display: block; font-weight: 500; font-size: 0.95rem; margin-bottom: 0.35rem; }
+    input[type=email], input[type=password], input[type=text] {
+      width: 100%; min-height: 3rem; padding: 0.6rem 0.85rem; font: inherit; color: inherit;
+      border: 1px solid var(--sand-500); border-radius: 0.6rem; background: #fff; }
+    input:focus-visible, .btn:focus-visible, a:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--lagoon-700); outline-offset: 2px; }
+    .btn { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 0.6rem;
+           min-height: 3rem; padding: 0.6rem 1.25rem; font: inherit; font-weight: 600; border-radius: 0.75rem;
+           cursor: pointer; text-decoration: none; }
+    .btn-primary { color: #fff; background: var(--lagoon-700); border: 1px solid var(--lagoon-700); }
+    .btn-primary:hover { background: var(--lagoon-800); }
+    .btn-secondary { color: var(--lagoon-950); background: #fff; border: 1px solid var(--sand-500); }
+    .btn-secondary:hover { background: var(--sand-50); }
+    .alert { display: flex; gap: 0.6rem; padding: 0.85rem 1rem; border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1rem; }
+    .alert-error { color: #991b1b; background: #fee2e2; }
+    .alert-ok { color: #166534; background: #dcfce7; }
+    .alert-warn { color: #78350f; background: #fef3c7; }
+    .divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0; color: var(--sand-700); font-size: 0.85rem; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--sand-100); }
+    a, summary { color: var(--lagoon-700); font-weight: 500; }
+    summary { cursor: pointer; }
+    .muted { color: var(--sand-700); }
+    .small { font-size: 0.9rem; }
+    .foot { margin-top: 1.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="brand" aria-hidden="true">
+      <div class="logo">{% include "auth/_logo.html" %}postitglobal</div>
+      <div>
+        <h2>Your hotel's social posts, drafted every week.</h2>
+        <p>Share your photos, review the drafts, and we queue them on your social channels.</p>
+      </div>
+      <p class="small">© postitglobal</p>
+    </aside>
+    <div class="content">
+      <div class="logo">{% include "auth/_logo.html" %}postitglobal</div>
+      <main class="card">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -51,3 +51,11 @@ def test_the_sign_in_pages_render(path: str) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert "</html>" in response.text
+
+
+@pytest.mark.parametrize("path", ["/login", "/auth/callback", "/reset-password"])
+def test_the_sign_in_pages_load_no_third_party_script(path: str) -> None:
+    # They handle passwords and tokens (the callback's are in its URL): a script from a CDN
+    # would run with access to them. Styles are inline, the font is a stylesheet.
+    response = TestClient(create_app()).get(path)
+    assert "<script src" not in response.text

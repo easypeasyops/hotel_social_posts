@@ -27,13 +27,16 @@ def staff_home(
     hotel_id: str = Depends(require_staff),
     db: Client = Depends(get_supabase),
 ):
+    assets = asset_service.list_assets(db, hotel_id)
+    _, thumbnails = review_images(db, assets, [])
     return templates.TemplateResponse(
         request,
         "staff/home.html",
         {
             "request": request,
             "hotel": hotel_service.get_hotel(db, hotel_id),
-            "assets": asset_service.list_assets(db, hotel_id),
+            "assets": assets,
+            "thumbnails": thumbnails,
             "pending_count": len(content_service.list_drafts(db, hotel_id, "pending_review")),
         },
     )

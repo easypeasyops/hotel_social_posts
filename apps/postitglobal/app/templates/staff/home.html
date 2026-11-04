@@ -29,7 +29,16 @@
     {% for asset in assets %}
     {% set status = statuses.get(asset.status, (asset.status, "bg-sand-100 text-sand-700")) %}
     <li class="py-3 flex items-center justify-between gap-4">
-      <div class="min-w-0">
+      {% if thumbnails[asset.id] %}
+      <button type="button" data-view="{{ thumbnails[asset.id] }}" data-name="{{ asset.filename }}"
+              aria-label="{{ asset.filename }} görselini büyüt"
+              class="shrink-0 size-16 rounded-lg overflow-hidden bg-sand-100 hover:ring-2 hover:ring-iris-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">
+        <img src="{{ thumbnails[asset.id] }}" alt="" loading="lazy" class="size-full object-cover" />
+      </button>
+      {% else %}
+      <span class="shrink-0 size-16 rounded-lg bg-sand-100 text-sand-500 text-xs grid place-items-center" aria-hidden="true">{{ (asset.filename.rsplit(".", 1)[-1] if "." in asset.filename else "dosya") | upper }}</span>
+      {% endif %}
+      <div class="min-w-0 flex-1">
         <p class="font-medium truncate">{{ asset.filename }}</p>
         <p class="text-sm text-sand-700">{{ categories.get(asset.category, asset.category) }} · {{ (asset.created_at or "")[:10] }}</p>
       </div>
@@ -37,6 +46,28 @@
     </li>
     {% endfor %}
   </ul>
+  <dialog id="viewer" aria-label="Görsel" class="p-0 rounded-2xl bg-white shadow-soft backdrop:bg-iris-950/80 max-w-[min(64rem,calc(100vw-2rem))]">
+    <form method="dialog" class="flex items-center justify-between gap-4 px-4 py-2 border-b border-sand-100">
+      <p id="viewer-name" class="font-medium truncate"></p>
+      <button class="min-h-11 px-3 rounded-lg text-sand-700 hover:bg-sand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">Kapat</button>
+    </form>
+    <img id="viewer-image" alt="" class="block max-h-[calc(100vh-8rem)] w-auto mx-auto" />
+  </dialog>
+  <script>
+    (() => {
+      const viewer = document.getElementById("viewer");
+      const image = document.getElementById("viewer-image");
+      document.querySelectorAll("[data-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+          image.src = button.dataset.view;
+          image.alt = button.dataset.name;
+          document.getElementById("viewer-name").textContent = button.dataset.name;
+          viewer.showModal();
+        });
+      });
+      viewer.addEventListener("click", (event) => { if (event.target === viewer) viewer.close(); });
+    })();
+  </script>
   {% else %}
   <p class="mt-3 text-sand-700">Henüz dosya yok. <a href="/hotel/upload" class="font-medium text-iris-600 underline">İlk dosyalarınızı yükleyin.</a></p>
   {% endif %}

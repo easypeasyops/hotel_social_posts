@@ -36,7 +36,7 @@ PUBLIC_BASE_URL=http://localhost:8000
 
 The blank values above are placeholders; supply secrets through your secret manager. `REDIS_URL` defaults to the local URL shown. `SESSION_COOKIE_SECURE=false` is required only when using plain HTTP on local development; keep it true in deployed environments. `CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional. Keep the Supabase service-role key server-side only; it bypasses row-level security.
 
-Create operator accounts through the Supabase Auth administration process. The application provides password and magic-link sign-in plus a forgot-password flow, but does not provide sign-up or MFA. An account reaches the dashboard and the operator API only with the operator role, which you set by hand. Staging and prod share one Supabase project, so this covers both. In the Supabase **SQL editor**:
+Create operator accounts through the Supabase Auth administration process. The application provides password sign-in (and Google, when enabled) plus a forgot-password flow, but does not provide sign-up or MFA. An account reaches the dashboard and the operator API only with the operator role, which you set by hand. Staging and prod share one Supabase project, so this covers both. In the Supabase **SQL editor**:
 
 ```sql
 update auth.users
@@ -61,7 +61,7 @@ In Supabase **Authentication → URL Configuration**, set the Site URL to the ap
 - Local: Site URL `http://localhost:8000`; redirect URL `http://localhost:8000/auth/callback`
 - Deployed: use the HTTPS app origin and add `<PUBLIC_BASE_URL>/auth/callback`
 
-Keep the Supabase magic-link and password-recovery email templates configured to redirect to the provided redirect URL. Supabase must allow the callback URL or it may fall back to the Site URL.
+Keep the Supabase password-recovery email template configured to redirect to the provided redirect URL. Supabase must allow the callback URL or it may fall back to the Site URL.
 
 In Supabase **Authentication → Sign In / Providers**, keep **Allow new users to sign up** off. The app never needs Supabase to create users on its own, and Google sign-in relies on this setting to stay limited to existing accounts.
 
@@ -103,7 +103,7 @@ Expected response:
 
 This check does **not** verify Supabase, Redis, or provider connectivity. In local debug mode, `/docs` is available only if `DEBUG=true`. To stop local services, use `Ctrl+C` in the compose session.
 
-Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password, an email magic link or, with `GOOGLE_SIGN_IN=true`, Google. Use **Forgot password?** (`/forgot-password`) to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
+Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password or, with `GOOGLE_SIGN_IN=true`, Google. Use **Forgot password?** (`/forgot-password`) to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
 
 ## Development checks
 
@@ -239,7 +239,7 @@ The application currently schedules Turkish text only. A draft becomes `publishe
 - Store secrets only in a protected local `.env` (ignored by Git) and the platform's store, loaded from it with `platform/scripts/load-app-env.sh`.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY`, provider tokens, or `CRON_SECRET` to browser code or client logs.
 - Dashboard browser sessions use an HttpOnly, SameSite=Strict cookie containing only an opaque Redis session ID. Session access and refresh tokens live in Redis. Keep `SESSION_COOKIE_SECURE=true` in deployed environments.
-- Magic-link authentication requires `PUBLIC_BASE_URL` and a matching Supabase Auth redirect allow-list entry for `/auth/callback`.
+- Password recovery requires `PUBLIC_BASE_URL` and a matching Supabase Auth redirect allow-list entry for `/auth/callback`.
 - Hotel upload capabilities are shareable secrets in a URL fragment and expire after 24 hours. Share them only with the intended hotel contact.
 - API hotel/asset/content routes require Supabase bearer authentication. The current database client uses the service-role key for server-side requests, so authenticated users are not isolated by hotel in application logic.
 - A valid `GET /health` is public and reveals only liveness.

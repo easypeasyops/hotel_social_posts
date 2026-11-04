@@ -31,11 +31,13 @@ logger = logging.getLogger(__name__)
 NO_ACCESS = "This account doesn't have access to postitglobal."
 
 
-class MagicLinkSession(BaseModel):
+class CallbackTokens(BaseModel):
+    """What the callback page posts from a password-recovery link's URL fragment."""
+
     access_token: str
     refresh_token: str
     expires_at: int | None = None
-    flow_type: str = "magiclink"
+    flow_type: str
 
 
 def _set_session_cookie(response, session_id: str) -> None:
@@ -106,51 +108,6 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     return response
 
 
-@router.post("/login/magic-link")
-def request_magic_link(request: Request, email: str = Form(...)):
-    settings = get_settings()
-    callback_url = f"{settings.public_base_url.rstrip('/')}/auth/callback"
-
-    try:
-        get_supabase_anon().auth.sign_in_with_otp(
-            {
-                "email": email,
-                "options": {
-                    "email_redirect_to": callback_url,
-                    "should_create_user": False,
-                },
-            }
-        )
-    except AuthApiError as exc:
-        # Use the same response whether or not an account is eligible to sign in.
-        logger.info(
-            "Supabase declined a magic-link request (status=%s, code=%s)",
-            exc.status,
-            exc.code,
-        )
-    except Exception:
-        logger.exception("Magic-link request failed")
-        return templates.TemplateResponse(
-            request,
-            "auth/login.html",
-            {
-                "request": request,
-                "magic_link_error": "Could not send a sign-in link right now. Try again later.",
-            },
-            status_code=502,
-        )
-
-    return templates.TemplateResponse(
-        request,
-        "auth/login.html",
-        {
-            "request": request,
-            "magic_link_sent": True,
-            "magic_link_email": email,
-        },
-    )
-
-
 @router.get("/forgot-password", name="forgot_password_page")
 def forgot_password_page(request: Request):
     return templates.TemplateResponse(request, "auth/forgot_password.html", {"request": request})
@@ -197,46 +154,8 @@ def auth_callback(request: Request):
     return response
 
 
-@router.post("/auth/callback/session")
-def create_magic_link_session(payload: MagicLinkSession):
-    if payload.flow_type == "recovery":
-        raise HTTPException(
-            status_code=400,
-            detail="Use the password reset flow for recovery links",
-        )
-    if payload.flow_type not in {"magiclink", "email"}:
-        raise HTTPException(status_code=400, detail="Unsupported sign-in link type")
-
-    try:
-        settings = get_settings()
-        auth_client = create_client(settings.supabase_url, settings.supabase_anon_key)
-        auth = auth_client.auth
-        response = auth.get_user(payload.access_token)
-    except AuthApiError as exc:
-        raise HTTPException(status_code=401, detail="Invalid or expired sign-in link") from exc
-    except Exception as exc:
-        logger.exception("Magic-link session validation failed")
-        raise HTTPException(status_code=502, detail="Authentication service unavailable") from exc
-
-    if response.user is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired sign-in link")
-    next_page = landing_page(response.user)
-    if next_page is None:
-        raise HTTPException(status_code=403, detail=NO_ACCESS)
-
-    try:
-        session_id = create_session(payload.access_token, payload.refresh_token, payload.expires_at)
-    except RedisError as exc:
-        raise HTTPException(status_code=503, detail="Session store unavailable") from exc
-
-    redirect = RedirectResponse(next_page, status_code=303)
-    _set_session_cookie(redirect, session_id)
-    redirect.headers["Cache-Control"] = "no-store"
-    return redirect
-
-
 @router.post("/auth/callback/recovery")
-def start_password_reset(payload: MagicLinkSession):
+def start_password_reset(payload: CallbackTokens):
     if payload.flow_type != "recovery":
         raise HTTPException(status_code=400, detail="This is not a password reset link")
 

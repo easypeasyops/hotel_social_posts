@@ -1,5 +1,5 @@
 """Only accounts marked app_metadata.role = "operator" in Supabase reach the dashboard and the
-operator API, and only they get a browser session from a password, an email link or a reset."""
+operator API, and only they get a browser session from a password or a reset."""
 
 from collections.abc import Iterator
 from types import SimpleNamespace
@@ -97,17 +97,13 @@ def test_an_operator_password_sign_in_gets_a_session(
     assert len(store.keys("web-session:*")) == 1
 
 
-def test_an_email_link_without_the_role_gets_no_session(
-    monkeypatch: pytest.MonkeyPatch, store: fakeredis.FakeRedis
-) -> None:
-    supabase_with(monkeypatch, NOBODY)
+def test_there_is_no_email_link_sign_in() -> None:
+    # Removed: a password, Google, or a reset email get an account in.
     client = TestClient(create_app(), follow_redirects=False)
-    response = client.post(
-        "/auth/callback/session",
-        json={"access_token": "access", "refresh_token": "refresh", "flow_type": "magiclink"},
-    )
-    assert response.status_code == 403
-    assert store.keys() == []
+    assert "email link" not in client.get("/login").text
+    assert client.post("/login/magic-link", data={"email": "a@b.invalid"}).status_code == 404
+    tokens = {"access_token": "access", "refresh_token": "refresh", "flow_type": "magiclink"}
+    assert client.post("/auth/callback/session", json=tokens).status_code == 404
 
 
 def test_a_reset_without_the_role_changes_the_password_but_signs_nobody_in(

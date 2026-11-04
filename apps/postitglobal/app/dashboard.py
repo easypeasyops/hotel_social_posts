@@ -29,8 +29,8 @@ def _hotel_form_context(request: Request, hotel: dict | None = None, error: str 
 
 
 # What the review section lists besides the drafts waiting for a decision: how the latest
-# decisions went (published to Buffer, or failed), so an operator sees the outcome.
-DECIDED_STATUSES = ("approved", "scheduled", "failed")
+# decisions went (queued at Buffer, published by it, or failed), so an operator sees the outcome.
+DECIDED_STATUSES = ("approved", "scheduled", "published", "failed")
 
 
 def _detail_context(

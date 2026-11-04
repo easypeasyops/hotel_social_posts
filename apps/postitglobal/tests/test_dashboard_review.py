@@ -54,6 +54,11 @@ def test_the_hotel_page_lists_drafts_to_review_with_their_images() -> None:
     assert "Merhaba d3" not in page  # rejected drafts are done with
 
 
+def test_a_published_draft_shows_among_the_recent_decisions() -> None:
+    page = _client(_db(_draft("d1", "published"))).get("/dashboard/hotels/hotel-1").text
+    assert "Merhaba d1" in page and "Published" in page
+
+
 def test_an_instagram_draft_without_images_is_flagged() -> None:
     db = _db(_draft("d1", "pending_review", asset_ids=[]))
     assert "Instagram will refuse it" in _client(db).get("/dashboard/hotels/hotel-1").text

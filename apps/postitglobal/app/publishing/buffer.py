@@ -1,3 +1,4 @@
+import logging
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -21,6 +22,16 @@ mutation CreatePost($input: CreatePostInput!) {
   }
 }
 """
+
+# A post's place in its lifecycle (PostStatus: draft, needs_approval, scheduled, sending, sent,
+# error), when it went out, and why it didn't.
+GET_POST = """
+query Post($input: PostInput!) {
+  post(input: $input) { status sentAt error { message } }
+}
+"""
+
+log = logging.getLogger(__name__)
 
 
 # Buffer fetches a post's media when the post goes out, which for a queued post can be days
@@ -164,3 +175,55 @@ def publish_draft(db: Client, draft_id: str) -> None:
             "status": "scheduled",
         }
     ).execute()
+
+
+def _get_post(post_id: str, api_key: str) -> dict[str, Any]:
+    with httpx.Client(timeout=15) as client:
+        response = client.post(
+            BUFFER_API_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={"query": GET_POST, "variables": {"input": {"id": post_id}}},
+        )
+        response.raise_for_status()  # 429 when the rate limit is exceeded
+    body = response.json()
+    if body.get("errors"):  # not found (deleted in Buffer's app), auth, ...
+        error = body["errors"][0]
+        code = (error.get("extensions") or {}).get("code", "UNKNOWN")
+        raise BufferError(f"{code}: {error.get('message')}")
+    post: dict[str, Any] = body["data"]["post"]
+    return post
+
+
+def sync_scheduled_posts(db: Client) -> None:
+    """
+    Brings Buffer's outcome back for every post still logged as scheduled: Buffer sent it
+    (publish log and draft `published`, with when) or couldn't (both `failed`). A post still
+    queued is left for the next run. A post Buffer won't show is logged and skipped, so one
+    deleted post doesn't stop the others; the rate limit stops the run.
+    """
+    api_key = get_settings().buffer_access_token
+    scheduled = (
+        db.table("publish_log")
+        .select("id, draft_id, buffer_update_id")
+        .eq("status", "scheduled")
+        .execute()
+        .data
+    )
+    for entry in scheduled:
+        try:
+            post = _get_post(entry["buffer_update_id"], api_key)
+        except BufferError as exc:
+            log.warning("Buffer post %s: %s", entry["buffer_update_id"], exc)
+            continue
+        if post["status"] == "sent":
+            outcome = {"status": "published", "published_at": post["sentAt"]}
+        elif post["status"] == "error":
+            outcome = {"status": "failed"}
+            message = (post.get("error") or {}).get("message")
+            log.warning("Buffer couldn't send post %s: %s", entry["buffer_update_id"], message)
+        else:
+            continue
+        db.table("publish_log").update(outcome).eq("id", entry["id"]).execute()
+        db.table("content_drafts").update({"status": outcome["status"]}).eq(
+            "id", entry["draft_id"]
+        ).execute()

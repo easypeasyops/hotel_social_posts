@@ -53,6 +53,16 @@ cronJobs:
     resources:
       requests: { cpu: 20m, memory: 192Mi }
       limits: { memory: 384Mi }
+  # What became of the posts queued at Buffer: each draft Buffer sent becomes published, each
+  # it couldn't send failed (tasks.sync_buffer_posts). Hourly, one Buffer call per post still
+  # queued.
+  sync-buffer:
+    schedule: "15 * * * *"
+    command: [celery, -A, app.jobs.tasks.celery_app, call, tasks.sync_buffer_posts]
+    activeDeadlineSeconds: 120
+    resources:
+      requests: { cpu: 20m, memory: 192Mi }
+      limits: { memory: 384Mi }
 
 # The keys, from postitglobal's own store in the platform (platform deploy/secrets/
 # app-stores.yaml), loaded there by hand from .env (platform scripts/load-app-env.sh); the

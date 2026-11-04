@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 import anyio
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from app.assets.public_router import router as public_upload_router
 from app.assets.router import router as assets_router
 from app.auth import sessions
-from app.auth.dependencies import signed_in_landing_page, signed_in_staff_hotel
+from app.auth.dependencies import signed_in_landing_page
 from app.auth.google import router as google_router
 from app.auth.router import router as auth_router
 from app.auth.signup import router as signup_router
@@ -115,22 +115,14 @@ def create_app() -> FastAPI:
         return {"status": "ready"}
 
     @app.get("/upload/{hotel_slug}")
-    def upload_page(
-        hotel_slug: str,
-        request: Request,
-        staff_hotel: str | None = Depends(signed_in_staff_hotel),
-    ):
+    def upload_page(hotel_slug: str, request: Request):
         from app.database import get_supabase
         from app.hotels.service import get_hotel_by_slug
 
         db = get_supabase()
         hotel = get_hotel_by_slug(db, hotel_slug)
-        # Its own staff came from /hotel and get a way back; a link alone leads nowhere else.
-        back_url = "/hotel" if staff_hotel == hotel["id"] else None
         response = templates.TemplateResponse(
-            request,
-            "upload/index.html",
-            {"request": request, "hotel": hotel, "back_url": back_url},
+            request, "upload/index.html", {"request": request, "hotel": hotel}
         )
         response.headers["Cache-Control"] = "no-store"
         response.headers["Referrer-Policy"] = "no-referrer"

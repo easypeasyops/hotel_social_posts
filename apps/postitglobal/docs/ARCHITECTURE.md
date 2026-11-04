@@ -58,16 +58,28 @@ The API and worker are separate processes but use the same source image and envi
 
 ## Operator authentication and dashboard
 
-1. Operators sign in with email/password or request an email magic link through Supabase Auth. Operator accounts are provisioned in Supabase; the application does not implement sign-up.
+1. Operators sign in with email/password, an email magic link, or **Continue with Google** (when `GOOGLE_SIGN_IN` is true) through Supabase Auth. Operator accounts are provisioned in Supabase; the application does not implement sign-up.
 2. The API stores access and refresh tokens in Redis behind a random, HttpOnly cookie (`postitglobal_session`). The cookie is `SameSite=Strict`, has a seven-day lifetime, and uses `Secure` by default; local HTTP development can set `SESSION_COOKIE_SECURE=false`.
-3. Magic-link and password-recovery requests direct Supabase email links to `/auth/callback`. The callback page receives tokens in the URL fragment, removes the fragment from browser history, and posts tokens to the server.
+3. **Forgot password?** on the sign-in page opens `/forgot-password`, which asks Supabase for a recovery email and answers the same whether or not the address has an account. Magic-link and password-recovery requests direct Supabase email links to `/auth/callback`. The callback page receives tokens in the URL fragment, removes the fragment from browser history, and posts tokens to the server.
 4. Magic-link tokens are validated and saved in Redis as an operator session. Recovery tokens are saved in a separate, 15-minute Redis record accessible only through a dedicated reset cookie; the reset form changes the password using the recovery session, then removes the temporary record.
-5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie. Session access tokens are refreshed near expiry.
+5. Dashboard routes and the existing JSON API accept either a Supabase bearer token or the browser session cookie, and only for an operator: an account whose Supabase `app_metadata.role` is `operator` (`require_operator` in `app/auth/dependencies.py`; any other signed-in account gets 403). Users can't change their own `app_metadata`, so an operator is only ever made by hand in Supabase. Sign-in checks access before it creates a session (`landing_page`): an operator starts at `/dashboard/hotels`, hotel staff at `/hotel` (see "Hotel staff" below), and a password, email-link or Google sign-in with neither is refused (403, "This account doesn't have access"), and a password reset without it changes the password but signs nobody in. The role is read from Supabase on each request (`get_user`), so granting or removing it takes effect at once. Session access tokens are refreshed near expiry.
 6. The dashboard supports listing, creating, and editing hotel profiles, displaying hotel asset records, and generating and reviewing drafts: **Generate new drafts** (`POST /dashboard/hotels/{hotel_id}/generate`) queues that hotel's generation task now, as the weekly CronJob does for every hotel; a hotel's page lists its drafts in `pending_review` (text, network, images), with Approve and publish and Reject (optional feedback) buttons, and its ten latest decided drafts with their outcome (`approved`, `scheduled`, `published`, `failed`). The buttons post to `/dashboard/hotels/{hotel_id}/drafts/{draft_id}/approve` and `/reject`, which act only on a draft of that hotel still in `pending_review`; a second click changes nothing. Files and drafts can be deleted there too (`…/assets/{asset_id}/delete`, `…/drafts/{draft_id}/delete`, each after a browser confirmation): a file with its Storage object; a draft that isn't at Buffer (`pending_review`, `rejected`, `failed`) with its translations and publish log (cascade) and the image copies a publish attempt made in `published-media`. An approved, scheduled or published draft can't be deleted (409): its post is at Buffer, which the row's deletion wouldn't recall.
-7. The sign-in pages (`/login`, `/auth/callback`, `/reset-password`) share `app/templates/auth/_layout.html`, in the customer layer of the design system (lagoon and sand, Figtree). They load no third-party script, since they handle passwords and the callback's URL carries tokens: their styles are inline CSS rather than the Tailwind CDN the dashboard uses.
-8. Session records are server-side in Redis; Redis availability is therefore required for operator sign-in and authenticated browser requests.
+7. **Continue with Google** (`app/auth/google.py`) uses Supabase's Google provider with PKCE. `GET /login/google` keeps a fresh PKCE verifier in an HttpOnly cookie (`postitglobal_oauth_verifier`, path `/auth/callback/google`, 10 minutes, `SameSite=Lax`, since the browser comes back from Google) and redirects to Supabase's `/auth/v1/authorize` with its S256 challenge. `GET /auth/callback/google?code=…` exchanges the code and the verifier for a session (`exchange_code_for_session`). A code without this browser's verifier is refused, which stops a login-CSRF code from someone else. Only existing accounts get in: Supabase's "Allow new users to sign up" is off, so an unknown Google address comes back with `error_code=signup_disabled` ("There's no postitglobal account for that Google address"), and the operator check applies as for a password. Supabase links Google to an existing account with the same verified email. The response is a short page that moves on to `/dashboard/hotels`, because the `SameSite=Strict` session cookie would not travel on a redirect in a chain that began at Google.
+8. The sign-in pages (`/login`, `/forgot-password`, `/auth/callback`, `/reset-password`) share `app/templates/auth/_layout.html`, in the customer layer of the design system (lagoon and sand, Figtree). Password fields have a Show/Hide toggle, and the reset form checks the length, strength and match as the password is typed (the server still enforces at least 8 characters and the match). They load no third-party script, since they handle passwords and the callback's URL carries tokens: their styles are inline CSS rather than the Tailwind CDN the dashboard uses.
+9. Session records are server-side in Redis; Redis availability is therefore required for operator sign-in and authenticated browser requests.
 
-Hotel-level isolation is not yet implemented for operator accounts: any authenticated operator can access all hotel records because the backend uses its Supabase service-role client.
+Hotel-level isolation is not implemented for operator accounts: any operator can access all hotel records because the backend uses its Supabase service-role client.
+
+## Hotel staff
+
+Hotel staff are Supabase accounts tied to one hotel by a row in `hotel_members` (`user_id`, `hotel_id`, `email`; migration `003`). They have no operator role, so they never reach `/dashboard` or the operator API (403). Their pages, under `/hotel` (`app/staff.py`, in Turkish and in the customer layer like the upload page), resolve the hotel from the signed-in account (`require_staff`), never from the URL:
+
+- `GET /hotel` lists the hotel's uploaded files with their category and status.
+- `GET /hotel/upload` redirects to `/upload/{slug}#token=…` with a fresh 24-hour upload capability for that hotel, so staff use the same upload page and API as an upload link.
+
+`/hotel` pages get `Cache-Control: no-store`, and a signed-out visit goes to `/login`, as for the dashboard.
+
+Staff make their own accounts from an invite. On a hotel's dashboard page, **Create staff invite link** (`POST /dashboard/hotels/{hotel_id}/staff-invite`) gives `/signup#invite=…`: a capability signed like the upload link (purpose `staff-invite`, 7 days, `app/auth/upload_tokens.py`). Several people can use it until it expires, and only rotating `SECRET_KEY` revokes it early. The sign-up page (`app/auth/signup.py`) moves the invite from the URL fragment into its form. `POST /signup` reads the hotel from the invite (an invalid, expired or other-purpose token, or a deleted hotel, makes nothing). It then creates the user with the service role (`auth.admin.create_user`, email confirmed, since the invite is what vouches for the person; Supabase's own sign-up stays off), inserts the `hotel_members` row (or deletes the user again if that fails), signs the account in and goes to `/hotel`. An email that already has an account is refused (409); an operator adds an existing account to a hotel by SQL (RUNBOOK).
 
 ## Request and job flows
 
@@ -109,29 +121,32 @@ All API route prefixes below are registered in `app/main.py`.
 
 | Route | Authentication | Purpose |
 |---|---|---|
+| `GET/POST /signup` | A staff invite (form field from the link's fragment) | Hotel staff sign-up |
+| `GET /hotel`, `GET /hotel/upload` | Session or bearer JWT of hotel staff (`hotel_members`) | The staff member's own hotel: its files, and the upload page with a fresh upload link |
 | `GET /healthz` | None | Liveness (`{"status":"ok"}`): the process answers. Checks no dependency |
 | `GET /readyz` | None | Readiness: `200 {"status":"ready"}` when Redis answers a ping within 2 s, else `503 not ready: Redis`. Supabase and the providers are not checked |
-| `GET /login`, `POST /login`, `POST /login/magic-link`, `POST /login/forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password or magic-link sign-in, password recovery, sign-out |
+| `GET /login`, `POST /login`, `POST /login/magic-link`, `GET/POST /forgot-password`, `GET /auth/callback`, `POST /auth/callback/session`, `POST /auth/callback/recovery`, `GET/POST /reset-password`, `GET /login/google`, `GET /auth/callback/google`, `POST /logout` | Public auth entry/callback; short-lived recovery cookie for password update; session for logout | Password, magic-link or Google sign-in, password recovery, sign-out |
 | `GET /` | None | Redirects to `/dashboard/hotels` (signed out, on to `/login`) |
-| `/dashboard/*` | Operator session or Supabase bearer JWT | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
+| `/dashboard/*` | Operator session or Supabase bearer JWT; operator role | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
 | `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
 | `GET /static/*` | None | Brand images: the logo and the browser-tab icons, from `app/static` |
-| `/api/v1/hotels` | Supabase bearer JWT or operator session | List, create, retrieve, update, and delete hotel profiles |
-| `/api/v1/assets` | Supabase bearer JWT or operator session | List assets, create operator upload URLs, confirm uploads, and delete assets |
+| `/api/v1/hotels` | Supabase bearer JWT or operator session; operator role | List, create, retrieve, update, and delete hotel profiles |
+| `/api/v1/assets` | Supabase bearer JWT or operator session; operator role | List assets, create operator upload URLs, confirm uploads, and delete assets |
 | `/api/v1/upload-capabilities/{hotel_id}/*` | 24-hour hotel-scoped signed capability | Create upload URL and confirm an asset upload |
-| `/api/v1/content` | Supabase bearer JWT or operator session | List/retrieve drafts, approve/reject drafts, and retrieve translations |
+| `/api/v1/content` | Supabase bearer JWT or operator session; operator role | List/retrieve drafts, approve/reject drafts, and retrieve translations |
 | `/internal/jobs/generate` | `X-Cron-Secret` | Enqueue generation for all hotels |
 | `/internal/jobs/generate/{hotel_id}` | `X-Cron-Secret` | Enqueue generation for one hotel |
 | `/docs` | None, debug mode only | Interactive OpenAPI docs; disabled when `DEBUG` is false |
 
 ## Data model
 
-The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket.
+The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket; `003_hotel_members.sql` adds `hotel_members`.
 
 - `hotels`: hotel profile, subscription tier, channels, contact, and Buffer channel IDs per network (`buffer_profiles`, named for the REST API's profiles).
 - `assets`: hotel-owned metadata, Storage path, category, and processing state.
 - `content_drafts`: Turkish source text, channel, review/publishing status, and associated asset IDs.
 - `content_translations`: translated text keyed uniquely by draft and language.
+- `hotel_members`: hotel staff accounts, one hotel each (`user_id` primary key, cascading from `auth.users` and `hotels`). Row-level security is on with no policies, so only the service-role key reads or writes it.
 - `publish_log`: Buffer post ID (`buffer_update_id`, named for the REST API's updates) and scheduling status.
 
 Assets, drafts, translations, and publish-log records use foreign keys with cascading deletion from their owning hotel or draft. `hotels` and `content_drafts` have `updated_at` triggers. The migration does not define row-level security policies, indexes beyond primary/unique constraints, or Storage bucket policies.
@@ -172,8 +187,9 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 | `LOG_JSON` | Optional; `true` by default: one JSON object per log line. `false` for plain lines when reading locally |
 | `REDIS_URL` | Optional; defaults to local Redis URL |
 | `SESSION_COOKIE_SECURE` | Optional; defaults to true, set false only for local HTTP development |
+| `GOOGLE_SIGN_IN` | Optional; defaults to false. True shows **Continue with Google** and opens `/login/google`; set it only once Supabase's Google provider is set up (RUNBOOK). Deploy value `config.googleSignIn` |
 
-`CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional overrides. API bearer tokens and browser-session access tokens are validated through Supabase Auth. Browser refresh tokens are stored in Redis, not in the cookie. The database dependency uses the service-role key for application queries, so route authentication verifies an identity but does not itself enforce hotel-level tenancy; all authenticated API users currently share the same application data access. Upload capabilities are HMAC-signed with `SECRET_KEY`, scoped to one hotel and one purpose, and expire after 24 hours.
+`CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional overrides. API bearer tokens and browser-session access tokens are validated through Supabase Auth. Browser refresh tokens are stored in Redis, not in the cookie. The database dependency uses the service-role key for application queries, so route authentication verifies an identity and the operator role but does not enforce hotel-level tenancy; all operators share the same application data access. Upload capabilities are HMAC-signed with `SECRET_KEY`, scoped to one hotel and one purpose, and expire after 24 hours.
 
 ## Reliability and current design limits
 
@@ -187,7 +203,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Translation failures can leave a partial set of translation rows without failing the overall task.
 - No periodic Celery beat schedule is configured here. Weekly generation is the cluster's `generate-weekly` CronJob, which queues the task directly; `POST /internal/jobs/generate` does the same by hand. The hourly Buffer sync is the `sync-buffer` CronJob.
 - Supabase schema migrations and Storage bucket setup are external provisioning steps; the app does not apply migrations on startup.
-- Operator authentication has no sign-up, MFA, or role management UI. Magic links and password recovery are supported for existing users only.
+- Authentication has no MFA or role management UI. Operators are made by hand in Supabase; hotel staff sign up from an invite link (or are added by SQL). Invite links can't be revoked one by one. Magic links and password recovery are supported for existing users only.
 - Logs (plan 5.3): the API and the worker write one JSON object per line to stdout (`app/observability.py`): `ts`, `level`, `logger`, `msg`, and the fields a call adds (a failed translation's `draft_id`, `language`, `error`). Every request gets a request ID, kept from a plain `X-Request-ID` header or generated, echoed in the response and on every line the request logs; one access line per request names its route template (`/api/v1/hotels/{hotel_id}`), never the raw path. Probes are logged at DEBUG.
 - Metrics (plan 5.3): the API serves Prometheus metrics on their own port, `METRICS_PORT` (9100), not the public one: `http_requests_total{method, route, status}` and `http_request_duration_seconds{method, route}`, shortly's names, so the platform's SLO rules and dashboards read both apps alike. Routes are templates, never raw paths. The worker exports no metrics yet. The deploy values have Prometheus scrape the API (`monitoring.enabled`); alert rules come once the app has run long enough to set its SLOs.
 

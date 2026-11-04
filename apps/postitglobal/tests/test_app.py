@@ -8,6 +8,8 @@ from pydantic import ValidationError
 from app.config import Settings
 from app.main import create_app
 
+SIGN_IN_PAGES = ["/login", "/forgot-password", "/auth/callback", "/reset-password"]
+
 
 def test_health() -> None:
     response = TestClient(create_app()).get("/healthz")
@@ -43,7 +45,7 @@ def test_the_session_cookie_is_secure_by_default() -> None:
     assert Settings(_env_file=None).session_cookie_secure is True  # type: ignore[call-arg]
 
 
-@pytest.mark.parametrize("path", ["/login", "/auth/callback", "/reset-password"])
+@pytest.mark.parametrize("path", SIGN_IN_PAGES)
 def test_the_sign_in_pages_render(path: str) -> None:
     # Pages that need no session or database: a template change (or a Starlette that
     # renders templates differently) shows here first.
@@ -53,7 +55,7 @@ def test_the_sign_in_pages_render(path: str) -> None:
     assert "</html>" in response.text
 
 
-@pytest.mark.parametrize("path", ["/login", "/auth/callback", "/reset-password"])
+@pytest.mark.parametrize("path", SIGN_IN_PAGES)
 def test_the_sign_in_pages_load_no_third_party_script(path: str) -> None:
     # They handle passwords and tokens (the callback's are in its URL): a script from a CDN
     # would run with access to them. Styles are inline, the font is a stylesheet.

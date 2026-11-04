@@ -28,6 +28,28 @@
   </dl>
 </section>
 
+<section id="staff" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 class="font-semibold">Hotel staff</h2>
+      <p class="text-sm text-gray-600 mt-1">Staff accounts see this hotel only: its files, uploads and drafts. Invite links last {{ staff_invite_expires_days }} days.</p>
+    </div>
+    <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff-invite">
+      <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">
+        Create staff invite link
+      </button>
+    </form>
+  </div>
+  {% if staff_invite_link %}
+  <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+    <label for="staff-invite-link" class="block text-sm font-medium">Send this link to the hotel's staff</label>
+    <input id="staff-invite-link" readonly value="{{ staff_invite_link }}"
+           class="mt-2 w-full border border-blue-200 bg-white rounded px-3 py-2 text-sm" />
+    <p class="text-xs text-blue-900 mt-2">Anyone with this link can create a staff account for this hotel until it expires, and several people can use it. Treat it like a password.</p>
+  </div>
+  {% endif %}
+</section>
+
 <section id="media" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>

@@ -16,7 +16,7 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 
 ## Prerequisites and configuration
 
-Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket), and configure provider credentials.
+Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff), and configure provider credentials.
 
 Set the following environment variables in the local `.env`; in the cluster they come from the platform's store, loaded from that file (below):
 
@@ -36,7 +36,25 @@ PUBLIC_BASE_URL=http://localhost:8000
 
 The blank values above are placeholders; supply secrets through your secret manager. `REDIS_URL` defaults to the local URL shown. `SESSION_COOKIE_SECURE=false` is required only when using plain HTTP on local development; keep it true in deployed environments. `CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional. Keep the Supabase service-role key server-side only; it bypasses row-level security.
 
-Create operator accounts through the Supabase Auth administration process. The application provides password and magic-link sign-in plus a forgot-password flow, but does not provide sign-up or MFA. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
+Create operator accounts through the Supabase Auth administration process. The application provides password and magic-link sign-in plus a forgot-password flow, but does not provide sign-up or MFA. An account reaches the dashboard and the operator API only with the operator role, which you set by hand. Staging and prod share one Supabase project, so this covers both. In the Supabase **SQL editor**:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "operator"}'
+where email in ('operator@example.com');
+```
+
+Remove the role with `raw_app_meta_data - 'role'`. The app reads the role from Supabase on every request, so either change applies at once with no new sign-in. Run the update for every existing operator **before** deploying a version with the role check: without it they get "This account doesn't have access to postitglobal." To list the operators: `select email from auth.users where raw_app_meta_data->>'role' = 'operator';`.
+
+Hotel staff are accounts without the operator role that belong to one hotel. They sign in at the same `/login` and land on `/hotel`, which shows their hotel's files and lets them upload more. To invite staff, open the hotel on the dashboard and use **Create staff invite link**, then send the link (valid for 7 days, usable by several people) to the hotel. Each person opens it, enters their work email and a password, and lands on `/hotel`. The invite works like a password: anyone holding it can make an account for that hotel until it expires, and only rotating `SECRET_KEY` revokes it early (which also ends every upload link). An email that already has an account can't sign up again; to add an existing account to a hotel, or to make staff by hand, create the user in Supabase **Authentication → Users → Add user** (with a password, auto-confirmed) if needed, then in the SQL editor:
+
+```sql
+insert into hotel_members (user_id, hotel_id, email)
+select u.id, h.id, u.email from auth.users u, hotels h
+where u.email = 'staff@example.com' and h.slug = 'the-hotel-slug';
+```
+
+Delete the row to take their access away (`delete from hotel_members where email = '…';`); it takes effect on their next request. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
 
 In Supabase **Authentication → URL Configuration**, set the Site URL to the app origin and add the callback URL to the redirect allow list:
 
@@ -44,6 +62,23 @@ In Supabase **Authentication → URL Configuration**, set the Site URL to the ap
 - Deployed: use the HTTPS app origin and add `<PUBLIC_BASE_URL>/auth/callback`
 
 Keep the Supabase magic-link and password-recovery email templates configured to redirect to the provided redirect URL. Supabase must allow the callback URL or it may fall back to the Site URL.
+
+In Supabase **Authentication → Sign In / Providers**, keep **Allow new users to sign up** off. The app never needs Supabase to create users on its own, and Google sign-in relies on this setting to stay limited to existing accounts.
+
+### Google sign-in
+
+The **Continue with Google** button shows only when `GOOGLE_SIGN_IN=true` (deploy value `config.googleSignIn`, per environment in `deploy/envs/`). Set it up once; staging and prod share the Supabase project, so they share the provider:
+
+1. In [Google Cloud console](https://console.cloud.google.com/) → **APIs & Services → OAuth consent screen**: user type External, app name postitglobal, your support email. Scopes: `openid`, `email`, `profile` only. Publish the app (in Testing, only listed test users can sign in).
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID**, type Web application. Under **Authorized redirect URIs** add Supabase's callback, shown on the Supabase Google provider page: `https://<project-ref>.supabase.co/auth/v1/callback`. Google sends people back to Supabase, not to the app, so no app URL goes here.
+3. In Supabase **Authentication → Sign In / Providers → Google**: enable it and paste the client ID and client secret. Keep the secret out of git; it lives only in Supabase.
+4. In Supabase **Authentication → URL Configuration → Redirect URLs**, add each origin's Google callback next to `/auth/callback`:
+   - Local: `http://localhost:8000/auth/callback/google`
+   - Staging: `http://staging.postitglobal.localhost:8080/auth/callback/google`
+   - Prod: `http://postitglobal.localhost:8080/auth/callback/google` (the HTTPS origin once prod has one)
+5. Set `GOOGLE_SIGN_IN=true` (`.env` locally; `config.googleSignIn: "true"` in the environment's values) and redeploy.
+
+Check it: an operator whose account email is the Google address signs in and lands on the hotel list. A Google address without an account sees "There's no postitglobal account for that Google address", and no user appears in Supabase **Authentication → Users**. To turn it off, set `GOOGLE_SIGN_IN=false`; Google identities already linked stay in Supabase, harmlessly.
 
 ## Local startup
 
@@ -68,7 +103,7 @@ Expected response:
 
 This check does **not** verify Supabase, Redis, or provider connectivity. In local debug mode, `/docs` is available only if `DEBUG=true`. To stop local services, use `Ctrl+C` in the compose session.
 
-Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password or email magic link. Use **Forgot your password?** to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
+Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth operator account using a password, an email magic link or, with `GOOGLE_SIGN_IN=true`, Google. Use **Forgot password?** (`/forgot-password`) to request a reset email; the recovery link opens a password form valid for 15 minutes. The application stores browser and recovery sessions in Redis, so local auth requires the compose Redis service. From the hotel dashboard, create or edit a hotel and generate its 24-hour upload link. For local HTTP, configure `SESSION_COOKIE_SECURE=false` in `.env` and restart the API.
 
 ## Development checks
 

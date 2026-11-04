@@ -8,6 +8,7 @@ from redis.exceptions import RedisError
 from supabase_auth.errors import AuthApiError
 from supabase import create_client
 
+from app.auth.dependencies import landing_page
 from app.auth.sessions import (
     PASSWORD_RESET_COOKIE,
     PASSWORD_RESET_TTL_SECONDS,
@@ -24,7 +25,10 @@ from app.database import get_supabase_anon
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["google_sign_in"] = lambda: get_settings().google_sign_in
 logger = logging.getLogger(__name__)
+
+NO_ACCESS = "This account doesn't have access to postitglobal."
 
 
 class MagicLinkSession(BaseModel):
@@ -81,6 +85,11 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
             {"request": request, "error": "Sign-in did not return a session."},
             status_code=502,
         )
+    next_page = landing_page(auth_response.user)
+    if next_page is None:
+        return templates.TemplateResponse(
+            request, "auth/login.html", {"request": request, "error": NO_ACCESS}, status_code=403
+        )
 
     try:
         session_id = create_session(session.access_token, session.refresh_token, session.expires_at)
@@ -92,7 +101,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
             status_code=503,
         )
 
-    response = RedirectResponse("/dashboard/hotels", status_code=303)
+    response = RedirectResponse(next_page, status_code=303)
     _set_session_cookie(response, session_id)
     return response
 
@@ -142,7 +151,12 @@ def request_magic_link(request: Request, email: str = Form(...)):
     )
 
 
-@router.post("/login/forgot-password")
+@router.get("/forgot-password", name="forgot_password_page")
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse(request, "auth/forgot_password.html", {"request": request})
+
+
+@router.post("/forgot-password")
 def request_password_reset(request: Request, email: str = Form(...)):
     settings = get_settings()
     callback_url = f"{settings.public_base_url.rstrip('/')}/auth/callback"
@@ -162,22 +176,16 @@ def request_password_reset(request: Request, email: str = Form(...)):
         logger.exception("Password-reset email request failed")
         return templates.TemplateResponse(
             request,
-            "auth/login.html",
+            "auth/forgot_password.html",
             {
                 "request": request,
-                "password_reset_error": "Could not send a reset link right now. Try again later.",
+                "error": "Could not send a reset link right now. Try again later.",
             },
             status_code=502,
         )
 
     return templates.TemplateResponse(
-        request,
-        "auth/login.html",
-        {
-            "request": request,
-            "password_reset_sent": True,
-            "password_reset_email": email,
-        },
+        request, "auth/forgot_password.html", {"request": request, "sent_to": email}
     )
 
 
@@ -212,13 +220,16 @@ def create_magic_link_session(payload: MagicLinkSession):
 
     if response.user is None:
         raise HTTPException(status_code=401, detail="Invalid or expired sign-in link")
+    next_page = landing_page(response.user)
+    if next_page is None:
+        raise HTTPException(status_code=403, detail=NO_ACCESS)
 
     try:
         session_id = create_session(payload.access_token, payload.refresh_token, payload.expires_at)
     except RedisError as exc:
         raise HTTPException(status_code=503, detail="Session store unavailable") from exc
 
-    redirect = RedirectResponse("/dashboard/hotels", status_code=303)
+    redirect = RedirectResponse(next_page, status_code=303)
     _set_session_cookie(redirect, session_id)
     redirect.headers["Cache-Control"] = "no-store"
     return redirect
@@ -326,7 +337,9 @@ def update_password(
         )
         auth.update_user({"password": password})
         session = auth.get_session()
-        if session is None:
+        # The password changed either way; only an account with access is signed in.
+        next_page = landing_page(session.user) if session else None
+        if next_page is None:
             delete_password_reset_session(reset_id)
             response = templates.TemplateResponse(
                 request,
@@ -371,7 +384,7 @@ def update_password(
             status_code=503, detail="Password changed, but session creation failed; sign in again"
         ) from exc
 
-    response = RedirectResponse("/dashboard/hotels", status_code=303)
+    response = RedirectResponse(next_page, status_code=303)
     response.delete_cookie(PASSWORD_RESET_COOKIE, path="/", httponly=True)
     _set_session_cookie(response, session_id)
     response.headers["Cache-Control"] = "no-store"

@@ -40,3 +40,10 @@ def test_a_token_from_another_secret_is_refused(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("SECRET_KEY", "another-secret")
     get_settings.cache_clear()
     assert not verify_upload_token(token, "hotel-1")
+
+
+def test_a_token_names_its_hotel_for_its_purpose_only() -> None:
+    token = upload_tokens.create_token("hotel-1", "another-purpose", 60)
+    assert upload_tokens.read_token(token, "another-purpose") == "hotel-1"
+    assert upload_tokens.read_token(token, upload_tokens.UPLOAD_PURPOSE) is None
+    assert not verify_upload_token(token, "hotel-1")

@@ -1,0 +1,44 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Create your account{% endblock %}
+{% block content %}
+    <h1>Create your account</h1>
+    <p class="lead">You've been invited to share your hotel's photos and review its posts.</p>
+    <div id="invite-error" role="alert" class="alert alert-error" {% if not invite_error %}hidden{% endif %}>
+      {{ invite_error or "This page needs an invite link. Ask your postitglobal contact for one." }}
+    </div>
+    {% if error %}<div role="alert" class="alert alert-error">{{ error }}</div>{% endif %}
+    <form id="signup-form" method="post" action="/signup" class="stack" {% if invite_error %}hidden{% endif %}>
+      <input type="hidden" id="invite" name="invite" value="{{ invite or '' }}" />
+      <div>
+        <label for="email">Work email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required value="{{ email or '' }}" />
+      </div>
+      <div>
+        <label for="password">Password</label>
+        {% with name="password", autocomplete="new-password", minlength=8, describedby="password-checks" %}{% include "auth/_password_input.html" %}{% endwith %}
+      </div>
+      <div>
+        <label for="password_confirmation">Confirm password</label>
+        {% with name="password_confirmation", autocomplete="new-password", minlength=8, describedby="password-checks" %}{% include "auth/_password_input.html" %}{% endwith %}
+      </div>
+      {% include "auth/_password_checks.html" %}
+      <button type="submit" class="btn btn-primary">Create account</button>
+    </form>
+    <p class="foot small muted">Already have an account? <a href="/login">Sign in</a></p>
+{% endblock %}
+{% block scripts %}
+{% include "auth/_password_toggle.html" %}
+<script>
+  // The invite travels in the URL fragment, which never reaches a server log; keep it in the
+  // form and take it out of the address bar.
+  const fromLink = new URLSearchParams(window.location.hash.slice(1)).get('invite');
+  if (fromLink) {
+    document.getElementById('invite').value = fromLink;
+    history.replaceState(null, '', window.location.pathname);
+  }
+  if (!document.getElementById('invite').value) {
+    document.getElementById('signup-form').hidden = true;
+    document.getElementById('invite-error').hidden = false;
+  }
+</script>
+{% endblock %}

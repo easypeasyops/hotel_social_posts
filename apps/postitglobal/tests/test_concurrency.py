@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require_operator
 from app.database import get_supabase
 from app.hotels import service
 from app.main import create_app
@@ -27,7 +27,7 @@ def test_a_slow_database_call_does_not_block_other_requests(
 
     monkeypatch.setattr(service, "list_hotels", slow_list_hotels)
     app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: {"id": "operator"}
+    app.dependency_overrides[require_operator] = lambda: {"id": "operator"}
     app.dependency_overrides[get_supabase] = lambda: object()
 
     async def scenario() -> float:

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.assets import service
 from app.assets.models import UploadUrlRequest
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require_operator
 from app.database import get_supabase
 from supabase import Client
 
@@ -13,7 +13,7 @@ router = APIRouter()
 def list_assets(
     hotel_id: str,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     return service.list_assets(db, hotel_id)
 
@@ -23,7 +23,7 @@ def create_upload_url(
     hotel_id: str,
     request: UploadUrlRequest,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     return service.create_upload_url(db, hotel_id, request)
 
@@ -32,7 +32,7 @@ def create_upload_url(
 def confirm_upload(
     asset_id: str,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     return service.confirm_upload(db, asset_id)
 
@@ -41,6 +41,6 @@ def confirm_upload(
 def delete_asset(
     asset_id: str,
     db: Client = Depends(get_supabase),
-    _user=Depends(get_current_user),
+    _user=Depends(require_operator),
 ):
     service.delete_asset(db, asset_id)

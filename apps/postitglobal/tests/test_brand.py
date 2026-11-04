@@ -15,7 +15,9 @@ def test_the_brand_images_are_served(name: str) -> None:
     assert response.headers["content-type"] == "image/png"
 
 
-@pytest.mark.parametrize("path", ["/login", "/auth/callback", "/reset-password"])
+@pytest.mark.parametrize(
+    "path", ["/login", "/forgot-password", "/signup", "/auth/callback", "/reset-password"]
+)
 def test_the_sign_in_pages_show_the_logo_and_the_tab_icon(path: str) -> None:
     page = TestClient(create_app()).get(path).text
     assert LOGO in page
@@ -33,4 +35,9 @@ def test_the_upload_page_shows_the_logo_and_the_tab_icon(monkeypatch: pytest.Mon
 def test_the_dashboard_nav_shows_the_logo_and_the_tab_icon() -> None:
     page = templates.get_template("base.html").render(messages=None)
     assert f'<a href="/dashboard/hotels"><img {LOGO}' in page
+    assert ICON in page
+
+
+def test_the_hotel_staff_pages_show_the_tab_icon() -> None:
+    page = templates.get_template("staff/base.html").render(hotel={"name": "Lykia Resort"})
     assert ICON in page

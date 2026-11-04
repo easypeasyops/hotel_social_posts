@@ -1,6 +1,6 @@
 import time
 
-from fastapi import Header, HTTPException, Request, Security
+from fastapi import Depends, Header, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase_auth.errors import AuthApiError
 
@@ -12,7 +12,8 @@ from app.auth.sessions import (
 )
 from app.auth.upload_tokens import verify_upload_token
 from app.config import get_settings
-from app.database import get_supabase_anon
+from app.database import get_supabase, get_supabase_anon
+from app.hotels.staff import hotel_of
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -72,6 +73,38 @@ def get_current_user(
     if response.user is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return response.user
+
+
+def is_operator(user) -> bool:
+    """Operators are marked by hand in Supabase: app_metadata.role = "operator". Users can't
+    edit their own app_metadata, so a self-made account never passes this."""
+    return (user.app_metadata or {}).get("role") == "operator"
+
+
+def require_operator(user=Depends(get_current_user)):
+    """The dashboard and the operator API: a signed-in account without the operator role is
+    refused (403), not sent to sign in again."""
+    if not is_operator(user):
+        raise HTTPException(status_code=403, detail="This account has no operator access")
+    return user
+
+
+def landing_page(user) -> str | None:
+    """Where a new session starts: the dashboard for an operator, the hotel's own pages for
+    its staff; None for an account with no access, which then gets no session."""
+    if is_operator(user):
+        return "/dashboard/hotels"
+    if hotel_of(get_supabase(), user.id):
+        return "/hotel"
+    return None
+
+
+def require_staff(user=Depends(get_current_user), db=Depends(get_supabase)) -> str:
+    """The staff pages: the hotel this account works for; 403 for anyone else."""
+    hotel_id = hotel_of(db, user.id)
+    if hotel_id is None:
+        raise HTTPException(status_code=403, detail="This account is not hotel staff")
+    return hotel_id
 
 
 def verify_hotel_upload_token(

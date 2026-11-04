@@ -28,7 +28,7 @@
   </dl>
 </section>
 
-<section class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+<section id="media" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h2 class="font-semibold">Media</h2>
@@ -56,7 +56,13 @@
         <p class="font-medium truncate">{{ asset.filename }}</p>
         <p class="text-gray-500">{{ asset.category|capitalize }}</p>
       </div>
-      <span class="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs">{{ asset.status|capitalize }}</span>
+      <div class="shrink-0 flex items-center gap-3">
+        <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs">{{ asset.status|capitalize }}</span>
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/assets/{{ asset.id }}/delete"
+              onsubmit="return confirm('Delete this file? It is removed for good.')">
+          <button type="submit" class="text-xs text-red-700 hover:underline">Delete</button>
+        </form>
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -103,6 +109,10 @@
                  class="border border-gray-300 rounded px-3 py-2 w-64" />
           <button type="submit" class="border border-gray-300 rounded px-4 py-2 hover:bg-gray-50">Reject</button>
         </form>
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/drafts/{{ draft.id }}/delete"
+              onsubmit="return confirm('Delete this draft and its translations for good?')">
+          <button type="submit" class="px-2 py-2 text-red-700 hover:underline">Delete</button>
+        </form>
       </div>
     </article>
     {% endfor %}
@@ -116,7 +126,15 @@
     {% for draft in decided %}
     <div class="py-2 flex items-center justify-between gap-4 text-sm">
       <p class="min-w-0 truncate">{{ draft.channel|replace("_", " ")|capitalize }}: {{ draft.body_tr }}</p>
-      <span class="shrink-0 rounded-full px-2.5 py-1 text-xs {% if draft.status == 'failed' %}bg-red-50 text-red-800{% elif draft.status == 'scheduled' %}bg-green-50 text-green-800{% else %}bg-gray-100{% endif %}">{{ draft.status|capitalize }}</span>
+      <div class="shrink-0 flex items-center gap-3">
+        <span class="rounded-full px-2.5 py-1 text-xs {% if draft.status == 'failed' %}bg-red-50 text-red-800{% elif draft.status == 'scheduled' %}bg-green-50 text-green-800{% else %}bg-gray-100{% endif %}">{{ draft.status|capitalize }}</span>
+        {% if draft.status in deletable %}
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/drafts/{{ draft.id }}/delete"
+              onsubmit="return confirm('Delete this draft and its translations for good?')">
+          <button type="submit" class="text-xs text-red-700 hover:underline">Delete</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>

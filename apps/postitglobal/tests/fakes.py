@@ -2,6 +2,7 @@
 it (filtered by `eq` and `in_` on columns the rows have) and records what the code writes;
 an `update` changes the matching rows. Storage keeps files in memory."""
 
+import builtins
 from types import SimpleNamespace
 from typing import Any
 
@@ -47,6 +48,10 @@ class FakeQuery:
         self.write = ("update", row)
         return self
 
+    def delete(self) -> FakeQuery:
+        self.write = ("delete", {})
+        return self
+
     def _matching(self) -> list[dict[str, Any]]:
         rows = self.db.rows.get(self.table, [])
         # A filter on a column the test's rows don't have is ignored, as before eq filtered.
@@ -57,6 +62,13 @@ class FakeQuery:
         return rows
 
     def execute(self) -> SimpleNamespace:
+        if self.write and self.write[0] == "delete":
+            matching = self._matching()
+            self.db.rows[self.table] = [
+                r for r in self.db.rows.get(self.table, []) if r not in matching
+            ]
+            self.db.writes.append((self.table, "delete", {}))
+            return SimpleNamespace(data=matching)
         if self.write and self.write[0] == "update":
             matching = self._matching()
             for row in matching:
@@ -80,6 +92,18 @@ class FakeBucket:
     def upload(self, path: str, data: bytes, options: dict[str, str] | None = None) -> None:
         self.storage.files[(self.bucket, path)] = data
         self.storage.uploads.append((self.bucket, path, options or {}))
+
+    def list(self, prefix: str) -> builtins.list[dict[str, str]]:
+        start = f"{prefix}/"
+        return [
+            {"name": path[len(start) :]}
+            for bucket, path in self.storage.files
+            if bucket == self.bucket and path.startswith(start)
+        ]
+
+    def remove(self, paths: builtins.list[str]) -> None:
+        for path in paths:
+            self.storage.files.pop((self.bucket, path), None)
 
     def get_public_url(self, path: str) -> str:
         return f"https://supabase.invalid/storage/v1/object/public/{self.bucket}/{path}"

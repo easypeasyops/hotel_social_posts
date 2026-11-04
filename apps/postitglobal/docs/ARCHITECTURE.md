@@ -87,8 +87,9 @@ Staff make their own accounts from an invite. On a hotel's dashboard page, **Cre
 ### Hotel media intake
 
 1. An operator generates a hotel upload link from the dashboard. The link carries a signed capability in the URL fragment; the token is scoped to one hotel and expires after 24 hours.
-2. The hotel opens `/upload/{hotel_slug}`. The browser reads the fragment token and removes it from the visible URL. The fragment is not sent in the initial HTTP request.
-3. The browser requests a signed upload URL from `POST /api/v1/upload-capabilities/{hotel_id}/upload-url`, passing the capability as a bearer token.
+2. The hotel opens `/upload/{hotel_slug}`. The browser reads the fragment token and removes it from the visible URL. The fragment is not sent in the initial HTTP request. Signed-in staff of that hotel (they come from `/hotel` through `GET /hotel/upload`, which mints the link) also get a "← Dosyalarınız" link back to `/hotel`; someone holding only the link gets none (`signed_in_staff_hotel` reads the browser session, if any).
+   Each pick of files adds to the list rather than replacing it. Each file has its own category: the one chosen above the picker when it was added, changeable in its row until it starts uploading; a file not yet uploaded can be removed from the list.
+3. For each file, one after another, the browser requests a signed upload URL from `POST /api/v1/upload-capabilities/{hotel_id}/upload-url` with that file's category, passing the capability as a bearer token.
 4. The API creates an `assets` row with `pending` status and returns an upload URL for Supabase Storage.
 5. The client uploads directly to Storage, then calls `POST /api/v1/upload-capabilities/{hotel_id}/assets/{asset_id}/confirm` with the same capability.
 6. The API verifies that the asset belongs to the capability's hotel, changes it to `processing`, and enqueues `process_asset`.

@@ -204,6 +204,8 @@ Because `/healthz` is liveness-only, a successful response is not proof that dep
 
 The hotel upload page uses a short-lived, hotel-scoped capability instead of an operator credential. Ask an operator to generate a fresh link if it expires. The capability authorizes uploads and confirmation for one hotel only; it does not authorize listing or deleting media.
 
+On the page, each file carries its own category (the one chosen above the picker when it was added, changeable in its row before it uploads), and further picks add to the list. A file filed under the wrong category after upload is fixed in the database (`assets.category`). Hotel staff who opened the page from `/hotel` get a link back there; a link opened without their session shows none.
+
 ### Draft generation or translation is incomplete
 
 1. Check the `generate_content` and `translate_content` task logs and the Anthropic/DeepL service status.

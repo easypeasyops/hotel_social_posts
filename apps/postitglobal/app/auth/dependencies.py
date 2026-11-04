@@ -120,6 +120,13 @@ def require_moderator(member: dict = Depends(require_staff_member)) -> str:
     return member["hotel_id"]
 
 
+def require_hotel_admin(member: dict = Depends(require_staff_member)) -> str:
+    """The hotel, for its hotel admin (who manages its staff); 403 for any other role."""
+    if member["role"] != "hotel_admin":
+        raise HTTPException(status_code=403, detail="This account is not the hotel's admin")
+    return member["hotel_id"]
+
+
 def signed_in_landing_page(request: Request) -> str | None:
     """Where this browser's signed-in account belongs (landing_page), or None: no session, an
     expired one, or an account with no access. For pages anyone can open, such as the home page."""

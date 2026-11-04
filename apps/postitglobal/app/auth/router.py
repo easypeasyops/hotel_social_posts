@@ -8,7 +8,7 @@ from redis.exceptions import RedisError
 from supabase_auth.errors import AuthApiError
 from supabase import create_client
 
-from app.auth.dependencies import is_operator
+from app.auth.dependencies import landing_page
 from app.auth.sessions import (
     PASSWORD_RESET_COOKIE,
     PASSWORD_RESET_TTL_SECONDS,
@@ -85,7 +85,8 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
             {"request": request, "error": "Sign-in did not return a session."},
             status_code=502,
         )
-    if not is_operator(auth_response.user):
+    next_page = landing_page(auth_response.user)
+    if next_page is None:
         return templates.TemplateResponse(
             request, "auth/login.html", {"request": request, "error": NO_ACCESS}, status_code=403
         )
@@ -100,7 +101,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
             status_code=503,
         )
 
-    response = RedirectResponse("/dashboard/hotels", status_code=303)
+    response = RedirectResponse(next_page, status_code=303)
     _set_session_cookie(response, session_id)
     return response
 
@@ -219,7 +220,8 @@ def create_magic_link_session(payload: MagicLinkSession):
 
     if response.user is None:
         raise HTTPException(status_code=401, detail="Invalid or expired sign-in link")
-    if not is_operator(response.user):
+    next_page = landing_page(response.user)
+    if next_page is None:
         raise HTTPException(status_code=403, detail=NO_ACCESS)
 
     try:
@@ -227,7 +229,7 @@ def create_magic_link_session(payload: MagicLinkSession):
     except RedisError as exc:
         raise HTTPException(status_code=503, detail="Session store unavailable") from exc
 
-    redirect = RedirectResponse("/dashboard/hotels", status_code=303)
+    redirect = RedirectResponse(next_page, status_code=303)
     _set_session_cookie(redirect, session_id)
     redirect.headers["Cache-Control"] = "no-store"
     return redirect
@@ -336,7 +338,8 @@ def update_password(
         auth.update_user({"password": password})
         session = auth.get_session()
         # The password changed either way; only an account with access is signed in.
-        if session is None or not is_operator(session.user):
+        next_page = landing_page(session.user) if session else None
+        if next_page is None:
             delete_password_reset_session(reset_id)
             response = templates.TemplateResponse(
                 request,
@@ -381,7 +384,7 @@ def update_password(
             status_code=503, detail="Password changed, but session creation failed; sign in again"
         ) from exc
 
-    response = RedirectResponse("/dashboard/hotels", status_code=303)
+    response = RedirectResponse(next_page, status_code=303)
     response.delete_cookie(PASSWORD_RESET_COOKIE, path="/", httponly=True)
     _set_session_cookie(response, session_id)
     response.headers["Cache-Control"] = "no-store"

@@ -16,6 +16,7 @@ from app.dashboard import router as dashboard_router
 from app.hotels.router import router as hotels_router
 from app.jobs.router import router as jobs_router
 from app.observability import Metrics, RequestContextMiddleware, configure_logging, serve_metrics
+from app.staff import router as staff_router
 
 
 @asynccontextmanager
@@ -57,11 +58,13 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, tags=["authentication"])
     app.include_router(google_router, tags=["authentication"])
     app.include_router(dashboard_router, tags=["dashboard"])
+    app.include_router(staff_router, tags=["hotel staff"])
 
     @app.middleware("http")
     async def protect_dashboard_pages(request: Request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith("/dashboard"):
+        path = request.url.path
+        if path.startswith("/dashboard") or path == "/hotel" or path.startswith("/hotel/"):
             response.headers["Cache-Control"] = "no-store"
             if response.status_code == 401:
                 return RedirectResponse("/login", status_code=303)

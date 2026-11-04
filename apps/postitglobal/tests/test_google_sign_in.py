@@ -13,12 +13,13 @@ from fastapi.testclient import TestClient
 from supabase_auth.errors import AuthApiError
 from supabase_auth.helpers import generate_pkce_challenge
 
-from app.auth import google, sessions
+from app.auth import dependencies, google, sessions
 from app.config import get_settings
 from app.main import create_app
+from tests.fakes import FakeDB
 
-OPERATOR = SimpleNamespace(app_metadata={"role": "operator"})
-NOBODY = SimpleNamespace(app_metadata={"provider": "google"})
+OPERATOR = SimpleNamespace(id="operator-1", app_metadata={"role": "operator"})
+NOBODY = SimpleNamespace(id="nobody-1", app_metadata={"provider": "google"})
 TOKENS = {"access_token": "access", "refresh_token": "refresh", "expires_at": 1_900_000_000}
 
 
@@ -52,6 +53,7 @@ def supabase_with(
     monkeypatch: pytest.MonkeyPatch, user: object, error: Exception | None = None
 ) -> FakeAuth:
     auth = FakeAuth(user, error)
+    monkeypatch.setattr(dependencies, "get_supabase", FakeDB)  # no hotel staff
     monkeypatch.setattr(google, "get_supabase_anon", lambda: SimpleNamespace(auth=auth))
     return auth
 

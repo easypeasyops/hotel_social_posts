@@ -17,6 +17,7 @@ from app.auth.upload_tokens import (
 from app.content import service as content_service
 from app.database import get_supabase
 from app.hotels import service as hotel_service
+from app.hotels import staff as staff_service
 from app.hotels.models import HotelCreate, HotelUpdate
 from app.jobs import tasks
 
@@ -61,6 +62,7 @@ def _detail_context(
         "decided": decided[:10],
         "upload_link": upload_link,
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
+        "staff": staff_service.list_members(db, hotel_id),
         "staff_invite_link": staff_invite_link,
         "staff_invite_expires_days": STAFF_INVITE_TTL_SECONDS // 86400,
         "generation_queued": request.query_params.get("generation") == "queued",
@@ -224,6 +226,12 @@ def create_staff_invite_link(
     )
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@router.post("/hotels/{hotel_id}/staff/{user_id}/remove")
+def remove_staff(hotel_id: str, user_id: str, db: Client = Depends(get_supabase)):
+    staff_service.remove_member(db, hotel_id, user_id)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#staff", status_code=303)
 
 
 @router.post("/hotels/{hotel_id}/generate")

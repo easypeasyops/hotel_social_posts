@@ -48,6 +48,24 @@
     <p class="text-xs text-blue-900 mt-2">Anyone with this link can create a staff account for this hotel until it expires, and several people can use it. Treat it like a password.</p>
   </div>
   {% endif %}
+  {% if staff %}
+  <div class="mt-5 divide-y divide-gray-200 border-t border-gray-200">
+    {% for member in staff %}
+    <div class="py-3 flex items-center justify-between gap-4 text-sm">
+      <div class="min-w-0">
+        <p class="font-medium truncate">{{ member.email }}</p>
+        <p class="text-gray-500">Joined {{ (member.created_at or "")[:10] }}</p>
+      </div>
+      <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff/{{ member.user_id }}/remove"
+            onsubmit='return confirm({{ ("Remove " ~ member.email ~ " from this hotel? They lose access at once.")|tojson }})'>
+        <button type="submit" class="text-xs text-red-700 hover:underline">Remove</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-600 mt-5 border-t border-gray-200 pt-4">No staff accounts yet.</p>
+  {% endif %}
 </section>
 
 <section id="media" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">

@@ -130,6 +130,7 @@ All API route prefixes below are registered in `app/main.py`.
 | `GET /` | None | Redirects to `/dashboard/hotels` (signed out, on to `/login`) |
 | `/dashboard/*` | Operator session or Supabase bearer JWT; operator role | Hotel list, hotel create/edit/detail, and scoped upload-link creation |
 | `GET /upload/{hotel_slug}` | None; upload API requires capability | Render hotel media upload page |
+| `GET /static/*` | None | Brand images: the logo and the browser-tab icons, from `app/static` |
 | `/api/v1/hotels` | Supabase bearer JWT or operator session; operator role | List, create, retrieve, update, and delete hotel profiles |
 | `/api/v1/assets` | Supabase bearer JWT or operator session; operator role | List assets, create operator upload URLs, confirm uploads, and delete assets |
 | `/api/v1/upload-capabilities/{hotel_id}/*` | 24-hour hotel-scoped signed capability | Create upload URL and confirm an asset upload |

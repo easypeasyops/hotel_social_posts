@@ -113,6 +113,20 @@ def test_photos_show_as_thumbnails_that_open_the_full_image() -> None:
     assert "MP4" in page and "hotel-1/a3/tour.mp4" not in page
 
 
+def test_a_photo_with_a_thumbnail_shows_it_and_opens_the_original() -> None:
+    db = database()
+    db.rows["assets"][0]["thumbnail_path"] = "thumbnails/hotel-1/a1.webp"
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: STAFF
+    app.dependency_overrides[get_supabase] = lambda: db
+    page = TestClient(app).get("/hotel").text
+
+    base = "https://supabase.invalid/storage/v1/object/sign/hotel-assets"
+    assert f'<img src="{base}/thumbnails/hotel-1/a1.webp?token=t"' in page
+    assert f'data-view="{base}/hotel-1/a1/pool.jpg?token=t"' in page
+    assert len(db.storage.signed) == 1  # both links in one Storage request
+
+
 def test_upload_opens_the_upload_page_with_a_link_for_their_hotel() -> None:
     response = signed_in_as(STAFF).get("/hotel/upload")
 

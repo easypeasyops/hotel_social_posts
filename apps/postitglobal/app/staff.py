@@ -26,7 +26,7 @@ from app.auth.upload_tokens import (
     staff_invite_purpose,
 )
 from app.content import service as content_service
-from app.content.preview import image_choices, review_images
+from app.content.preview import image_choices, photo_links, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
@@ -49,7 +49,7 @@ def staff_home(
 ):
     hotel_id = member["hotel_id"]
     assets = asset_service.list_assets(db, hotel_id)
-    _, thumbnails = review_images(db, assets, [])
+    thumbnails, originals = photo_links(db, assets)
     return templates.TemplateResponse(
         request,
         "staff/home.html",
@@ -58,6 +58,7 @@ def staff_home(
             "hotel": hotel_service.get_hotel(db, hotel_id),
             "assets": assets,
             "thumbnails": thumbnails,
+            "originals": originals,
             "sent": content_service.sent_asset_ids(db, hotel_id),
             "can_moderate": can_moderate(member),
             "is_admin": member["role"] == "hotel_admin",

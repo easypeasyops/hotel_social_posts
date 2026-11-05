@@ -31,12 +31,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.15-slim-trixie@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913 AS runtime
 
 # Fixed, non-root UID/GID: predictable file ownership and Kubernetes `runAsNonRoot`.
-# The base image's pip (with its vendored urllib3, msgpack, ...) and ensurepip's bundled
-# wheels go: nothing installs at run time, so they are attack surface and scanner findings.
+# The base image's pip (with its vendored urllib3, msgpack, ...), ensurepip's bundled
+# wheels and Debian's apt go: nothing installs at run time, so they are attack surface and
+# scanner findings.
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app \
  && python -m pip uninstall --yes --quiet pip \
- && rm -rf /usr/local/lib/python3.*/ensurepip
+ && rm -rf /usr/local/lib/python3.*/ensurepip \
+ && dpkg --purge apt libapt-pkg7.0
 
 WORKDIR /app
 

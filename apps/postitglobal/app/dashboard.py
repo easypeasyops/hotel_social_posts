@@ -184,6 +184,7 @@ def update_hotel(
     try:
         payload = HotelUpdate(
             name=name,
+            location=location,
             description=description,
             tier=tier,
             channels=channels,

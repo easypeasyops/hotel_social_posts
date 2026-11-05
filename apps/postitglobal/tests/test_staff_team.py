@@ -2,11 +2,13 @@
 changes and removal, for the hotel's other members only. Other roles are refused."""
 
 from types import SimpleNamespace
+from typing import Any
 from urllib.parse import unquote
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app import mail
 from app.auth.dependencies import get_current_user
 from app.auth.upload_tokens import read_staff_invite
 from app.database import get_supabase
@@ -107,3 +109,61 @@ def test_other_roles_cant_manage_the_team(
     assert response.status_code == 403
     assert db.writes == []
     assert 'href="/hotel/staff"' not in client.get("/hotel").text
+
+
+@pytest.fixture
+def smtp(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
+    sent: list[Any] = []
+
+    class FakeSMTP:
+        def __init__(self, *_: object, **__: object) -> None:
+            pass
+
+        def __enter__(self) -> FakeSMTP:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            pass
+
+        def starttls(self, **_: object) -> None:
+            pass
+
+        def login(self, *_: str) -> None:
+            pass
+
+        def send_message(self, message: Any) -> None:
+            sent.append(message)
+
+    monkeypatch.setattr(mail.smtplib, "SMTP", FakeSMTP)
+    monkeypatch.setenv("SMTP_USERNAME", "postitglobal@gmail.test")
+    monkeypatch.setenv("SMTP_PASSWORD", "app-password")
+    return sent
+
+
+def test_the_admin_emails_an_invite_for_one_address(smtp: list[Any]) -> None:
+    client, db = _client()
+    page = client.post(
+        "/hotel/staff/invite-email", data={"email": "yeni@example.com", "role": "content_creator"}
+    )
+
+    assert page.status_code == 200
+    assert "Davet yeni@example.com adresine gönderildi." in page.text
+    [message] = smtp
+    invite = message.get_content().split("/signup#invite=", 1)[1].split()[0]
+    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_creator", "yeni@example.com")
+    assert db.writes == []
+
+
+def test_without_smtp_the_team_page_has_no_invite_email() -> None:
+    client, _ = _client()
+    assert "E-posta ile davet" not in client.get("/hotel/staff").text
+    form = {"email": "yeni@example.com", "role": "content_creator"}
+    assert client.post("/hotel/staff/invite-email", data=form).status_code == 404
+
+
+@pytest.mark.parametrize("role", ["content_moderator", "content_creator"])
+def test_other_roles_cant_email_invites(smtp: list[Any], role: str) -> None:
+    client, _ = _client(role)
+    form = {"email": "yeni@example.com", "role": "content_creator"}
+    assert client.post("/hotel/staff/invite-email", data=form).status_code == 403
+    assert smtp == []

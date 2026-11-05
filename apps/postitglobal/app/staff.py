@@ -3,6 +3,7 @@ drafts waiting for their decision. Every route acts on the hotel the signed-in a
 to (require_staff), never on one a URL names. Changing or deciding content takes a hotel admin
 or content moderator (require_moderator); a content creator uploads and looks."""
 
+import logging
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -29,12 +30,15 @@ from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
+from app.hotels.invites import send_invite_email
 from app.hotels.models import HotelUpdate, SocialChannel
 from app.hotels.staff import ROLES, can_moderate
+from app.mail import MailError, mail_configured
 from supabase import Client
 
 router = APIRouter(prefix="/hotel")
 templates = Jinja2Templates(directory="app/templates")
+logger = logging.getLogger(__name__)
 
 
 @router.get("", name="staff_home")
@@ -212,6 +216,7 @@ def _team_page(request: Request, db: Client, hotel_id: str, user_id: str, **extr
             "members": staff_service.list_members(db, hotel_id),
             "me": user_id,
             "invite_days": STAFF_INVITE_TTL_SECONDS // 86400,
+            "invite_email_enabled": mail_configured(),
             **extra,
         },
     )
@@ -250,6 +255,38 @@ def staff_invite(
     invite = create_token(hotel_id, staff_invite_purpose(role), STAFF_INVITE_TTL_SECONDS)
     link = f"{str(request.base_url).rstrip('/')}/signup#invite={quote(invite, safe='')}"
     response = _team_page(request, db, hotel_id, user.id, invite_link=link, invite_role=role)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.post("/staff/invite-email")
+def staff_invite_email(
+    request: Request,
+    email: str = Form(...),
+    role: str = Form(...),
+    hotel_id: str = Depends(require_hotel_admin),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    """As on the dashboard: an invite for this role, emailed to one person, for them alone."""
+    if role not in ROLES:
+        raise HTTPException(status_code=422, detail="Unknown staff role")
+    if not mail_configured():
+        raise HTTPException(status_code=404, detail="Invite emails are not set up")
+    status_code, outcome = 200, {"invite_sent_to": email.strip().lower()}
+    if "@" not in email.strip():
+        status_code, outcome = 422, {"invite_email_error": "Bir e-posta adresi girin."}
+    else:
+        try:
+            send_invite_email(
+                str(request.base_url), hotel_service.get_hotel(db, hotel_id), role, email
+            )
+        except MailError:
+            logger.exception("The staff invite email could not be sent")
+            status_code = 502
+            outcome = {"invite_email_error": "E-posta gönderilemedi. Biraz sonra yeniden deneyin."}
+    response = _team_page(request, db, hotel_id, user.id, **outcome)
+    response.status_code = status_code
     response.headers["Cache-Control"] = "no-store"
     return response
 

@@ -29,6 +29,7 @@ from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
+from app.hotels.models import HotelUpdate, SocialChannel
 from app.hotels.staff import ROLES, can_moderate
 from supabase import Client
 
@@ -276,3 +277,48 @@ def staff_remove(
     _other_member(user_id, user.id)
     staff_service.remove_member(db, hotel_id, user_id)
     return RedirectResponse("/hotel/staff?done=removed", status_code=303)
+
+
+def _details_page(request: Request, hotel: dict, status_code: int = 200, **extra: object):
+    return templates.TemplateResponse(
+        request,
+        "staff/details.html",
+        {"request": request, "hotel": hotel, "channels": [c.value for c in SocialChannel], **extra},
+        status_code=status_code,
+    )
+
+
+@router.get("/details", name="staff_details")
+def staff_details(
+    request: Request,
+    hotel_id: str = Depends(require_hotel_admin),
+    db: Client = Depends(get_supabase),
+):
+    hotel = hotel_service.get_hotel(db, hotel_id)
+    return _details_page(request, hotel, saved=request.query_params.get("done") == "saved")
+
+
+@router.post("/details")
+def staff_save_details(
+    request: Request,
+    name: str = Form(""),
+    location: str = Form(""),
+    contact_email: str = Form(""),
+    channels: list[str] = Form([]),
+    description: str = Form(""),
+    hotel_id: str = Depends(require_hotel_admin),
+    db: Client = Depends(get_supabase),
+):
+    """The details a hotel admin keeps up to date. The slug, tier and Buffer profiles stay with
+    operators (the dashboard)."""
+    form = {"name": name.strip(), "location": location.strip(),
+            "contact_email": contact_email.strip(), "description": description.strip()}  # fmt: skip
+    try:
+        if not (form["name"] and form["location"] and form["contact_email"]):
+            raise ValueError("missing")
+        payload = HotelUpdate(**form, channels=channels)
+    except ValueError:
+        hotel = {**hotel_service.get_hotel(db, hotel_id), **form, "channels": channels}
+        return _details_page(request, hotel, 422, error=True)
+    hotel_service.update_hotel(db, hotel_id, payload)
+    return RedirectResponse("/hotel/details?done=saved", status_code=303)

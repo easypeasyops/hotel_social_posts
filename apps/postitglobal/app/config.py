@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     # "Continue with Google" on /login: on only once Supabase's Google provider is set up.
     google_sign_in: bool = False
 
+    # Staff invite emails, through Gmail's SMTP for now (RUNBOOK): an account's address and
+    # a Google app password. Without a password the app offers invite links only.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587  # STARTTLS
+    smtp_username: str = ""
+    smtp_password: str = ""
+    mail_from: str = ""  # the From address; empty: smtp_username (Gmail sends as the account)
+
 
 @lru_cache
 def get_settings() -> Settings:

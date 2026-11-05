@@ -80,6 +80,16 @@ Keep the Supabase password-recovery email template configured to redirect to the
 
 In Supabase **Authentication → Sign In / Providers**, keep **Allow new users to sign up** off. The app never needs Supabase to create users on its own, and Google sign-in relies on this setting to stay limited to existing accounts.
 
+### Staff invite emails (Gmail SMTP)
+
+**Send invite email**, next to **Create staff invite link** on a hotel's dashboard page, shows only once the app has an SMTP password. It sends one person an invite that only their address can use. The app sends through one Gmail account for now:
+
+1. Use a Google account for postitglobal with 2-Step Verification on. In [Google Account → Security → App passwords](https://myaccount.google.com/apppasswords), create an app password named postitglobal.
+2. In `.env`, set `SMTP_USERNAME=<the gmail address>` and `SMTP_PASSWORD=<the 16-character app password>`. `SMTP_HOST` and `SMTP_PORT` default to `smtp.gmail.com` and 587. Gmail sends as the account itself, so leave `MAIL_FROM` empty unless it's an alias verified in Gmail.
+3. Restart the API and send an invite to yourself from a test hotel.
+
+In the cluster the keys come from the platform's store like the others (`platform/scripts/load-app-env.sh postitglobal .env`), and the pods need egress on port 587. That wiring is a deploy change of its own; until then the cluster has no SMTP password and shows invite links only. Gmail allows about 500 recipients a day and may file the first emails as spam: tell the recipient to look there. If a send fails, the page says so and the API log has the SMTP error ("The staff invite email could not be sent"); an `SMTPAuthenticationError` means the app password was revoked or mistyped.
+
 ### Google sign-in
 
 The **Continue with Google** button shows only when `GOOGLE_SIGN_IN=true` (deploy value `config.googleSignIn`, per environment in `deploy/envs/`). Set it up once; staging and prod share the Supabase project, so they share the provider:

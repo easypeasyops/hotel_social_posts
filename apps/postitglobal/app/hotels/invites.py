@@ -23,7 +23,7 @@ def send_invite_email(base_url: str, hotel: dict, role: str, email: str) -> None
         email,
         f"{hotel['name']} ekibine davetlisiniz",
         f"Merhaba,\n\n"
-        f"{hotel['name']} için postitglobal'e {ROLE_NAMES_TR[role]} olarak davet edildiniz. "
+        f"{hotel['name']} için aipostit'e {ROLE_NAMES_TR[role]} olarak davet edildiniz. "
         f"Bu bağlantıdan bir şifre belirleyip hesabınızı açın ({days} gün geçerli):\n\n"
         f"{link}\n\n"
         f"Bağlantı yalnızca bu e-posta adresiyle ({email}) kullanılabilir. "

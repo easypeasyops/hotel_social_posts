@@ -124,7 +124,7 @@ def test_an_account_without_the_role_gets_no_session(
     response = come_back(browser, code="one-time-code")
 
     assert response.status_code == 403
-    assert "have access to postitglobal" in response.text
+    assert "have access to aipostit" in response.text
     assert store.keys() == []
 
 
@@ -132,7 +132,7 @@ def test_an_address_without_an_account_is_told_so(monkeypatch: pytest.MonkeyPatc
     auth = supabase_with(monkeypatch, OPERATOR)
     response = come_back(client(), error="access_denied", error_code="signup_disabled")
     assert response.status_code == 403
-    assert "no postitglobal account for that Google address" in response.text
+    assert "no aipostit account for that Google address" in response.text
     assert auth.exchanges == []
 
 

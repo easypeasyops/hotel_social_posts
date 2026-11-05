@@ -4,6 +4,8 @@
 
 `postitglobal` is a FastAPI application for managing hotel profiles and media, generating Turkish social posts, translating drafts, reviewing them, and submitting approved posts to Buffer for scheduling. PostgreSQL and object storage are provided by Supabase; Redis and Celery handle background work.
 
+People see the product as **aipostit**: page titles, the home page, the footer, sign-in messages and the invite email say aipostit. The code, image, release tags, cookies, log names and deployments are still named `postitglobal`, until they move to `aipostit` without downtime.
+
 This document describes the implementation in the repository today. It distinguishes implemented behavior from planned or incomplete behavior.
 
 ## System context

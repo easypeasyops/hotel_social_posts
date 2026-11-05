@@ -19,7 +19,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 INVALID_INVITE = (
-    "This invite link is invalid or has expired. Ask your postitglobal contact for a new one."
+    "This invite link is invalid or has expired. Ask your aipostit contact for a new one."
 )
 
 

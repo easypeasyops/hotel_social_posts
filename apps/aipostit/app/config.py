@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     # App
-    app_name: str = "postitglobal"
+    app_name: str = "aipostit"
     debug: bool = False
     log_level: str = "INFO"
     log_json: bool = True  # LOG_JSON=false: plain lines for local reading

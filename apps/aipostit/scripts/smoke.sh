@@ -55,7 +55,7 @@ pass "/docs hidden"
 docker logs "$NAME" 2>/dev/null | python3 -c '
 import json, sys
 lines = [json.loads(line) for line in sys.stdin if line.strip()]
-assert any(e.get("logger") == "postitglobal.access" and e.get("status") == 404 for e in lines), lines
+assert any(e.get("logger") == "aipostit.access" and e.get("status") == 404 for e in lines), lines
 ' || fail "stdout is not JSON log lines with an access line"
 pass "JSON logs on stdout"
 

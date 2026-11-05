@@ -2,6 +2,8 @@
 hotel. /signup makes the account with the service role, ties it to that hotel and signs it in;
 without a valid invite nothing is made."""
 
+import base64
+import json
 from collections.abc import Iterator
 from types import SimpleNamespace
 from typing import Any
@@ -17,6 +19,7 @@ from app.auth.dependencies import require_operator
 from app.auth.upload_tokens import (
     STAFF_INVITE_PURPOSE,
     create_token,
+    read_staff_invite,
     read_token,
     staff_invite_purpose,
 )
@@ -175,3 +178,27 @@ def test_an_invite_for_a_role_makes_staff_in_that_role(
     db, _ = supabase_with(monkeypatch)
     sign_up(create_token("hotel-1", staff_invite_purpose("content_creator"), 60))
     assert db.written("hotel_members")[0]["role"] == "content_creator"
+
+
+def test_an_invite_for_one_email_signs_up_that_email_only(
+    monkeypatch: pytest.MonkeyPatch, store: fakeredis.FakeRedis
+) -> None:
+    invite = create_token("hotel-1", STAFF_INVITE_PURPOSE, 60, email=" Staff@Example.com ")
+    db, admin = supabase_with(monkeypatch)
+
+    refused = sign_up(invite, email="someone-else@example.com")
+    assert refused.status_code == 403
+    assert "This invite is for staff@example.com." in refused.text
+    assert (admin.created, db.writes) == ([], [])
+
+    assert sign_up(invite, email="STAFF@example.com").status_code == 303  # same address
+    assert db.written("hotel_members")[0]["hotel_id"] == "hotel-1"
+
+
+def test_the_email_an_invite_names_cant_be_changed() -> None:
+    encoded, signature = create_token("hotel-1", STAFF_INVITE_PURPOSE, 60, email="a@x.test").split(
+        "."
+    )
+    payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    forged = base64.urlsafe_b64encode(json.dumps({**payload, "email": "b@x.test"}).encode())
+    assert read_staff_invite(f"{forged.rstrip(b'=').decode()}.{signature}") is None

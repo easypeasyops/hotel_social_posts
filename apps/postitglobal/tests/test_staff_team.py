@@ -51,7 +51,7 @@ def test_the_admin_makes_an_invite_for_a_role() -> None:
     page = client.post("/hotel/staff/invite", data={"role": "content_moderator"})
 
     invite = page.text.split("/signup#invite=", 1)[1].split('"', 1)[0]
-    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_moderator")
+    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_moderator", None)
     assert page.headers["cache-control"] == "no-store"
 
 

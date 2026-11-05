@@ -10,11 +10,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-REPO = Path(__file__).resolve().parents[3]  # postitglobal is apps/postitglobal/
+REPO = Path(__file__).resolve().parents[3]  # aipostit is apps/aipostit/
 WORKFLOW = yaml.safe_load((REPO / ".github/workflows/release.yml").read_text())
-VERSION = tomllib.loads((REPO / "apps/postitglobal/pyproject.toml").read_text())["project"][
-    "version"
-]
+VERSION = tomllib.loads((REPO / "apps/aipostit/pyproject.toml").read_text())["project"]["version"]
 
 
 def _app_step(tmp_path: Path, tag: str) -> tuple[subprocess.CompletedProcess[str], str, str]:
@@ -45,20 +43,20 @@ def test_only_app_tags_release() -> None:
 
 
 def test_an_app_tag_names_the_app_its_version_and_its_image(tmp_path: Path) -> None:
-    result, out, env = _app_step(tmp_path, f"postitglobal/v{VERSION}")
+    result, out, env = _app_step(tmp_path, f"aipostit/v{VERSION}")
     assert result.returncode == 0, result.stdout
-    assert out.splitlines() == ["app=postitglobal", f"version={VERSION}"]
+    assert out.splitlines() == ["app=aipostit", f"version={VERSION}"]
     assert (
-        env.strip() == "IMAGE=ghcr.io/easypeasyops/hotel_social_posts/postitglobal"
+        env.strip() == "IMAGE=ghcr.io/easypeasyops/hotel_social_posts/aipostit"
     )  # lowercase, per app
 
 
 @pytest.mark.parametrize(
     ("tag", "error"),
     [
-        ("postitglobal/v99.0.0", "does not match apps/postitglobal/pyproject.toml"),
+        ("aipostit/v99.0.0", "does not match apps/aipostit/pyproject.toml"),
         ("pager/v1.0.0", "no app apps/pager/"),
-        ("Postitglobal/v1.0.0", "is not a valid app name"),
+        ("Aipostit/v1.0.0", "is not a valid app name"),
     ],
 )
 def test_a_tag_that_names_no_released_version_is_refused(

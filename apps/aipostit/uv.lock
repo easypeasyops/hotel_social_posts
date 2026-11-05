@@ -872,7 +872,7 @@ wheels = [
 ]
 
 [[package]]
-name = "postitglobal"
+name = "aipostit"
 version = "0.3.8"
 source = { virtual = "." }
 dependencies = [

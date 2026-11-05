@@ -135,7 +135,7 @@ def smtp(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
             sent.append(message)
 
     monkeypatch.setattr(mail.smtplib, "SMTP", FakeSMTP)
-    monkeypatch.setenv("SMTP_USERNAME", "postitglobal@gmail.test")
+    monkeypatch.setenv("SMTP_USERNAME", "aipostit@gmail.test")
     monkeypatch.setenv("SMTP_PASSWORD", "app-password")
     return sent
 

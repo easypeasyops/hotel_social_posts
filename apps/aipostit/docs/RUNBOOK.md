@@ -12,7 +12,7 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 - **Supabase:** Postgres, Auth, the private `hotel-assets` Storage bucket (uploads) and the public `published-media` bucket (images being posted).
 - **External providers:** Anthropic, DeepL, and Buffer.
 - **Cron:** the cluster's `generate-weekly` and `sync-buffer` CronJobs (below). Railway ran the app and its cron until plan 5.9.
-- **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC, prod only: staging shares prod's Supabase). Run it now: `kubectl -n postitglobal-prod create job generate-now --from=cronjob/postitglobal-generate-weekly`; in staging, queue one hotel with `POST /internal/jobs/generate/<hotel_id>`. The `sync-buffer` CronJob (hourly at :15, prod only) marks drafts Buffer has sent `published` and those it couldn't send `failed`; run it now with `kubectl -n postitglobal-prod create job sync-now --from=cronjob/postitglobal-sync-buffer`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh postitglobal .env`, then restart the API and the worker to read changed keys (`kubectl -n postitglobal-<env> rollout restart deployment`).
+- **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC, prod only: staging shares prod's Supabase). Run it now: `kubectl -n aipostit-prod create job generate-now --from=cronjob/aipostit-generate-weekly`; in staging, queue one hotel with `POST /internal/jobs/generate/<hotel_id>`. The `sync-buffer` CronJob (hourly at :15, prod only) marks drafts Buffer has sent `published` and those it couldn't send `failed`; run it now with `kubectl -n aipostit-prod create job sync-now --from=cronjob/aipostit-sync-buffer`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh aipostit .env`, then restart the API and the worker to read changed keys (`kubectl -n aipostit-<env> rollout restart deployment`).
 
 ## Prerequisites and configuration
 
@@ -44,7 +44,7 @@ set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "o
 where email in ('operator@example.com');
 ```
 
-Remove the role with `raw_app_meta_data - 'role'`. The app reads the role from Supabase on every request, so either change applies at once with no new sign-in. Run the update for every existing operator **before** deploying a version with the role check: without it they get "This account doesn't have access to postitglobal." To list the operators: `select email from auth.users where raw_app_meta_data->>'role' = 'operator';`.
+Remove the role with `raw_app_meta_data - 'role'`. The app reads the role from Supabase on every request, so either change applies at once with no new sign-in. Run the update for every existing operator **before** deploying a version with the role check: without it they get "This account doesn't have access to aipostit." To list the operators: `select email from auth.users where raw_app_meta_data->>'role' = 'operator';`.
 
 Hotel staff are accounts without the operator role that belong to one hotel. They sign in at the same `/login` and land on `/hotel`, which shows their hotel's files (photos as thumbnails that open full size; files no draft has taken to Buffer can be renamed, recategorized or deleted), lets them upload more, and links to the drafts waiting for review (`/hotel/drafts`), which they can edit (text and photos), approve (published as from the dashboard), reject or delete. What they may do depends on their role in `hotel_members.role`: `hotel_admin` and `content_moderator` do all of that; a `content_creator` uploads and sees the files and drafts, without the buttons that change or decide them. Change a member's role with the role menu and **Change** next to their email in the hotel's "Hotel staff" section. A hotel's admins do the same themselves on `/hotel/staff` (**Ekip** on `/hotel`): invite links with a role, role changes and removal, for everyone but themselves. So the operator usually only invites the hotel's first admin. Hotel admins also keep the hotel's name, location, contact email, description and channels up to date on `/hotel/details` (**Otel bilgileri**); the slug, tier and Buffer profiles stay on the dashboard. To invite staff, open the hotel on the dashboard, choose the role the link gives (hotel admin by default) and use **Create staff invite link**, then send the link (valid for 7 days, usable by several people) to the hotel. Each person opens it, enters their work email and a password, and lands on `/hotel`. The invite works like a password: anyone holding it can make an account for that hotel until it expires, and only rotating `SECRET_KEY` revokes it early (which also ends every upload link). An email that already has an account can't sign up again; to add an existing account to a hotel, or to make staff by hand, create the user in Supabase **Authentication → Users → Add user** (with a password, auto-confirmed) if needed, then in the SQL editor:
 
@@ -90,26 +90,26 @@ In Supabase **Authentication → Sign In / Providers**, keep **Allow new users t
 
 **Send invite email**, next to **Create staff invite link** on a hotel's dashboard page, and **E-posta ile davet** on a hotel admin's `/hotel/staff`, show only once the app has an SMTP password. It sends one person an invite that only their address can use. The app sends through one Gmail account for now:
 
-1. Use a Google account for postitglobal with 2-Step Verification on. In [Google Account → Security → App passwords](https://myaccount.google.com/apppasswords), create an app password named postitglobal.
+1. Use a Google account for aipostit with 2-Step Verification on. In [Google Account → Security → App passwords](https://myaccount.google.com/apppasswords), create an app password named aipostit.
 2. In `.env`, set `SMTP_USERNAME=<the gmail address>` and `SMTP_PASSWORD=<the 16-character app password>`. `SMTP_HOST` and `SMTP_PORT` default to `smtp.gmail.com` and 587. Gmail sends as the account itself, so leave `MAIL_FROM` empty unless it's an alias verified in Gmail.
 3. Restart the API and send an invite to yourself from a test hotel.
 
-In the cluster the keys come from the platform's store like the others. That script replaces the whole store with the file's keys, so add `SMTP_USERNAME` and `SMTP_PASSWORD` to the same `.env` that holds all of postitglobal's keys, then run `platform/scripts/load-app-env.sh postitglobal ../hotel_social_posts/apps/postitglobal/.env` from the platform checkout and check that the printed key list includes both. Then set `config.inviteEmail: "true"` in the environment's `deploy/envs/` values, which hands the two keys to the pods; the network policy already allows port 587 out. Never set it before the keys are in the store: a pod whose env names a missing key doesn't start. Gmail allows about 500 recipients a day and may file the first emails as spam: tell the recipient to look there. If a send fails, the page says so and the API log has the SMTP error ("The staff invite email could not be sent"); an `SMTPAuthenticationError` means the app password was revoked or mistyped.
+In the cluster the keys come from the platform's store like the others. That script replaces the whole store with the file's keys, so add `SMTP_USERNAME` and `SMTP_PASSWORD` to the same `.env` that holds all of aipostit's keys, then run `platform/scripts/load-app-env.sh aipostit ../hotel_social_posts/apps/aipostit/.env` from the platform checkout and check that the printed key list includes both. Then set `config.inviteEmail: "true"` in the environment's `deploy/envs/` values, which hands the two keys to the pods; the network policy already allows port 587 out. Never set it before the keys are in the store: a pod whose env names a missing key doesn't start. Gmail allows about 500 recipients a day and may file the first emails as spam: tell the recipient to look there. If a send fails, the page says so and the API log has the SMTP error ("The staff invite email could not be sent"); an `SMTPAuthenticationError` means the app password was revoked or mistyped.
 
 ### Google sign-in
 
 The **Continue with Google** button shows only when `GOOGLE_SIGN_IN=true` (deploy value `config.googleSignIn`, per environment in `deploy/envs/`). Set it up once; staging and prod share the Supabase project, so they share the provider:
 
-1. In [Google Cloud console](https://console.cloud.google.com/) → **APIs & Services → OAuth consent screen**: user type External, app name postitglobal, your support email. Scopes: `openid`, `email`, `profile` only. Publish the app (in Testing, only listed test users can sign in).
+1. In [Google Cloud console](https://console.cloud.google.com/) → **APIs & Services → OAuth consent screen**: user type External, app name aipostit, your support email. Scopes: `openid`, `email`, `profile` only. Publish the app (in Testing, only listed test users can sign in).
 2. **APIs & Services → Credentials → Create credentials → OAuth client ID**, type Web application. Under **Authorized redirect URIs** add Supabase's callback, shown on the Supabase Google provider page: `https://<project-ref>.supabase.co/auth/v1/callback`. Google sends people back to Supabase, not to the app, so no app URL goes here.
 3. In Supabase **Authentication → Sign In / Providers → Google**: enable it and paste the client ID and client secret. Keep the secret out of git; it lives only in Supabase.
 4. In Supabase **Authentication → URL Configuration → Redirect URLs**, add each origin's Google callback next to `/auth/callback`:
    - Local: `http://localhost:8000/auth/callback/google`
-   - Staging: `http://staging.postitglobal.localhost:8080/auth/callback/google`
-   - Prod: `http://postitglobal.localhost:8080/auth/callback/google` (the HTTPS origin once prod has one)
+   - Staging: `http://staging.aipostit.localhost:8080/auth/callback/google`
+   - Prod: `http://aipostit.localhost:8080/auth/callback/google` (the HTTPS origin once prod has one)
 5. Set `GOOGLE_SIGN_IN=true` (`.env` locally; `config.googleSignIn: "true"` in the environment's values) and redeploy.
 
-Check it: an operator whose account email is the Google address signs in and lands on the hotel list. A Google address without an account sees "There's no postitglobal account for that Google address", and no user appears in Supabase **Authentication → Users**. To turn it off, set `GOOGLE_SIGN_IN=false`; Google identities already linked stay in Supabase, harmlessly.
+Check it: an operator whose account email is the Google address signs in and lands on the hotel list. A Google address without an account sees "There's no aipostit account for that Google address", and no user appears in Supabase **Authentication → Users**. To turn it off, set `GOOGLE_SIGN_IN=false`; Google identities already linked stay in Supabase, harmlessly.
 
 ## Local startup
 
@@ -138,7 +138,7 @@ Open `http://localhost:8000/login` to sign in with a provisioned Supabase Auth o
 
 ## Development checks
 
-Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docker image installs exactly the lock. From `apps/postitglobal/`, with [uv](https://docs.astral.sh/uv/):
+Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docker image installs exactly the lock. From `apps/aipostit/`, with [uv](https://docs.astral.sh/uv/):
 
 | Step | Command |
 | --- | --- |
@@ -146,25 +146,25 @@ Dependencies are in `pyproject.toml`, pinned with hashes in `uv.lock`; the Docke
 | Format and lint | `uv run ruff format .` and `uv run ruff check .` |
 | Type check | `uv run mypy app tests` |
 | Tests (no `.env` needed: they use placeholders) | `uv run pytest` |
-| The image, black-box (non-root, probes, JSON logs, metrics, clean SIGTERM exit) | `docker build -t postitglobal:dev . && scripts/smoke.sh` |
+| The image, black-box (non-root, probes, JSON logs, metrics, clean SIGTERM exit) | `docker build -t aipostit:dev . && scripts/smoke.sh` |
 
 Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`, then `uv lock`) and commit both files. CI runs the same commands on every pull request (`.github/workflows/ci.yml` at the repo root, through the platform's reusable workflows); a pull request is ready to merge when its `ci` check is green. Code that came in with the import still has inline `noqa` markers and modules listed under mypy's overrides in `pyproject.toml`: they come off as the code is fixed and typed.
 
 ## Cut a release
 
-A release is an image built, scanned and signed by `.github/workflows/release.yml` from a tag `postitglobal/vX.Y.Z` that matches `version` in `apps/postitglobal/pyproject.toml`. Only such images run in the cluster: the platform's admission policy and deploy gate require this workflow's provenance at this app's tag.
+A release is an image built, scanned and signed by `.github/workflows/release.yml` from a tag `aipostit/vX.Y.Z` that matches `version` in `apps/aipostit/pyproject.toml`. Only such images run in the cluster: the platform's admission policy and deploy gate require this workflow's provenance at this app's tag.
 
 1. Bump `version` in `pyproject.toml` in a PR, and merge it.
 2. Tag the merge commit (`git log --oneline -1` first: the tag must be on that commit, and release tags can't be moved):
 
    ```sh
    git fetch && git checkout main && git pull
-   git tag postitglobal/v0.1.0 && git push origin postitglobal/v0.1.0
+   git tag aipostit/v0.1.0 && git push origin aipostit/v0.1.0
    ```
 
-3. The workflow builds `linux/amd64` and `linux/arm64`, scans for HIGH and CRITICAL vulnerabilities before anything is published, pushes `ghcr.io/easypeasyops/hotel_social_posts/postitglobal`, attests its provenance and creates a GitHub Release whose notes give the digest. A tag that disagrees with `pyproject.toml` fails before publishing.
+3. The workflow builds `linux/amd64` and `linux/arm64`, scans for HIGH and CRITICAL vulnerabilities before anything is published, pushes `ghcr.io/easypeasyops/hotel_social_posts/aipostit`, attests its provenance and creates a GitHub Release whose notes give the digest. A tag that disagrees with `pyproject.toml` fails before publishing.
 4. The first release creates the GHCR package as private: make it public (package settings) so the cluster can pull it without credentials.
-5. Check the provenance: `gh attestation verify oci://ghcr.io/easypeasyops/hotel_social_posts/postitglobal@<digest> --owner easypeasyops`.
+5. Check the provenance: `gh attestation verify oci://ghcr.io/easypeasyops/hotel_social_posts/aipostit@<digest> --owner easypeasyops`.
 
 ## Deployment and release checklist
 
@@ -173,14 +173,14 @@ A release is an image built, scanned and signed by `.github/workflows/release.ym
 3. Ensure the `hotel-assets` bucket exists and its upload policies match the signed-upload flow, and that the `published-media` bucket exists and is public (migration `002`); without it, publishing fails on the image copy.
 4. Deploy by digest: set `image.digest` in `deploy/envs/staging.yaml` in a PR (Argo CD deploys it on merge), check staging, then the same digest in `deploy/envs/prod.yaml`.
 5. The worker deploys with the API: the chart's `workers.worker` runs the same image with `celery -A app.jobs.tasks.celery_app worker --loglevel=info --concurrency=2`.
-6. Verify the API and worker logs (`kubectl -n postitglobal-<env> logs deploy/postitglobal` and `deploy/postitglobal-worker`), then `GET /readyz` through the Gateway.
+6. Verify the API and worker logs (`kubectl -n aipostit-<env> logs deploy/aipostit` and `deploy/aipostit-worker`), then `GET /readyz` through the Gateway.
 7. Verify a protected job trigger only in a controlled environment and ensure it is not exposed with the cron secret in logs or shell history.
 8. Weekly generation is the `generate-weekly` CronJob in prod, the Buffer sync the hourly `sync-buffer` one (`deploy/service/values.yaml`); nothing to configure outside this repository.
 9. For release validation, confirm a test hotel can create a draft, persist translations, and schedule an approved draft without sending unintended production posts.
 
 ## Routine operational checks
 
-- Check the API and worker logs (`kubectl -n postitglobal-<env> logs`) for startup errors, repeated task retries, or task failures.
+- Check the API and worker logs (`kubectl -n aipostit-<env> logs`) for startup errors, repeated task retries, or task failures.
 - Check Redis availability and the worker's ability to consume jobs if tasks remain queued.
 - Check Redis availability for operator sessions as well as Celery; login and authenticated dashboard/API requests require it.
 - Check Supabase database and Storage health, and confirm the `hotel-assets` bucket is reachable.
@@ -190,7 +190,7 @@ A release is an image built, scanned and signed by `.github/workflows/release.ym
 
 ## Reading the logs
 
-The API and the worker log one JSON object per line to stdout (set `LOG_JSON=false` locally for plain lines). Every line a request logs carries its `request_id`, which is also the response's `X-Request-ID` header: ask a user for it, or take it from the access line (`"logger": "postitglobal.access"`, with `route`, `status` and `duration_ms`).
+The API and the worker log one JSON object per line to stdout (set `LOG_JSON=false` locally for plain lines). Every line a request logs carries its `request_id`, which is also the response's `X-Request-ID` header: ask a user for it, or take it from the access line (`"logger": "aipostit.access"`, with `route`, `status` and `duration_ms`).
 
 ```sh
 # Everything one request logged
@@ -209,9 +209,9 @@ The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its publ
 
 ### API health check fails
 
-1. Inspect the API's logs and events (`kubectl -n postitglobal-<env> describe pod`, `logs`) and recent release or configuration changes.
+1. Inspect the API's logs and events (`kubectl -n aipostit-<env> describe pod`, `logs`) and recent release or configuration changes.
 2. Verify required environment variables are present without printing their values.
-3. Confirm the pods are Ready (`kubectl -n postitglobal-<env> get pods`) and the Application is Synced and Healthy (`kubectl -n argocd get app postitglobal-<env>`).
+3. Confirm the pods are Ready (`kubectl -n aipostit-<env> get pods`) and the Application is Synced and Healthy (`kubectl -n argocd get app aipostit-<env>`).
 4. If the failure began with a release, roll back: put the previous digest back in `deploy/envs/<env>.yaml` and merge.
 5. After recovery, check `/readyz` and perform a safe authenticated read.
 
@@ -254,14 +254,14 @@ The application currently schedules Turkish text only. A draft becomes `publishe
 
 ### Cron did not enqueue generation
 
-1. Check the CronJob's last run: `kubectl -n postitglobal-prod get cronjob,jobs` and the job pod's logs (`celery call` prints the task ID).
+1. Check the CronJob's last run: `kubectl -n aipostit-prod get cronjob,jobs` and the job pod's logs (`celery call` prints the task ID).
 2. A manual `POST /internal/jobs/generate` must include `X-Cron-Secret`.
 3. Check for an authorization failure, API health issue, or Redis/worker outage in logs.
 4. If manually rerunning generation, inspect recent drafts first to avoid duplicates.
 
 ### A draft stays scheduled after its post went out
 
-1. Check the `sync-buffer` CronJob's last runs: `kubectl -n postitglobal-prod get cronjob,jobs`, then the worker's logs for `tasks.sync_buffer_posts`.
+1. Check the `sync-buffer` CronJob's last runs: `kubectl -n aipostit-prod get cronjob,jobs`, then the worker's logs for `tasks.sync_buffer_posts`.
 2. A warning `Buffer post <id>: NOT_FOUND ...` means Buffer no longer has the post (deleted in Buffer's app): the draft stays `scheduled`; reconcile it by hand after checking the network.
 3. An HTTP 429 means Buffer's rate limit (shared by every key on the account): the next hour's run picks up where this one stopped.
 

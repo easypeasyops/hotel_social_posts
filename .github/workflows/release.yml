@@ -6,7 +6,7 @@ name: Release
 # The same workflow as easypeasyops/links' (one per domain repo; the platform's policy accepts
 # any of our repos' release.yml, each for its own images only).
 # Cut one:  bump `version` in apps/<app>/pyproject.toml (via PR), merge, then
-#   git tag postitglobal/v0.1.0 && git push origin postitglobal/v0.1.0
+#   git tag aipostit/v0.1.0 && git push origin aipostit/v0.1.0
 on:
   push:
     tags: ["*/v[0-9]+.[0-9]+.[0-9]+"] # `*` stops at `/`: exactly <app>/vX.Y.Z
@@ -111,7 +111,7 @@ jobs:
 
       # Signed (Sigstore, keyless via this workflow's OIDC identity) statement of which
       # repo, commit, and workflow produced this exact digest. Verify with:
-      #   gh attestation verify oci://ghcr.io/easypeasyops/hotel_social_posts/postitglobal@<digest> --owner easypeasyops
+      #   gh attestation verify oci://ghcr.io/easypeasyops/hotel_social_posts/aipostit@<digest> --owner easypeasyops
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:

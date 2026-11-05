@@ -4,7 +4,12 @@ environment: prod
 image:
   digest: "sha256:9d8d14d4c0e16e34b1f724894e872256a8e101b17e30e216c68a854edd087c21" # v0.3.8, as staging
 gateway:
-  hostnames: ["postitglobal.localhost"]
+  hostnames: ["aipostit.localhost"]
 config:
-  publicBaseUrl: "http://postitglobal.localhost:8080"
+  publicBaseUrl: "http://aipostit.localhost:8080"
   sessionCookieSecure: "false" # the kind front door is plain HTTP
+# Off until postitglobal-prod is gone: during the move from postitglobal both run against
+# the same Supabase and Buffer, and only one may generate drafts and sync Buffer each hour.
+cronJobs:
+  generate-weekly: null
+  sync-buffer: null

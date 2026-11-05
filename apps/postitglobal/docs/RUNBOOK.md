@@ -16,7 +16,7 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 
 ## Prerequisites and configuration
 
-Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff), and configure provider credentials.
+Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff, `004` its `role` column), and configure provider credentials.
 
 Set the following environment variables in the local `.env`; in the cluster they come from the platform's store, loaded from that file (below):
 
@@ -46,12 +46,27 @@ where email in ('operator@example.com');
 
 Remove the role with `raw_app_meta_data - 'role'`. The app reads the role from Supabase on every request, so either change applies at once with no new sign-in. Run the update for every existing operator **before** deploying a version with the role check: without it they get "This account doesn't have access to postitglobal." To list the operators: `select email from auth.users where raw_app_meta_data->>'role' = 'operator';`.
 
-Hotel staff are accounts without the operator role that belong to one hotel. They sign in at the same `/login` and land on `/hotel`, which shows their hotel's files (photos as thumbnails that open full size; files no draft has taken to Buffer can be renamed, recategorized or deleted), lets them upload more, and links to the drafts waiting for review (`/hotel/drafts`), which they can edit (text and photos), approve (published as from the dashboard), reject or delete. To invite staff, open the hotel on the dashboard and use **Create staff invite link**, then send the link (valid for 7 days, usable by several people) to the hotel. Each person opens it, enters their work email and a password, and lands on `/hotel`. The invite works like a password: anyone holding it can make an account for that hotel until it expires, and only rotating `SECRET_KEY` revokes it early (which also ends every upload link). An email that already has an account can't sign up again; to add an existing account to a hotel, or to make staff by hand, create the user in Supabase **Authentication → Users → Add user** (with a password, auto-confirmed) if needed, then in the SQL editor:
+Hotel staff are accounts without the operator role that belong to one hotel. They sign in at the same `/login` and land on `/hotel`, which shows their hotel's files (photos as thumbnails that open full size; files no draft has taken to Buffer can be renamed, recategorized or deleted), lets them upload more, and links to the drafts waiting for review (`/hotel/drafts`), which they can edit (text and photos), approve (published as from the dashboard), reject or delete. What they may do depends on their role in `hotel_members.role`: `hotel_admin` and `content_moderator` do all of that; a `content_creator` uploads and sees the files and drafts, without the buttons that change or decide them. New staff are `hotel_admin` unless their role is changed. To invite staff, open the hotel on the dashboard and use **Create staff invite link**, then send the link (valid for 7 days, usable by several people) to the hotel. Each person opens it, enters their work email and a password, and lands on `/hotel`. The invite works like a password: anyone holding it can make an account for that hotel until it expires, and only rotating `SECRET_KEY` revokes it early (which also ends every upload link). An email that already has an account can't sign up again; to add an existing account to a hotel, or to make staff by hand, create the user in Supabase **Authentication → Users → Add user** (with a password, auto-confirmed) if needed, then in the SQL editor:
 
 ```sql
-insert into hotel_members (user_id, hotel_id, email)
-select u.id, h.id, u.email from auth.users u, hotels h
+insert into hotel_members (user_id, hotel_id, email, role)
+select u.id, h.id, u.email, 'content_creator' from auth.users u, hotels h
 where u.email = 'staff@example.com' and h.slug = 'the-hotel-slug';
+```
+
+The role is one of `hotel_admin`, `content_moderator` or `content_creator`; it applies on the person's next request. To change it:
+
+```sql
+update hotel_members set role = 'content_moderator'
+where email = 'staff@example.com';
+```
+
+Staff roles need migration `004`. Run it in the SQL editor **before** deploying a version with roles (a version without the column refuses every staff page); it is safe for the version already running, whose new staff rows get the default `hotel_admin`. Every existing staff account becomes `hotel_admin`, which keeps what it can do today:
+
+```sql
+alter table hotel_members
+  add column role text not null default 'hotel_admin'
+  check (role in ('hotel_admin', 'content_moderator', 'content_creator'));
 ```
 
 To take someone's access away, use **Remove** next to their email in the hotel's "Hotel staff" section (or delete their `hotel_members` row). It takes effect on their next request. Their Supabase account stays, with no access; delete it in **Authentication → Users** if it shouldn't exist at all. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).

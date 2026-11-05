@@ -24,7 +24,8 @@ def _db(status: str = "pending_review", hotel_id: str = "hotel-1") -> FakeDB:
     draft = {"id": "d1", "hotel_id": hotel_id, "channel": "instagram", "status": status,
              "body_tr": "Eski metin", "asset_ids": []}  # fmt: skip
     return FakeDB(hotels=[HOTEL], assets=[], content_drafts=[draft],
-                  hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1"}])  # fmt: skip
+                  hotel_members=[{"user_id": "staff-1", "hotel_id": "hotel-1",
+                                  "role": "hotel_admin"}])  # fmt: skip
 
 
 @pytest.fixture

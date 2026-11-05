@@ -22,6 +22,16 @@
   <span class="shrink-0 font-semibold text-iris-600" aria-hidden="true">→</span>
 </a>
 
+{% if is_admin %}
+<a href="/hotel/staff" class="flex items-center justify-between gap-4 bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:px-8 hover:border-iris-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">
+  <span>
+    <span class="block font-semibold">Ekip</span>
+    <span class="text-sand-700">Çalışma arkadaşlarınızı davet edin, rollerini değiştirin.</span>
+  </span>
+  <span class="shrink-0 font-semibold text-iris-600" aria-hidden="true">→</span>
+</a>
+{% endif %}
+
 <section id="files" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
   <h2 class="font-semibold">Yüklenen dosyalar</h2>
   {% if assets %}

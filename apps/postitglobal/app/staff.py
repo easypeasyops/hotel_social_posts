@@ -11,13 +11,25 @@ from fastapi.templating import Jinja2Templates
 
 from app.assets import service as asset_service
 from app.assets.models import AssetCategory
-from app.auth.dependencies import require_moderator, require_staff, require_staff_member
-from app.auth.upload_tokens import create_upload_token
+from app.auth.dependencies import (
+    get_current_user,
+    require_hotel_admin,
+    require_moderator,
+    require_staff,
+    require_staff_member,
+)
+from app.auth.upload_tokens import (
+    STAFF_INVITE_TTL_SECONDS,
+    create_token,
+    create_upload_token,
+    staff_invite_purpose,
+)
 from app.content import service as content_service
 from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
-from app.hotels.staff import can_moderate
+from app.hotels import staff as staff_service
+from app.hotels.staff import ROLES, can_moderate
 from supabase import Client
 
 router = APIRouter(prefix="/hotel")
@@ -43,6 +55,7 @@ def staff_home(
             "thumbnails": thumbnails,
             "sent": content_service.sent_asset_ids(db, hotel_id),
             "can_moderate": can_moderate(member),
+            "is_admin": member["role"] == "hotel_admin",
             "pending_count": len(content_service.list_drafts(db, hotel_id, "pending_review")),
         },
     )
@@ -186,3 +199,80 @@ def staff_delete_draft(
     """As on the dashboard: delete a draft that isn't at Buffer (409 for one that is)."""
     content_service.delete_draft(db, _own_draft(db, hotel_id, draft_id))
     return RedirectResponse("/hotel/drafts?done=deleted", status_code=303)
+
+
+def _team_page(request: Request, db: Client, hotel_id: str, user_id: str, **extra: object):
+    return templates.TemplateResponse(
+        request,
+        "staff/team.html",
+        {
+            "request": request,
+            "hotel": hotel_service.get_hotel(db, hotel_id),
+            "members": staff_service.list_members(db, hotel_id),
+            "me": user_id,
+            "invite_days": STAFF_INVITE_TTL_SECONDS // 86400,
+            **extra,
+        },
+    )
+
+
+def _other_member(user_id: str, me: str, role: str | None = None) -> None:
+    """A hotel admin manages the hotel's other staff: never themselves, so the hotel can't lose
+    its admin by a slip (an operator can still change any role), and only to a known role."""
+    if user_id == me:
+        raise HTTPException(status_code=409, detail="You can't change your own access")
+    if role is not None and role not in ROLES:
+        raise HTTPException(status_code=422, detail="Unknown staff role")
+
+
+@router.get("/staff", name="staff_team")
+def staff_team(
+    request: Request,
+    hotel_id: str = Depends(require_hotel_admin),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    return _team_page(request, db, hotel_id, user.id)
+
+
+@router.post("/staff/invite")
+def staff_invite(
+    request: Request,
+    role: str = Form(...),
+    hotel_id: str = Depends(require_hotel_admin),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    """As on the dashboard: a 7-day link with which people make staff accounts in this role."""
+    if role not in ROLES:
+        raise HTTPException(status_code=422, detail="Unknown staff role")
+    invite = create_token(hotel_id, staff_invite_purpose(role), STAFF_INVITE_TTL_SECONDS)
+    link = f"{str(request.base_url).rstrip('/')}/signup#invite={quote(invite, safe='')}"
+    response = _team_page(request, db, hotel_id, user.id, invite_link=link, invite_role=role)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.post("/staff/{user_id}/role")
+def staff_change_role(
+    user_id: str,
+    role: str = Form(...),
+    hotel_id: str = Depends(require_hotel_admin),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    _other_member(user_id, user.id, role)
+    staff_service.set_role(db, hotel_id, user_id, role)
+    return RedirectResponse("/hotel/staff?done=role", status_code=303)
+
+
+@router.post("/staff/{user_id}/remove")
+def staff_remove(
+    user_id: str,
+    hotel_id: str = Depends(require_hotel_admin),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    _other_member(user_id, user.id)
+    staff_service.remove_member(db, hotel_id, user_id)
+    return RedirectResponse("/hotel/staff?done=removed", status_code=303)

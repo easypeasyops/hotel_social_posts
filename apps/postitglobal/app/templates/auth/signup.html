@@ -4,7 +4,7 @@
     <h1>Create your account</h1>
     <p class="lead">You've been invited to share your hotel's photos and review its posts.</p>
     <div id="invite-error" role="alert" class="alert alert-error" {% if not invite_error %}hidden{% endif %}>
-      {{ invite_error or "This page needs an invite link. Ask your postitglobal contact for one." }}
+      {{ invite_error or "This page needs an invite link. Ask your aipostit contact for one." }}
     </div>
     {% if error %}<div role="alert" class="alert alert-error">{{ error }}</div>{% endif %}
     <form id="signup-form" method="post" action="/signup" class="stack" {% if invite_error %}hidden{% endif %}>

@@ -71,9 +71,7 @@ def start_google_sign_in():
 @router.get(CALLBACK_PATH)
 def finish_google_sign_in(request: Request, code: str | None = None, error_code: str | None = None):
     if error_code == "signup_disabled":
-        return _login_error(
-            request, "There's no postitglobal account for that Google address.", 403
-        )
+        return _login_error(request, "There's no aipostit account for that Google address.", 403)
     verifier = request.cookies.get(VERIFIER_COOKIE)
     if not code or not verifier:
         return _login_error(request, "Google sign-in didn't finish. Try again.", 400)

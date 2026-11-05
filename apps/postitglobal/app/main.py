@@ -44,7 +44,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level, json_output=settings.log_json)
 
     app = FastAPI(
-        title="postitglobal",
+        title="aipostit",
         description="AI-powered hotel content platform",
         version="0.1.0",
         docs_url="/docs" if settings.debug else None,  # hide docs in production

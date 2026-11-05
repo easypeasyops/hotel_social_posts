@@ -12,6 +12,7 @@ config:
   publicBaseUrl: "http://staging.postitglobal.localhost:8080"
   sessionCookieSecure: "false" # the kind front door is plain HTTP
   logLevel: DEBUG
+  inviteEmail: "true" # SMTP_USERNAME and SMTP_PASSWORD are in the store (RUNBOOK)
 # No weekly generation here: staging shares prod's Supabase, so its CronJob would generate
 # every hotel's drafts a second time each week. To test generation in staging, queue one
 # hotel: POST /internal/jobs/generate/<hotel_id> with the X-Cron-Secret header.

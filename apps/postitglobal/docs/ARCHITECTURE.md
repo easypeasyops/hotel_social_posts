@@ -171,7 +171,7 @@ Since 5.9 postitglobal runs on the platform's Kubernetes cluster, rendered by th
 | Weekly generation | `cronJobs.generate-weekly`, prod only (staging shares prod's Supabase, so a second run would duplicate every hotel's drafts): Mondays 06:00 UTC, `celery … call tasks.generate_all_hotels` queues the task and exits. It replaced Railway's cron, which called the HTTP endpoint |
 | Buffer sync | `cronJobs.sync-buffer`, prod only (staging shares prod's rows and the one Buffer quota): hourly at :15, `celery … call tasks.sync_buffer_posts` queues the task and exits |
 | Keys | `secretEnv.store: postitglobal`: the platform's store for this app, loaded by hand from `.env`; each secret variable reads one key of `postitglobal-env` |
-| Network | Ingress: the app port from the Gateway, metrics from Prometheus. Egress: DNS, the app's Redis, and port 443 outside the private ranges (Supabase and the providers can't be named in a NetworkPolicy) |
+| Network | Ingress: the app port from the Gateway, metrics from Prometheus. Egress: DNS, the app's Redis, and ports 443 and 587 (Gmail's SMTP) outside the private ranges (Supabase and the providers can't be named in a NetworkPolicy). The SMTP keys reach the pods only where `config.inviteEmail` is "true" |
 
 Staging and prod share the keys and the Supabase project (decided for plan 5): staging's runs are real. The kind cluster's front door is plain HTTP on localhost, so both set `SESSION_COOKIE_SECURE=false`. CI renders both environments with the chart and validates them (`ci.yml`, deploy values).
 

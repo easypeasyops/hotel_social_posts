@@ -46,6 +46,26 @@
       </button>
     </form>
   </div>
+  {% if invite_email_enabled %}
+  <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff-invite-email" class="mt-4 flex flex-wrap items-center gap-2">
+    <label for="staff-invite-email" class="text-sm text-gray-600">Or email an invite to</label>
+    <input id="staff-invite-email" name="email" type="email" required placeholder="name@hotel.com"
+           class="border border-gray-300 rounded px-3 py-2 text-sm w-64 max-w-full" />
+    <label for="staff-invite-email-role" class="sr-only">Role</label>
+    <select id="staff-invite-email-role" name="role" class="border border-gray-300 rounded px-2 py-2 text-sm">
+      {% for value, label in staff_roles.items() %}
+      <option value="{{ value }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50">Send invite email</button>
+  </form>
+  <p class="text-xs text-gray-500 mt-1">An emailed invite works only for that address, for {{ staff_invite_expires_days }} days.</p>
+  {% endif %}
+  {% if staff_invite_sent_to %}
+  <p role="status" class="mt-4 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-900">Invite sent to {{ staff_invite_sent_to }}.</p>
+  {% elif staff_invite_error %}
+  <p role="alert" class="mt-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-900">{{ staff_invite_error }}</p>
+  {% endif %}
   {% if staff_invite_link %}
   <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
     <label for="staff-invite-link" class="block text-sm font-medium">Send this link to the hotel's staff: they join as {{ staff_roles[staff_invite_role] }}</label>

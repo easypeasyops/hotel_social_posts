@@ -89,6 +89,10 @@ env:
   - { name: ANTHROPIC_API_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: ANTHROPIC_API_KEY } }
   - { name: DEEPL_API_KEY, secret: { name: '{{ include "service.fullname" . }}-env', key: DEEPL_API_KEY } }
   - { name: BUFFER_ACCESS_TOKEN, secret: { name: '{{ include "service.fullname" . }}-env', key: BUFFER_ACCESS_TOKEN } }
+  # Staff invite emails through Gmail SMTP (RUNBOOK): only where config.inviteEmail is
+  # "true", which needs both keys in the store first, or the pods can't start.
+  - { name: SMTP_USERNAME, secret: { name: '{{ include "service.fullname" . }}-env', key: SMTP_USERNAME }, when: "{{ .Values.config.inviteEmail }}" }
+  - { name: SMTP_PASSWORD, secret: { name: '{{ include "service.fullname" . }}-env', key: SMTP_PASSWORD }, when: "{{ .Values.config.inviteEmail }}" }
 
 config:
   logLevel: INFO
@@ -96,12 +100,14 @@ config:
   publicBaseUrl: "" # each environment's (deploy/envs/)
   sessionCookieSecure: "true"
   googleSignIn: "false"
+  inviteEmail: "false" # "true": the pods get the SMTP keys (each environment's, deploy/envs/)
 
 networkPolicy:
   # No database in the cluster (the chart's default database rule matches no pod here):
-  # Supabase, Anthropic, DeepL and Buffer are HTTPS APIs on the internet. A NetworkPolicy
-  # can't name a host, so: port 443 anywhere outside the private ranges the cluster's pods,
-  # Services and API server live in.
+  # Supabase, Anthropic, DeepL and Buffer are HTTPS APIs on the internet, and staff invite
+  # emails go out through Gmail's SMTP (587, STARTTLS). A NetworkPolicy can't name a host,
+  # so: those ports anywhere outside the private ranges the cluster's pods, Services and API
+  # server live in.
   extraEgress:
     - to:
         - ipBlock:
@@ -109,6 +115,7 @@ networkPolicy:
             except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
       ports:
         - { port: 443, protocol: TCP }
+        - { port: 587, protocol: TCP }
 
 gateway:
   enabled: true

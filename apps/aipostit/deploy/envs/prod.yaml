@@ -8,8 +8,3 @@ gateway:
 config:
   publicBaseUrl: "http://aipostit.localhost:8080"
   sessionCookieSecure: "false" # the kind front door is plain HTTP
-# Off until postitglobal-prod is gone: during the move from postitglobal both run against
-# the same Supabase and Buffer, and only one may generate drafts and sync Buffer each hour.
-cronJobs:
-  generate-weekly: null
-  sync-buffer: null

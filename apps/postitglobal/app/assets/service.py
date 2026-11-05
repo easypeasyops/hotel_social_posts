@@ -82,7 +82,8 @@ def confirm_upload(db: Client, asset_id: str, expected_hotel_id: str | None = No
 
 def delete_asset(db: Client, asset_id: str) -> None:
     asset = get_asset(db, asset_id)
-    db.storage.from_(STORAGE_BUCKET).remove([asset["storage_path"]])
+    paths = [asset["storage_path"], asset.get("thumbnail_path")]
+    db.storage.from_(STORAGE_BUCKET).remove([path for path in paths if path])
     db.table("assets").delete().eq("id", asset_id).execute()
 
 

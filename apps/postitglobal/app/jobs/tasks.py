@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from celery import Celery
@@ -6,6 +7,7 @@ from celery.signals import setup_logging
 from app.config import get_settings
 from app.observability import configure_logging
 
+log = logging.getLogger(__name__)
 settings = get_settings()
 celery_app = Celery("postitglobal", broker=settings.redis_url, backend=settings.redis_url)
 
@@ -27,15 +29,36 @@ def _json_logs(**_: Any) -> None:
 @celery_app.task(name="tasks.process_asset", bind=True, max_retries=3)
 def process_asset_task(self, asset_id: str):
     """
-    Processes an uploaded asset: validates file, updates status to 'ready'.
-    Future: resize images, extract metadata, move large files to R2.
+    Processes an uploaded asset: makes a photo's thumbnail (app/assets/thumbnails.py), then
+    marks the asset 'ready'. A photo that won't open is 'failed' without a retry, since
+    retrying can't mend the file. Other files (videos) are ready as they are.
     """
+    from PIL import Image
+
+    from app.assets.service import STORAGE_BUCKET
+    from app.assets.thumbnails import make_thumbnail, thumbnail_path
     from app.database import get_supabase
+    from app.publishing.buffer import IMAGE_TYPES, image_suffix
 
     db = get_supabase()
 
     try:
-        db.table("assets").update({"status": "ready"}).eq("id", asset_id).execute()
+        rows = db.table("assets").select("*").eq("id", asset_id).execute().data
+        if not rows:
+            return  # deleted before the worker got to it
+        asset, update = rows[0], {"status": "ready"}
+        if image_suffix(asset) in IMAGE_TYPES:
+            bucket = db.storage.from_(STORAGE_BUCKET)
+            try:
+                thumbnail = make_thumbnail(bucket.download(asset["storage_path"]))
+            except (OSError, Image.DecompressionBombError) as exc:
+                log.warning("Asset %s is not a photo Pillow can open: %s", asset_id, exc)
+                db.table("assets").update({"status": "failed"}).eq("id", asset_id).execute()
+                return
+            path = thumbnail_path(asset)
+            bucket.upload(path, thumbnail, {"content-type": "image/webp", "upsert": "true"})
+            update["thumbnail_path"] = path
+        db.table("assets").update(update).eq("id", asset_id).execute()
     except Exception as exc:
         db.table("assets").update({"status": "failed"}).eq("id", asset_id).execute()
         raise self.retry(exc=exc, countdown=60)  # noqa: B904

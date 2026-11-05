@@ -1,6 +1,7 @@
-"""Hotel staff sign-up, only from an operator's invite link (/signup#invite=…): a signed,
-7-day capability for one hotel and role (staff_invite_purpose). The account is made with the service
-role (Supabase's own sign-up stays off), tied to that hotel in hotel_members, and signed in."""
+"""Hotel staff sign-up, only from an invite link (/signup#invite=…): a signed, 7-day
+capability for one hotel and role (staff_invite_purpose), and for one email when it was sent
+to one person. The account is made with the service role (Supabase's own sign-up stays off),
+tied to that hotel in hotel_members, and signed in."""
 
 import logging
 
@@ -47,8 +48,11 @@ def sign_up(
     invited = read_staff_invite(invite)
     if invited is None:
         return _page(request, 400, invite_error=INVALID_INVITE)
-    hotel_id, role = invited
+    hotel_id, role, invited_email = invited
     form = {"invite": invite, "email": email}
+    if invited_email is not None and email.strip().lower() != invited_email:
+        # An invite sent to one person: only the address it was sent to signs up with it.
+        return _page(request, 403, error=f"This invite is for {invited_email}.", **form)
     if len(password) < 8:
         return _page(request, 422, error="Password must be at least 8 characters.", **form)
     if password != password_confirmation:

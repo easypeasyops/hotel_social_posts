@@ -24,12 +24,13 @@ def staff_invite_purpose(role: str) -> str:
     return STAFF_INVITE_PURPOSE if role == "hotel_admin" else f"{STAFF_INVITE_PURPOSE}:{role}"
 
 
-def read_staff_invite(token: str) -> tuple[str, str] | None:
-    """The hotel and role a valid staff invite names, or None."""
+def read_staff_invite(token: str) -> tuple[str, str, str | None] | None:
+    """The hotel, role and email (None: anyone with the link) a valid staff invite names, or
+    None."""
     for role in ROLES:
-        hotel_id = read_token(token, staff_invite_purpose(role))
-        if hotel_id is not None:
-            return hotel_id, role
+        payload = read_token_payload(token, staff_invite_purpose(role))
+        if payload is not None:
+            return payload["hotel_id"], role, payload.get("email")
     return None
 
 
@@ -39,13 +40,17 @@ def _sign(encoded_payload: str) -> bytes:
     ).digest()
 
 
-def create_token(hotel_id: str, purpose: str, ttl_seconds: int) -> str:
-    payload = {
+def create_token(hotel_id: str, purpose: str, ttl_seconds: int, email: str | None = None) -> str:
+    """A token for this hotel and purpose; with an email, one that person alone may use (a
+    staff invite sent to them). The email is signed with the rest, so it can't be changed."""
+    payload: dict[str, str | int] = {
         "hotel_id": hotel_id,
         "purpose": purpose,
         "expires_at": int(time.time()) + ttl_seconds,
         "nonce": secrets.token_urlsafe(12),
     }
+    if email is not None:
+        payload["email"] = email.strip().lower()
     encoded_payload = (
         base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode())
         .rstrip(b"=")
@@ -57,6 +62,13 @@ def create_token(hotel_id: str, purpose: str, ttl_seconds: int) -> str:
 
 def read_token(token: str, purpose: str) -> str | None:
     """The hotel a valid, unexpired token for this purpose names; None for any other token."""
+    payload = read_token_payload(token, purpose)
+    return payload["hotel_id"] if payload else None
+
+
+def read_token_payload(token: str, purpose: str) -> dict | None:
+    """What a valid, unexpired token for this purpose says (hotel_id, and email if it names
+    one); None for any other token."""
     try:
         encoded_payload, encoded_signature = token.split(".", 1)
         supplied_signature = base64.urlsafe_b64decode(
@@ -74,8 +86,9 @@ def read_token(token: str, purpose: str) -> str | None:
             and isinstance(payload.get("hotel_id"), str)
             and isinstance(payload.get("expires_at"), int)
             and payload["expires_at"] > int(time.time())
+            and isinstance(payload.get("email", ""), str)
         ):
-            return payload["hotel_id"]
+            return payload
         return None
     except ValueError, TypeError, json.JSONDecodeError:
         return None

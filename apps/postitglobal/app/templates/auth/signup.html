@@ -36,6 +36,16 @@
     document.getElementById('invite').value = fromLink;
     history.replaceState(null, '', window.location.pathname);
   }
+  // An invite sent to one person names their email: show it, fixed. (The server checks it.)
+  try {
+    const part = document.getElementById('invite').value.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+    const invitedEmail = JSON.parse(atob(part + '='.repeat((4 - part.length % 4) % 4))).email;
+    if (invitedEmail) {
+      const field = document.getElementById('email');
+      field.value = invitedEmail;
+      field.readOnly = true;
+    }
+  } catch (_) { /* not an invite this page can read: the server says so on submit */ }
   if (!document.getElementById('invite').value) {
     document.getElementById('signup-form').hidden = true;
     document.getElementById('invite-error').hidden = false;

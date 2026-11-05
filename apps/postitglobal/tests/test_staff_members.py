@@ -100,7 +100,7 @@ def test_the_invite_link_carries_the_chosen_role() -> None:
 
     assert "they join as Content creator" in page.text
     invite = page.text.split("/signup#invite=", 1)[1].split('"', 1)[0]
-    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_creator")
+    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_creator", None)
 
 
 def test_an_invite_for_an_unknown_role_is_refused() -> None:

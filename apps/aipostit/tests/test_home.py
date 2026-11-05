@@ -1,4 +1,4 @@
-"""The home page at /: hotels that don't use postitglobal yet see it; a browser already signed
+"""The home page at /: hotels that don't use aipostit yet see it; a browser already signed
 in goes on to its own pages, as a new session would (operators to the dashboard, staff to
 /hotel)."""
 

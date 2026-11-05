@@ -49,7 +49,7 @@ class FakeSMTP:
 def smtp(monkeypatch: pytest.MonkeyPatch) -> type[FakeSMTP]:
     FakeSMTP.sent, FakeSMTP.calls, FakeSMTP.fail = [], [], False
     monkeypatch.setattr(mail.smtplib, "SMTP", FakeSMTP)
-    monkeypatch.setenv("SMTP_USERNAME", "postitglobal@gmail.test")
+    monkeypatch.setenv("SMTP_USERNAME", "aipostit@gmail.test")
     monkeypatch.setenv("SMTP_PASSWORD", "app-password")
     return FakeSMTP
 
@@ -74,9 +74,9 @@ def test_the_invite_email_carries_an_invite_for_that_address(smtp: type[FakeSMTP
     assert response.status_code == 200
     assert "Invite sent to new.staff@example.com." in response.text
     assert smtp.calls == [("connect", "smtp.gmail.com", 587), "starttls",
-                          ("login", "postitglobal@gmail.test", "app-password")]  # fmt: skip
+                          ("login", "aipostit@gmail.test", "app-password")]  # fmt: skip
     [message] = smtp.sent
-    assert (message["From"], message["To"]) == ("postitglobal@gmail.test", "new.staff@example.com")
+    assert (message["From"], message["To"]) == ("aipostit@gmail.test", "new.staff@example.com")
     assert message["Subject"] == "Ege Konak ekibine davetlisiniz"
     body = message.get_content()
     assert "içerik üreticisi olarak davet edildiniz" in body

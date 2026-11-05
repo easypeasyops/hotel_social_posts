@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Docs-only PRs skip the work in every job (apps/postitglobal/scripts/ci-scope.sh).
+  # Docs-only PRs skip the work in every job (apps/aipostit/scripts/ci-scope.sh).
   scope:
     name: change scope
     runs-on: ubuntu-latest
@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 2 # the PR merge commit and its first parent
       - name: Does this change need the checks?
         id: scope
-        run: apps/postitglobal/scripts/ci-scope.sh
+        run: apps/aipostit/scripts/ci-scope.sh
 
   # The platform's reusable workflows, pinned to platform.lock's commit (keep them equal).
   check:
@@ -37,7 +37,7 @@ jobs:
     uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@6acaf57b22fe2ae9b101db3846c148f93e325354 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
-      working-directory: apps/postitglobal
+      working-directory: apps/aipostit
       typecheck-paths: app tests
       # Where the imported code's tests start (platform plan 5.2); raised as tests come,
       # up to the platform's 90. (Python 3.15 stopped counting annotation-only lines, all
@@ -49,12 +49,12 @@ jobs:
     uses: easypeasyops/platform/.github/workflows/reusable-image.yml@6acaf57b22fe2ae9b101db3846c148f93e325354 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
-      context: apps/postitglobal
-      smoke-command: POSTITGLOBAL_IMAGE="$IMAGE" apps/postitglobal/scripts/smoke.sh
+      context: apps/aipostit
+      smoke-command: AIPOSTIT_IMAGE="$IMAGE" apps/aipostit/scripts/smoke.sh
 
-  # postitglobal's deploy values (apps/postitglobal/deploy/), rendered for each environment
+  # aipostit's deploy values (apps/aipostit/deploy/), rendered for each environment
   # with the platform's service chart as Argo CD will, and schema-checked. The chart is the
-  # release the platform's apps/postitglobal/envs/ pin: move CHART with them.
+  # release the platform's apps/aipostit/envs/ pin: move CHART with them.
   deploy:
     name: deploy values
     needs: scope
@@ -75,14 +75,14 @@ jobs:
           version: v4.3.1
       - name: Render each environment and validate it
         if: needs.scope.outputs.full == 'true'
-        working-directory: apps/postitglobal/deploy
+        working-directory: apps/aipostit/deploy
         run: |
           # An env file without a release yet renders with a placeholder digest.
           placeholder="sha256:$(printf '0%.0s' {1..64})"
           for env_file in envs/*.yaml; do
             env=$(basename "$env_file" .yaml)
             digest=$(yq -r '.image.digest // ""' "$env_file")
-            helm template postitglobal "$CHART" --namespace "postitglobal-$env" \
+            helm template aipostit "$CHART" --namespace "aipostit-$env" \
               --values service/values.yaml --values "$env_file" \
               --set "image.digest=${digest:-$placeholder}" \
               --kube-version 1.37.0 \

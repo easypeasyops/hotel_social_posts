@@ -1,17 +1,17 @@
-# postitglobal's values for the platform's service chart (easypeasyops/platform
-# charts/service, 1.2.1 or later), shared by every environment. Argo CD renders postitglobal
-# from that chart, pinned by digest in the platform's apps/postitglobal/envs/<env>.yaml, with
+# aipostit's values for the platform's service chart (easypeasyops/platform
+# charts/service, 1.2.1 or later), shared by every environment. Argo CD renders aipostit
+# from that chart, pinned by digest in the platform's apps/aipostit/envs/<env>.yaml, with
 # these values from this repo, layered as
 #   deploy/service/values.yaml   this file
 #   deploy/envs/<env>.yaml       the environment's settings and image digest
 # CI renders both environments with the chart and validates the result (ci.yml, deploy).
 
 app:
-  name: postitglobal
+  name: aipostit
 
 image:
   # Each environment names its release's digest (deploy/envs/).
-  repository: ghcr.io/easypeasyops/hotel_social_posts/postitglobal
+  repository: ghcr.io/easypeasyops/hotel_social_posts/aipostit
 
 # The API: a few replicas' worth of operators and hotels, not a traffic service. No
 # autoscaling: its load is the dashboard, and the heavy work (Claude, DeepL) is the worker's.
@@ -64,13 +64,13 @@ cronJobs:
       requests: { cpu: 20m, memory: 192Mi }
       limits: { memory: 384Mi }
 
-# The keys, from postitglobal's own store in the platform (platform deploy/secrets/
+# The keys, from aipostit's own store in the platform (platform deploy/secrets/
 # app-stores.yaml), loaded there by hand from .env (platform scripts/load-app-env.sh); the
-# chart copies them into the Secret postitglobal-env. Never in git.
+# chart copies them into the Secret aipostit-env. Never in git.
 secretEnv:
-  store: postitglobal
+  store: aipostit
 
-# The app's environment (app/config.py). Secrets read one key each from postitglobal-env.
+# The app's environment (app/config.py). Secrets read one key each from aipostit-env.
 env:
   - { name: REDIS_URL, value: '{{ include "service.redisUrl" . }}' }
   - { name: PUBLIC_BASE_URL, value: "{{ .Values.config.publicBaseUrl }}" }

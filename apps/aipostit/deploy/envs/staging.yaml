@@ -7,9 +7,9 @@ image:
   digest: "sha256:9d8d14d4c0e16e34b1f724894e872256a8e101b17e30e216c68a854edd087c21" # v0.3.8
 replicaCount: 1
 gateway:
-  hostnames: ["staging.postitglobal.localhost"]
+  hostnames: ["staging.aipostit.localhost"]
 config:
-  publicBaseUrl: "http://staging.postitglobal.localhost:8080"
+  publicBaseUrl: "http://staging.aipostit.localhost:8080"
   sessionCookieSecure: "false" # the kind front door is plain HTTP
   logLevel: DEBUG
   inviteEmail: "true" # SMTP_USERNAME and SMTP_PASSWORD are in the store (RUNBOOK)

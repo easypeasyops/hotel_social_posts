@@ -77,7 +77,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False, response_model=None)
     def root(request: Request) -> Response:
-        """The home page, for hotels that don't use postitglobal yet. A signed-in operator or
+        """The home page, for hotels that don't use aipostit yet. A signed-in operator or
         staff member goes on to their own pages, as a new session would."""
         destination = signed_in_landing_page(request)
         if destination:

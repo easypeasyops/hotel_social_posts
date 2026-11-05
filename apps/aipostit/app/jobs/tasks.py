@@ -9,7 +9,7 @@ from app.observability import configure_logging
 
 log = logging.getLogger(__name__)
 settings = get_settings()
-celery_app = Celery("postitglobal", broker=settings.redis_url, backend=settings.redis_url)
+celery_app = Celery("aipostit", broker=settings.redis_url, backend=settings.redis_url)
 
 celery_app.conf.update(
     task_serializer="json",

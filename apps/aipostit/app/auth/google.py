@@ -23,7 +23,7 @@ from app.database import get_supabase_anon
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-VERIFIER_COOKIE = "postitglobal_oauth_verifier"
+VERIFIER_COOKIE = "aipostit_oauth_verifier"
 CALLBACK_PATH = "/auth/callback/google"
 VERIFIER_TTL_SECONDS = 10 * 60
 

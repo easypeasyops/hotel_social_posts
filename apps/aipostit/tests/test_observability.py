@@ -55,16 +55,16 @@ def test_an_unsafe_request_id_is_replaced(client: TestClient, bad: str) -> None:
 def test_the_access_log_names_the_route_not_the_path(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.INFO, logger="postitglobal.access"):
+    with caplog.at_level(logging.INFO, logger="aipostit.access"):
         client.get("/upload-missing/x")  # unmatched
         client.get("/login")
-    lines = [r for r in caplog.records if r.name == "postitglobal.access"]
+    lines = [r for r in caplog.records if r.name == "aipostit.access"]
     assert [(r.route, r.status) for r in lines] == [("unmatched", 404), ("/login", 200)]  # type: ignore[attr-defined]
     assert all(r.levelno == logging.INFO and r.duration_ms >= 0 for r in lines)  # type: ignore[attr-defined]
 
 
 def test_probes_are_logged_quietly(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.DEBUG, logger="postitglobal.access"):
+    with caplog.at_level(logging.DEBUG, logger="aipostit.access"):
         client.get("/healthz")
-    (line,) = [r for r in caplog.records if r.name == "postitglobal.access"]
+    (line,) = [r for r in caplog.records if r.name == "aipostit.access"]
     assert line.levelno == logging.DEBUG

@@ -16,7 +16,7 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 
 ## Prerequisites and configuration
 
-Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff, `004` its `role` column), and configure provider credentials.
+Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff, `004` its `role` column, `005` the assets' `thumbnail_path`), and configure provider credentials.
 
 Set the following environment variables in the local `.env`; in the cluster they come from the platform's store, loaded from that file (below):
 
@@ -67,6 +67,12 @@ Staff roles need migration `004`. Run it in the SQL editor **before** deploying 
 alter table hotel_members
   add column role text not null default 'hotel_admin'
   check (role in ('hotel_admin', 'content_moderator', 'content_creator'));
+```
+
+Photo thumbnails need migration `005`. Run it in the SQL editor **before** deploying a version that makes thumbnails (that version's worker fails every photo without the column); it is safe for the version already running, which doesn't select or write it:
+
+```sql
+alter table assets add column thumbnail_path text;
 ```
 
 To take someone's access away, use **Remove** next to their email in the hotel's "Hotel staff" section (or delete their `hotel_members` row). It takes effect on their next request. Their Supabase account stays, with no access; delete it in **Authentication → Users** if it shouldn't exist at all. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
@@ -224,7 +230,7 @@ Because `/healthz` is liveness-only, a successful response is not proof that dep
 1. Confirm Storage upload succeeded at the asset's recorded `storage_path` in `hotel-assets`.
 2. Confirm the hotel upload page called `POST /api/v1/upload-capabilities/{hotel_id}/assets/{asset_id}/confirm` using an unexpired upload link, or that an operator called the protected asset endpoint.
 3. Check worker logs for `process_asset` failure and confirm Redis/worker health.
-4. The current task only marks a confirmed asset `ready`; it does not validate or transform the file.
+4. The task makes a JPEG or PNG's thumbnail (`thumbnails/{hotel_id}/{asset_id}.webp` in `hotel-assets`) before marking it `ready`. A photo it can't open is `failed` at once, with `is not a photo Pillow can open` in the worker log: the file is broken or isn't the type its name says, so ask for it again. A missing `thumbnail_path` column (migration `005` not run) fails every photo through the retries; run the migration and re-upload. Videos are marked `ready` unchecked.
 5. Avoid repeatedly confirming an asset: confirmation is guarded by the `pending` status and returns an error after the first successful confirmation.
 
 The hotel upload page uses a short-lived, hotel-scoped capability instead of an operator credential. Ask an operator to generate a fresh link if it expires. The capability authorizes uploads and confirmation for one hotel only; it does not authorize listing or deleting media.

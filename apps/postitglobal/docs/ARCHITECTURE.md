@@ -95,7 +95,7 @@ Staff make their own accounts from an invite. On a hotel's dashboard page, **Cre
 4. The API creates an `assets` row with `pending` status and returns an upload URL for Supabase Storage.
 5. The client uploads directly to Storage, then calls `POST /api/v1/upload-capabilities/{hotel_id}/assets/{asset_id}/confirm` with the same capability.
 6. The API verifies that the asset belongs to the capability's hotel, changes it to `processing`, and enqueues `process_asset`.
-7. The current task marks the asset `ready`; it does not resize, inspect, or transcode media.
+7. The task (`process_asset_task`) makes each JPEG or PNG a thumbnail (`app/assets/thumbnails.py`, Pillow): turned upright as its EXIF orientation says, at most 480 px on each side, WebP (transparency kept), uploaded to `thumbnails/{hotel_id}/{asset_id}.webp` in `hotel-assets`, a folder of its own so no uploaded file's name can clash. Its path goes in `assets.thumbnail_path` (migration `005`) and the asset becomes `ready`. A photo Pillow can't open is `failed` without a retry, since retrying can't mend the file; a Storage or database error is retried as before. Other files, such as videos, become `ready` with no thumbnail; they are not inspected or transcoded. Deleting an asset removes its thumbnail with it.
 
 The operator asset API remains bearer/session protected. The upload capability can only create and confirm uploads; it cannot list or delete assets. Treat upload links as passwords until their 24-hour expiry. The page response uses `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
 
@@ -148,7 +148,7 @@ All API route prefixes below are registered in `app/main.py`.
 
 ## Data model
 
-The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket; `003_hotel_members.sql` adds `hotel_members`; `004_hotel_member_roles.sql` adds its `role`.
+The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket; `003_hotel_members.sql` adds `hotel_members`; `004_hotel_member_roles.sql` adds its `role`; `005_asset_thumbnails.sql` adds `assets.thumbnail_path`.
 
 - `hotels`: hotel profile, subscription tier, channels, contact, and Buffer channel IDs per network (`buffer_profiles`, named for the REST API's profiles).
 - `assets`: hotel-owned metadata, Storage path, category, and processing state.
@@ -207,7 +207,7 @@ Settings are loaded from environment variables (and `.env` for local use) by `ap
 - Probes (plan 5.3): `/healthz` is liveness only. `/readyz` checks Redis, which every operator request needs and which runs beside the app; an unready pod leaves the Service until Redis is back. It doesn't check Supabase or the providers: they are outside the cluster, and an outage there would take every pod out at once with nothing to fail over to. Both are `async` and answered on the event loop, and the Redis ping runs on its own one-thread limiter, so probes never queue behind request work.
 - Operator sessions and authenticated browser API requests depend on Redis; there is no session failover.
 - A task retry is not equivalent to an idempotent external operation. For example, Buffer may schedule a post even if the subsequent database write fails; retrying could schedule a duplicate.
-- Asset processing is a placeholder status transition, not media validation or transformation.
+- Asset processing makes photo thumbnails, which also checks a photo opens; it doesn't inspect videos. The pages still show the originals as thumbnails until they sign `thumbnail_path`.
 - A hotel-generation task creates drafts before queuing translation. A retry after partial completion may create duplicate drafts.
 - Translation failures can leave a partial set of translation rows without failing the overall task.
 - No periodic Celery beat schedule is configured here. Weekly generation is the cluster's `generate-weekly` CronJob, which queues the task directly; `POST /internal/jobs/generate` does the same by hand. The hourly Buffer sync is the `sync-buffer` CronJob.

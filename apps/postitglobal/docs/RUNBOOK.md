@@ -82,7 +82,7 @@ In Supabase **Authentication → Sign In / Providers**, keep **Allow new users t
 
 ### Staff invite emails (Gmail SMTP)
 
-**Send invite email**, next to **Create staff invite link** on a hotel's dashboard page, shows only once the app has an SMTP password. It sends one person an invite that only their address can use. The app sends through one Gmail account for now:
+**Send invite email**, next to **Create staff invite link** on a hotel's dashboard page, and **E-posta ile davet** on a hotel admin's `/hotel/staff`, show only once the app has an SMTP password. It sends one person an invite that only their address can use. The app sends through one Gmail account for now:
 
 1. Use a Google account for postitglobal with 2-Step Verification on. In [Google Account → Security → App passwords](https://myaccount.google.com/apppasswords), create an app password named postitglobal.
 2. In `.env`, set `SMTP_USERNAME=<the gmail address>` and `SMTP_PASSWORD=<the 16-character app password>`. `SMTP_HOST` and `SMTP_PORT` default to `smtp.gmail.com` and 587. Gmail sends as the account itself, so leave `MAIL_FROM` empty unless it's an alias verified in Gmail.

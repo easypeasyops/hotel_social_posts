@@ -47,7 +47,7 @@
     {% set status = statuses.get(asset.status, (asset.status, "bg-sand-100 text-sand-700")) %}
     <li id="file-{{ asset.id }}" class="py-3 flex items-start justify-between gap-4">
       {% if thumbnails[asset.id] %}
-      <button type="button" data-view="{{ thumbnails[asset.id] }}" data-name="{{ asset.filename }}"
+      <button type="button" data-view="{{ originals.get(asset.id, thumbnails[asset.id]) }}" data-name="{{ asset.filename }}"
               aria-label="{{ asset.filename }} görselini büyüt"
               class="shrink-0 size-16 rounded-lg overflow-hidden bg-sand-100 hover:ring-2 hover:ring-iris-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">
         <img src="{{ thumbnails[asset.id] }}" alt="" loading="lazy" class="size-full object-cover" />

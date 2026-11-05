@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from app.assets.service import STORAGE_BUCKET
-from app.content.preview import PREVIEW_LINK_SECONDS, preview_images
+from app.content.preview import PREVIEW_LINK_SECONDS, preview_images, review_images
 from tests.fakes import FakeDB
 
 
@@ -104,3 +104,18 @@ def test_google_business_shows_the_first_image_only() -> None:
     page = _render("google_business", ["https://img.invalid/1.jpg", "https://img.invalid/2.jpg"])
     assert page.count("<img") == 1 and "1.jpg" in page
     assert page.index("<img") < page.index("Merhaba")
+
+
+def test_the_photo_picker_shows_thumbnails_and_the_preview_the_photo() -> None:
+    db = FakeDB()
+    pool = {**ASSETS[0], "thumbnail_path": "thumbnails/hotel-1/pool.webp"}
+    assets = [pool, *ASSETS[1:]]
+
+    previews, thumbnails = review_images(db, assets, [{"id": "d1", "asset_ids": ["pool"]}])  # type: ignore[arg-type]
+
+    assert previews == {"d1": [_signed(pool)]}
+    assert thumbnails == {
+        "pool": _signed({"storage_path": "thumbnails/hotel-1/pool.webp"}),
+        "room": _signed(ASSETS[1]),  # no thumbnail yet: the photo itself
+    }
+    assert len(db.storage.signed) == 1

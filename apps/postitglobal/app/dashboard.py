@@ -8,11 +8,11 @@ from supabase import Client
 from app.assets import service as asset_service
 from app.auth.dependencies import require_operator
 from app.auth.upload_tokens import (
-    STAFF_INVITE_PURPOSE,
     STAFF_INVITE_TTL_SECONDS,
     UPLOAD_TOKEN_TTL_SECONDS,
     create_token,
     create_upload_token,
+    staff_invite_purpose,
 )
 from app.content import service as content_service
 from app.content.preview import image_choices, review_images
@@ -39,6 +39,11 @@ def _hotel_form_context(request: Request, hotel: dict | None = None, error: str 
 # What the review section lists besides the drafts waiting for a decision: how the latest
 # decisions went (queued at Buffer, published by it, or failed), so an operator sees the outcome.
 DECIDED_STATUSES = ("approved", "scheduled", "published", "failed")
+STAFF_ROLE_LABELS = {
+    "hotel_admin": "Hotel admin",
+    "content_moderator": "Content moderator",
+    "content_creator": "Content creator",
+}
 
 
 def _detail_context(
@@ -47,6 +52,7 @@ def _detail_context(
     hotel_id: str,
     upload_link: str | None = None,
     staff_invite_link: str | None = None,
+    staff_invite_role: str | None = None,
 ) -> dict:
     hotel = hotel_service.get_hotel(db, hotel_id)
     assets = asset_service.list_assets(db, hotel_id)
@@ -69,6 +75,8 @@ def _detail_context(
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
         "staff": staff_service.list_members(db, hotel_id),
         "staff_invite_link": staff_invite_link,
+        "staff_invite_role": staff_invite_role,
+        "staff_roles": STAFF_ROLE_LABELS,
         "staff_invite_expires_days": STAFF_INVITE_TTL_SECONDS // 86400,
         "generation_queued": request.query_params.get("generation") == "queued",
         "deletable": content_service.DELETABLE_STATUSES,
@@ -218,16 +226,20 @@ def create_hotel_upload_link(
 def create_staff_invite_link(
     hotel_id: str,
     request: Request,
+    role: str = Form("hotel_admin"),
     db: Client = Depends(get_supabase),
 ):
-    """A link with which the hotel's staff make their own accounts (/signup), for 7 days."""
+    """A link with which the hotel's staff make their own accounts (/signup) in this role, for
+    7 days."""
     hotel_service.get_hotel(db, hotel_id)
-    invite = create_token(hotel_id, STAFF_INVITE_PURPOSE, STAFF_INVITE_TTL_SECONDS)
+    if role not in staff_service.ROLES:
+        raise HTTPException(status_code=422, detail="Unknown staff role")
+    invite = create_token(hotel_id, staff_invite_purpose(role), STAFF_INVITE_TTL_SECONDS)
     link = f"{str(request.base_url).rstrip('/')}/signup#invite={quote(invite, safe='')}"
     response = templates.TemplateResponse(
         request,
         "dashboard/hotel_detail.html",
-        _detail_context(request, db, hotel_id, staff_invite_link=link),
+        _detail_context(request, db, hotel_id, staff_invite_link=link, staff_invite_role=role),
     )
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -236,6 +248,16 @@ def create_staff_invite_link(
 @router.post("/hotels/{hotel_id}/staff/{user_id}/remove")
 def remove_staff(hotel_id: str, user_id: str, db: Client = Depends(get_supabase)):
     staff_service.remove_member(db, hotel_id, user_id)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#staff", status_code=303)
+
+
+@router.post("/hotels/{hotel_id}/staff/{user_id}/role")
+def change_staff_role(
+    hotel_id: str, user_id: str, role: str = Form(...), db: Client = Depends(get_supabase)
+):
+    if role not in staff_service.ROLES:
+        raise HTTPException(status_code=422, detail="Unknown staff role")
+    staff_service.set_role(db, hotel_id, user_id, role)
     return RedirectResponse(f"/dashboard/hotels/{hotel_id}#staff", status_code=303)
 
 

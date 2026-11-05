@@ -1,11 +1,14 @@
-"""An operator sees a hotel's staff accounts on its dashboard page and can remove one, which
-takes that account's access away at once."""
+"""An operator sees a hotel's staff accounts on its dashboard page, changes their roles and can
+remove one, which takes that account's access away at once."""
 
 from typing import Any
+from urllib.parse import unquote
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import require_operator
+from app.auth.upload_tokens import read_staff_invite
 from app.database import get_supabase
 from app.main import create_app
 from tests.fakes import FakeDB
@@ -16,9 +19,19 @@ HOSTILE = "x'+alert(1)+'@example.com"  # an email a staff member could sign up w
 
 def members() -> list[dict[str, Any]]:
     return [
-        {"user_id": "u1", "hotel_id": "hotel-1", "email": "anna@example.com"},
-        {"user_id": "u2", "hotel_id": "hotel-1", "email": HOSTILE},
-        {"user_id": "u3", "hotel_id": "hotel-2", "email": "other@example.com"},
+        {
+            "user_id": "u1",
+            "hotel_id": "hotel-1",
+            "email": "anna@example.com",
+            "role": "hotel_admin",
+        },
+        {"user_id": "u2", "hotel_id": "hotel-1", "email": HOSTILE, "role": "content_creator"},
+        {
+            "user_id": "u3",
+            "hotel_id": "hotel-2",
+            "email": "other@example.com",
+            "role": "hotel_admin",
+        },
     ]
 
 
@@ -57,3 +70,41 @@ def test_remove_cant_reach_another_hotels_member() -> None:
     db = FakeDB(hotels=[HOTEL], hotel_members=members())
     operator(db).post("/dashboard/hotels/hotel-1/staff/u3/remove")
     assert [m["user_id"] for m in db.rows["hotel_members"]] == ["u1", "u2", "u3"]
+
+
+def roles(db: FakeDB) -> dict[str, str]:
+    return {m["user_id"]: m["role"] for m in db.rows["hotel_members"]}
+
+
+def test_the_operator_changes_a_members_role() -> None:
+    db = FakeDB(hotels=[HOTEL], hotel_members=members())
+    response = operator(db).post(
+        "/dashboard/hotels/hotel-1/staff/u1/role", data={"role": "content_moderator"}
+    )
+
+    assert response.status_code == 303
+    assert roles(db) == {"u1": "content_moderator", "u2": "content_creator", "u3": "hotel_admin"}
+
+
+@pytest.mark.parametrize(("path", "role"), [("u3", "content_creator"), ("u1", "owner")])
+def test_a_role_change_cant_reach_another_hotel_or_make_up_a_role(path: str, role: str) -> None:
+    db = FakeDB(hotels=[HOTEL], hotel_members=members())
+    operator(db).post(f"/dashboard/hotels/hotel-1/staff/{path}/role", data={"role": role})
+    assert roles(db) == {"u1": "hotel_admin", "u2": "content_creator", "u3": "hotel_admin"}
+
+
+def test_the_invite_link_carries_the_chosen_role() -> None:
+    page = operator(FakeDB(hotels=[HOTEL])).post(
+        "/dashboard/hotels/hotel-1/staff-invite", data={"role": "content_creator"}
+    )
+
+    assert "they join as Content creator" in page.text
+    invite = page.text.split("/signup#invite=", 1)[1].split('"', 1)[0]
+    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_creator")
+
+
+def test_an_invite_for_an_unknown_role_is_refused() -> None:
+    page = operator(FakeDB(hotels=[HOTEL])).post(
+        "/dashboard/hotels/hotel-1/staff-invite", data={"role": "owner"}
+    )
+    assert page.status_code == 422

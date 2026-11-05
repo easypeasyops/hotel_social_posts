@@ -1,5 +1,5 @@
 """Hotel staff sign-up, only from an operator's invite link (/signup#invite=…): a signed,
-7-day capability for one hotel (STAFF_INVITE_PURPOSE). The account is made with the service
+7-day capability for one hotel and role (staff_invite_purpose). The account is made with the service
 role (Supabase's own sign-up stays off), tied to that hotel in hotel_members, and signed in."""
 
 import logging
@@ -11,7 +11,7 @@ from supabase_auth.errors import AuthApiError
 
 from app.auth.router import _set_session_cookie, templates
 from app.auth.sessions import create_session
-from app.auth.upload_tokens import STAFF_INVITE_PURPOSE, read_token
+from app.auth.upload_tokens import read_staff_invite
 from app.database import get_supabase, get_supabase_anon
 
 router = APIRouter()
@@ -44,9 +44,10 @@ def sign_up(
     password: str = Form(...),
     password_confirmation: str = Form(...),
 ):
-    hotel_id = read_token(invite, STAFF_INVITE_PURPOSE)
-    if hotel_id is None:
+    invited = read_staff_invite(invite)
+    if invited is None:
         return _page(request, 400, invite_error=INVALID_INVITE)
+    hotel_id, role = invited
     form = {"invite": invite, "email": email}
     if len(password) < 8:
         return _page(request, 422, error="Password must be at least 8 characters.", **form)
@@ -76,7 +77,7 @@ def sign_up(
     user = created.user
     try:
         db.table("hotel_members").insert(
-            {"user_id": user.id, "hotel_id": hotel_id, "email": user.email or email}
+            {"user_id": user.id, "hotel_id": hotel_id, "email": user.email or email, "role": role}
         ).execute()
     except Exception:
         logger.exception("Staff sign-up could not record the hotel; removing the new account")

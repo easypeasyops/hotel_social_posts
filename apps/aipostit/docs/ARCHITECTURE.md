@@ -177,6 +177,8 @@ Since 5.9 aipostit runs on the platform's Kubernetes cluster, rendered by the pl
 
 Staging and prod share the keys and the Supabase project (decided for plan 5): staging's runs are real. The kind cluster's front door is plain HTTP on localhost, so both set `SESSION_COOKIE_SECURE=false`. CI renders both environments with the chart and validates them (`ci.yml`, deploy values).
 
+Argo CD deploys the image digest in `deploy/envs/<env>.yaml` on main. Releasing and deploying take one merge each (RUNBOOK, Cut a release): a merge that changes the version tags it (`tag-release.yml`); the release (`release.yml`) opens the staging PR with the new digest, which merges itself when `ci` is green; **Promote to prod** (`promote.yml`) opens the prod PR with staging's digest, which waits for a person. The tag and the PRs are made by the release GitHub App's token, since what `GITHUB_TOKEN` makes starts no other workflow.
+
 ## Configuration and trust boundaries
 
 Settings are loaded from environment variables (and `.env` for local use) by `app/config.py`. Required values are:

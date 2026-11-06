@@ -1,0 +1,40 @@
+name: Promote to prod
+
+# Actions → Promote to prod → Run workflow: opens the PR that gives prod the image digest
+# staging runs (apps/<app>/deploy/envs/staging.yaml on main). You check staging first and
+# merge the PR yourself; Argo CD deploys it on merge.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: The app to promote
+        default: aipostit
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: open the prod deploy PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: token
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP: ${{ inputs.app }}
+        run: |
+          [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::$APP is not an app name"; exit 1; }
+          # The line deploy-pr.sh writes: digest: "sha256:…" # <app> vX.Y.Z
+          read -r digest version < <(sed -nE 's/^  digest: "([^"]+)" # [a-z0-9-]+ v([0-9]+\.[0-9]+\.[0-9]+).*/\1 \2/p' "apps/$APP/deploy/envs/staging.yaml")
+          [[ -n "${version:-}" ]] || { echo "::error::no digest and version in apps/$APP/deploy/envs/staging.yaml"; exit 1; }
+          .github/scripts/deploy-pr.sh "$APP" prod "$digest" "$version"

@@ -75,6 +75,14 @@ Photo thumbnails need migration `005`. Run it in the SQL editor **before** deplo
 alter table assets add column thumbnail_path text;
 ```
 
+Photos uploaded before thumbnails existed (before 0.3.7) have none, so the pages load them full size. To make theirs, run the backfill task once from prod's worker (staging and prod share the Supabase project, so once covers both):
+
+```bash
+kubectl -n aipostit-prod exec deploy/aipostit-worker -- celery -A app.jobs.tasks.celery_app call tasks.backfill_thumbnails
+```
+
+It queues the task and prints its ID; the worker log then says `Made N thumbnails`. It only touches `ready` JPEGs and PNGs with no `thumbnail_path`, so running it again does only what's left. A photo it can't read is logged (`is not a photo Pillow can open`, or `Could not make a thumbnail`) and skipped: it stays `ready` and keeps showing full size.
+
 To take someone's access away, use **Remove** next to their email in the hotel's "Hotel staff" section (or delete their `hotel_members` row). It takes effect on their next request. Their Supabase account stays, with no access; delete it in **Authentication → Users** if it shouldn't exist at all. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
 
 In Supabase **Authentication → URL Configuration**, set the Site URL to the app origin and add the callback URL to the redirect allow list:

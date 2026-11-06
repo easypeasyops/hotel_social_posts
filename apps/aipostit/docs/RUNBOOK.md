@@ -162,24 +162,27 @@ Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`
 
 A release is an image built, scanned and signed by `.github/workflows/release.yml` from a tag `aipostit/vX.Y.Z` that matches `version` in `apps/aipostit/pyproject.toml`. Only such images run in the cluster: the platform's admission policy and deploy gate require this workflow's provenance at this app's tag.
 
-1. Bump `version` in `pyproject.toml` in a PR, and merge it.
-2. Tag the merge commit (`git log --oneline -1` first: the tag must be on that commit, and release tags can't be moved):
-
-   ```sh
-   git fetch && git checkout main && git pull
-   git tag aipostit/v0.1.0 && git push origin aipostit/v0.1.0
-   ```
-
+1. Bump `version` in `pyproject.toml`, in the feature's PR or one of its own, and merge it. `.github/workflows/tag-release.yml` tags the merge commit `aipostit/vX.Y.Z`, which starts the release. (By hand, if that workflow can't: `git tag aipostit/vX.Y.Z <merge commit> && git push origin aipostit/vX.Y.Z`; release tags can't be moved.)
+2. Merging a bump deploys to staging with no further step (below), so apply a migration the new version needs **before** merging it.
 3. The workflow builds `linux/amd64` and `linux/arm64`, scans for HIGH and CRITICAL vulnerabilities before anything is published, pushes `ghcr.io/easypeasyops/hotel_social_posts/aipostit`, attests its provenance and creates a GitHub Release whose notes give the digest. A tag that disagrees with `pyproject.toml` fails before publishing.
 4. The first release creates the GHCR package as private: make it public (package settings) so the cluster can pull it without credentials.
 5. Check the provenance: `gh attestation verify oci://ghcr.io/easypeasyops/hotel_social_posts/aipostit@<digest> --owner easypeasyops`.
+6. The workflow then opens the staging deploy PR (`.github/scripts/deploy-pr.sh`), which merges itself when `ci` is green; Argo CD deploys it. Check staging, then promote: **Actions → Promote to prod → Run workflow** (or `gh workflow run promote.yml`) opens the PR that gives prod staging's digest. Review and merge it yourself.
+
+The tag, the deploy PRs and their commits are made by the release GitHub App, because what the workflows' own `GITHUB_TOKEN` makes starts no other workflow (no release, no `ci` on a PR). Set it up once:
+
+1. Create a GitHub App in the easypeasyops organization (Settings → Developer settings → GitHub Apps): no webhook, repository permissions **Contents: read and write** and **Pull requests: read and write**, installable only on this account. Install it on `hotel_social_posts` only.
+2. In this repo's Settings → Secrets and variables → Actions, add the variable `RELEASE_APP_CLIENT_ID` (the app's Client ID) and the secret `RELEASE_APP_PRIVATE_KEY` (a private key generated on the app's page).
+3. Turn on **Allow auto-merge** (Settings → General), which the staging PR needs.
+
+If a workflow fails at "create-github-app-token", one of those is missing or the key was revoked: generate a new key and replace the secret.
 
 ## Deployment and release checklist
 
 1. Confirm required settings exist for both the API and worker services; the worker needs `REDIS_URL` and all provider/Supabase settings used by its tasks.
 2. Apply any new Supabase migration deliberately before deploying code that depends on it. The application does not migrate the database at startup.
 3. Ensure the `hotel-assets` bucket exists and its upload policies match the signed-upload flow, and that the `published-media` bucket exists and is public (migration `002`); without it, publishing fails on the image copy.
-4. Deploy by digest: set `image.digest` in `deploy/envs/staging.yaml` in a PR (Argo CD deploys it on merge), check staging, then the same digest in `deploy/envs/prod.yaml`.
+4. Deploy by digest: a release opens and merges the PR that sets `image.digest` in `deploy/envs/staging.yaml` (Argo CD deploys it on merge); check staging, then run **Promote to prod**, which opens the PR with the same digest in `deploy/envs/prod.yaml`, and merge it. Editing those files in a PR by hand still works, as for a rollback.
 5. The worker deploys with the API: the chart's `workers.worker` runs the same image with `celery -A app.jobs.tasks.celery_app worker --loglevel=info --concurrency=2`.
 6. Verify the API and worker logs (`kubectl -n aipostit-<env> logs deploy/aipostit` and `deploy/aipostit-worker`), then `GET /readyz` through the Gateway.
 7. Verify a protected job trigger only in a controlled environment and ensure it is not exposed with the cron secret in logs or shell history.

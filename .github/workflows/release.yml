@@ -7,6 +7,8 @@ name: Release
 # any of our repos' release.yml, each for its own images only).
 # Cut one:  bump `version` in apps/<app>/pyproject.toml (via PR), merge, then
 #   git tag aipostit/v0.1.0 && git push origin aipostit/v0.1.0
+# (tag-release.yml pushes that tag itself when a merge changes the version). An app with a
+# staging environment then gets its staging deploy PR, which merges itself when `ci` is green.
 on:
   push:
     tags: ["*/v[0-9]+.[0-9]+.[0-9]+"] # `*` stops at `/`: exactly <app>/vX.Y.Z
@@ -22,6 +24,10 @@ jobs:
     name: build, scan, publish, attest
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      app: ${{ steps.app.outputs.app }}
+      version: ${{ steps.app.outputs.version }}
+      digest: ${{ steps.push.outputs.digest }}
     permissions:
       contents: write # create the GitHub Release
       packages: write # push the image to ghcr.io
@@ -142,3 +148,35 @@ jobs:
             echo '```'
           } > notes.md
           gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --notes-file notes.md
+
+  # The new image goes to staging: a PR with its digest, opened with the release app's token so
+  # that its CI runs (one opened with GITHUB_TOKEN would never get its `ci` check).
+  deploy-staging:
+    name: open the staging deploy PR
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: token
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP: ${{ needs.release.outputs.app }}
+          VERSION: ${{ needs.release.outputs.version }}
+          DIGEST: ${{ needs.release.outputs.digest }}
+        run: |
+          if [[ ! -f "apps/$APP/deploy/envs/staging.yaml" ]]; then
+            echo "::notice::$APP has no staging environment"
+            exit 0
+          fi
+          .github/scripts/deploy-pr.sh "$APP" staging "$DIGEST" "$VERSION"

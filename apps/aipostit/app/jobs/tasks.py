@@ -64,6 +64,42 @@ def process_asset_task(self, asset_id: str):
         raise self.retry(exc=exc, countdown=60)  # noqa: B904
 
 
+@celery_app.task(name="tasks.backfill_thumbnails")
+def backfill_thumbnails_task() -> int:
+    """
+    Makes the thumbnails photos uploaded before thumbnails existed (0.3.7) don't have yet, and
+    returns how many it made. Run it by hand (RUNBOOK); running it again only does what's left.
+    A photo that won't open, or a storage error, is logged and skipped: the photo stays ready,
+    and the pages keep showing it full size.
+    """
+    from PIL import Image
+
+    from app.assets.service import STORAGE_BUCKET
+    from app.assets.thumbnails import make_thumbnail, thumbnail_path
+    from app.database import get_supabase
+    from app.publishing.buffer import IMAGE_TYPES, image_suffix
+
+    db = get_supabase()
+    bucket = db.storage.from_(STORAGE_BUCKET)
+    rows = db.table("assets").select("*").eq("status", "ready").execute().data
+    made = 0
+    for asset in rows:
+        if asset.get("thumbnail_path") or image_suffix(asset) not in IMAGE_TYPES:
+            continue
+        try:
+            thumbnail = make_thumbnail(bucket.download(asset["storage_path"]))
+            path = thumbnail_path(asset)
+            bucket.upload(path, thumbnail, {"content-type": "image/webp", "upsert": "true"})
+            db.table("assets").update({"thumbnail_path": path}).eq("id", asset["id"]).execute()
+            made += 1
+        except (OSError, Image.DecompressionBombError) as exc:
+            log.warning("Asset %s is not a photo Pillow can open: %s", asset["id"], exc)
+        except Exception:
+            log.exception("Could not make a thumbnail for asset %s", asset["id"])
+    log.info("Made %d thumbnails", made)
+    return made
+
+
 @celery_app.task(name="tasks.generate_all_hotels")
 def generate_all_hotels_task():
     """

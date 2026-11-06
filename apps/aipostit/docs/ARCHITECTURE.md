@@ -4,7 +4,7 @@
 
 `aipostit` is a FastAPI application for managing hotel profiles and media, generating Turkish social posts, translating drafts, reviewing them, and submitting approved posts to Buffer for scheduling. PostgreSQL and object storage are provided by Supabase; Redis and Celery handle background work.
 
-People see the product as **aipostit**, and everything else is named aipostit too: the app, its image (`ghcr.io/easypeasyops/hotel_social_posts/aipostit`), its release tags (`aipostit/vX.Y.Z`), its deploy values, its cookies, its Celery app and its access logger (`aipostit.access`). Until the move to the `aipostit-*` namespaces, the cluster still runs the last postitglobal release from the platform's `apps/postitglobal/`, which reads its values at a pinned commit.
+People see the product as **aipostit**, and everything else is named aipostit too: the app, its image (`ghcr.io/easypeasyops/hotel_social_posts/aipostit`), its release tags (`aipostit/vX.Y.Z`), its deploy values, its cookies, its Celery app and its access logger (`aipostit.access`). It was called postitglobal until v0.3.8: the `postitglobal/v*` tags, releases and images are its history.
 
 This document describes the implementation in the repository today. It distinguishes implemented behavior from planned or incomplete behavior.
 

@@ -118,3 +118,93 @@ tests:
             exp_annotations:
               summary: 1 API pod(s) in aipostit-prod not ready for 15 minutes
               runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitapinotready
+
+  - name: no worker pages; a worker running stays quiet
+    interval: 1m
+    input_series:
+      - series: 'kube_deployment_status_replicas_available{namespace="aipostit-prod", deployment="aipostit-worker"}'
+        values: '0x20'
+      - series: 'kube_deployment_status_replicas_available{namespace="aipostit-staging", deployment="aipostit-worker"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: AipostitWorkerDown
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: page }
+            exp_annotations:
+              summary: "No worker in aipostit-prod for 10 minutes: jobs are not running"
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitworkerdown
+
+  - name: Redis not ready pages; a short blip doesn't
+    interval: 1m
+    input_series:
+      - series: 'kube_statefulset_status_replicas_ready{namespace="aipostit-prod", statefulset="aipostit-redis"}'
+        values: '1 0x15'
+      - series: 'kube_statefulset_status_replicas_ready{namespace="aipostit-staging", statefulset="aipostit-redis"}'
+        values: '1 0 0 1x13'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AipostitRedisDown
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: page }
+            exp_annotations:
+              summary: Redis in aipostit-prod has not been ready for 5 minutes
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitredisdown
+
+  - name: a crash-looping container opens a ticket; one being created doesn't
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_container_status_waiting_reason{namespace="aipostit-prod", pod="aipostit-worker-x", container="worker", reason="CrashLoopBackOff"}'
+        values: '1x20'
+      - series: 'kube_pod_container_status_waiting_reason{namespace="aipostit-staging", pod="aipostit-y", container="app", reason="ContainerCreating"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: AipostitCrashLooping
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, pod: aipostit-worker-x, container: worker, severity: ticket }
+            exp_annotations:
+              summary: aipostit-worker-x (worker) in aipostit-prod is crash-looping
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitcrashlooping
+
+  # Both Jobs start at time 0; one fails. The failure is a ticket for 6 hours, then left out.
+  - name: a failed job opens a ticket while it is recent
+    interval: 10m
+    input_series:
+      - series: 'kube_job_status_failed{namespace="aipostit-prod", job_name="aipostit-sync-buffer-1"}'
+        values: '1x50'
+      - series: 'kube_job_status_start_time{namespace="aipostit-prod", job_name="aipostit-sync-buffer-1"}'
+        values: '0x50'
+      - series: 'kube_job_status_failed{namespace="aipostit-prod", job_name="aipostit-sync-buffer-2"}'
+        values: '0x50'
+      - series: 'kube_job_status_start_time{namespace="aipostit-prod", job_name="aipostit-sync-buffer-2"}'
+        values: '0x50'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: AipostitJobFailed
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, job_name: aipostit-sync-buffer-1, severity: ticket }
+            exp_annotations:
+              summary: The job aipostit-sync-buffer-1 in aipostit-prod failed
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitjobfailed
+      - eval_time: 7h
+        alertname: AipostitJobFailed
+        exp_alerts: []
+
+  # Last success at time 0: quiet for 8 days, then a ticket.
+  - name: a week without a successful generation opens a ticket
+    interval: 1m # sparser samples would go stale between them and reset `for`
+    input_series:
+      - series: 'kube_cronjob_status_last_successful_time{namespace="aipostit-prod", cronjob="aipostit-generate-weekly"}'
+        values: '0x11700'
+    alert_rule_test:
+      - eval_time: 7d
+        alertname: AipostitWeeklyGenerationMissed
+        exp_alerts: []
+      - eval_time: 8d1h
+        alertname: AipostitWeeklyGenerationMissed
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: ticket }
+            exp_annotations:
+              summary: No weekly generation has succeeded in aipostit-prod for 8 days
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitweeklygenerationmissed

@@ -238,6 +238,26 @@ Ticket. The API's 95th-percentile response time over 30 minutes is above 2.5 s, 
 
 Ticket. Fewer API pods available than the environment asks for, for 15 minutes. A pod that fails `/readyz` (Redis doesn't answer) or doesn't start: `kubectl -n aipostit-<env> get pods`, then `describe pod` for its events and `logs` for its errors. Redis first if `/readyz` says `not ready: Redis`.
 
+### AipostitWorkerDown
+
+Page. No Celery worker pod available for 10 minutes: nothing is generated, translated, published or synced with Buffer, and queued tasks wait in Redis. `kubectl -n aipostit-<env> get pods -l app.kubernetes.io/name=aipostit-worker`, then `describe` and `logs deploy/aipostit-worker`. Then "Jobs are not progressing" below.
+
+### AipostitRedisDown
+
+Page. The environment's Redis (`aipostit-redis-0`) has not been ready for 5 minutes. Without it nobody can log in and no job runs; the API pods also fail `/readyz`, so their tickets are held back. `kubectl -n aipostit-<env> describe pod aipostit-redis-0` and `logs aipostit-redis-0`; its volume (`get pvc`) if it can't start.
+
+### AipostitCrashLooping
+
+Ticket. A container keeps exiting and Kubernetes is backing off restarting it, for 10 minutes. The alert names the pod and container: `kubectl -n aipostit-<env> logs <pod> -c <container> --previous` for why it exited. A missing key (a new setting not in the store) or a release that can't start are the usual causes; roll back a release as in "API health check fails".
+
+### AipostitJobFailed
+
+Ticket. A Job failed in the last 6 hours: a CronJob's run (`aipostit-sync-buffer-…`, `aipostit-generate-weekly-…`) or one made by hand. It resolves 6 hours after the Job started. `kubectl -n aipostit-<env> logs job/<job_name>` and `describe job/<job_name>`. These Jobs only queue a task (`celery call`): a failure is usually Redis unreachable, not the task itself; the task's own errors are in the worker's logs. Run it again as in "Service topology" above once the cause is fixed.
+
+### AipostitWeeklyGenerationMissed
+
+Ticket. No `generate-weekly` run has succeeded for 8 days: Monday's failed, or never started (the laptop was asleep past the CronJob's 50-minute starting deadline). Check `kubectl -n aipostit-prod get cronjob aipostit-generate-weekly` and its Jobs, then run it by hand (`kubectl -n aipostit-prod create job generate-now --from=cronjob/aipostit-generate-weekly`) and follow "Cron did not enqueue generation" below. It can't fire before the first success: the metric doesn't exist until then.
+
 ## Incident procedures
 
 ### API health check fails

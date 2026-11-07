@@ -87,7 +87,8 @@ jobs:
               --set "image.digest=${digest:-$placeholder}" \
               --kube-version 1.37.0 \
               --api-versions monitoring.coreos.com/v1/ServiceMonitor \
-              --api-versions monitoring.coreos.com/v1/PodMonitor >"/tmp/$env.yaml"
+              --api-versions monitoring.coreos.com/v1/PodMonitor \
+              --api-versions monitoring.coreos.com/v1/PrometheusRule >"/tmp/$env.yaml"
             echo "$env: $(grep -c '^kind:' "/tmp/$env.yaml") objects"
           done
           docker run --rm -v /tmp:/r:ro -w /r "$KUBECONFORM" -strict -summary \

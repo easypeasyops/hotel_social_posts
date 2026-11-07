@@ -216,6 +216,28 @@ docker compose logs worker | grep -o '{.*' | jq -c 'select(.msg == "translation 
 
 The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its public port: `curl -s localhost:9100/metrics | grep ^http_`. Per route template and status: `http_requests_total` counts requests and `http_request_duration_seconds` buckets their latency. A rising `status="5.."` count on one route points at that route's dependency; `route="unmatched"` is requests for paths the app doesn't have.
 
+## Alerts
+
+Prometheus evaluates aipostit's alert rules (`deploy/envs/prod.yaml`, `monitoring.rules`: prod's release ships them, for both environments) and Alertmanager posts them to Slack: `aipostit-prod`'s to #aipostit-alerts-prod, `aipostit-staging`'s to #aipostit-alerts-staging, with a message when each resolves. A **page** (red) is something to act on now, and in prod it notifies the channel (@channel); a **ticket** (yellow) is something to look at today. While a page fires, the tickets in the same environment are held back. Argo CD's alerts on `aipostit-<env>` come to the same channels (platform `docs/RUNBOOK.md`, Argo CD alerts). The routing, the webhooks and how to test or silence alerts are the platform's (`docs/RUNBOOK.md`, Slack alerts). Each alert's link opens its section below.
+
+Change or add an alert in `deploy/envs/prod.yaml` with a scenario in `deploy/prometheus/alerts_test.yaml` and a section here (`tests/test_alert_rules.py` checks all three; it runs promtool in Docker). The thresholds are for low traffic: a ratio alone would fire on one failed request.
+
+### AipostitApiDown
+
+Page. No API pod in the environment has answered Prometheus's scrape for 5 minutes, or there is no API pod at all. Hotel staff and operators can't use the app. Follow "API health check fails" below; `kubectl -n aipostit-<env> get pods,events` first.
+
+### AipostitHighErrorRate
+
+Ticket. Over 5% of requests (probes left out) answered 5xx over 30 minutes, and at least 5 of them. Find the route and the cause: "Reading the metrics" (`status="5.."` by route) and "Reading the logs" (server errors with their routes) above. One route failing usually means its dependency (Supabase, a provider); every route failing, a release or configuration change: roll back as in "API health check fails".
+
+### AipostitSlowResponses
+
+Ticket. The API's 95th-percentile response time over 30 minutes is above 2.5 s, with at least 20 requests. Check which routes are slow (`http_request_duration_seconds` by route), then Supabase's and the providers' status. The pods' CPU and memory: `kubectl -n aipostit-<env> top pods`.
+
+### AipostitApiNotReady
+
+Ticket. Fewer API pods available than the environment asks for, for 15 minutes. A pod that fails `/readyz` (Redis doesn't answer) or doesn't start: `kubectl -n aipostit-<env> get pods`, then `describe pod` for its events and `logs` for its errors. Redis first if `/readyz` says `not ready: Redis`.
+
 ## Incident procedures
 
 ### API health check fails

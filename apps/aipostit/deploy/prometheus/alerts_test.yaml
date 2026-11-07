@@ -1,0 +1,120 @@
+# promtool scenarios for aipostit's alerts (deploy/envs/prod.yaml, monitoring.rules.alerts):
+# synthetic series in, expected alerts out. tests/test_alert_rules.py writes the rules to
+# alerts.yaml beside a copy of this file and runs promtool on it. Each scenario shows an
+# alert firing when it should and staying quiet when it shouldn't.
+rule_files: [alerts.yaml]
+
+evaluation_interval: 1m
+
+tests:
+  - name: the API down in prod pages; staging's, scraped, stays quiet
+    interval: 1m
+    input_series:
+      - series: 'up{job="aipostit", namespace="aipostit-prod", pod="a"}'
+        values: '1 1 0x20'
+      - series: 'up{job="aipostit", namespace="aipostit-staging", pod="b"}'
+        values: '1x22'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AipostitApiDown
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: AipostitApiDown
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: page }
+            exp_annotations:
+              summary: The API in aipostit-prod has been down for 5 minutes
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitapidown
+
+  - name: no API pod left to scrape pages too
+    interval: 1m
+    input_series:
+      - series: 'up{job="aipostit", namespace="aipostit-staging", pod="b"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AipostitApiDown
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: page }
+            exp_annotations:
+              summary: The API in aipostit-prod has been down for 5 minutes
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitapidown
+
+  # prod: 1 of 11 requests fails, 30 in 30 minutes. staging: only errors, but 3 in 30
+  # minutes. Probes failing don't count.
+  - name: server errors open a ticket; a handful on low traffic don't
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", route="/hotel", status="200"}'
+        values: '0+10x60'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", route="/hotel", status="500"}'
+        values: '0+1x60'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-staging", route="/hotel", status="500"}'
+        values: '0+0.1x60'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-staging", route="/readyz", status="503"}'
+        values: '0+10x60'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AipostitHighErrorRate
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: AipostitHighErrorRate
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: ticket }
+            exp_annotations:
+              summary: The API in aipostit-prod is failing over 5% of requests (5xx)
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostithigherrorrate
+
+  # Every request between 2.5 and 5 s. prod: 30 in 30 minutes; staging: 15, too few.
+  - name: slow responses open a ticket once there are enough of them
+    interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_bucket{job="aipostit", namespace="aipostit-prod", route="/hotel", le="2.5"}'
+        values: '0x60'
+      - series: 'http_request_duration_seconds_bucket{job="aipostit", namespace="aipostit-prod", route="/hotel", le="5.0"}'
+        values: '0+1x60'
+      - series: 'http_request_duration_seconds_bucket{job="aipostit", namespace="aipostit-prod", route="/hotel", le="+Inf"}'
+        values: '0+1x60'
+      - series: 'http_request_duration_seconds_count{job="aipostit", namespace="aipostit-prod", route="/hotel"}'
+        values: '0+1x60'
+      - series: 'http_request_duration_seconds_bucket{job="aipostit", namespace="aipostit-staging", route="/hotel", le="2.5"}'
+        values: '0x60'
+      - series: 'http_request_duration_seconds_bucket{job="aipostit", namespace="aipostit-staging", route="/hotel", le="5.0"}'
+        values: '0+0.5x60'
+      - series: 'http_request_duration_seconds_bucket{job="aipostit", namespace="aipostit-staging", route="/hotel", le="+Inf"}'
+        values: '0+0.5x60'
+      - series: 'http_request_duration_seconds_count{job="aipostit", namespace="aipostit-staging", route="/hotel"}'
+        values: '0+0.5x60'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AipostitSlowResponses
+        exp_alerts: []
+      - eval_time: 50m
+        alertname: AipostitSlowResponses
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: ticket }
+            exp_annotations:
+              summary: "The API in aipostit-prod answers slowly: p95 over 2.5 s"
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitslowresponses
+
+  # prod: one of two pods unavailable for 30 minutes. staging: one missing for 10 minutes,
+  # as in a slow rollout.
+  - name: a pod not ready for 15 minutes opens a ticket; a rollout doesn't
+    interval: 1m
+    input_series:
+      - series: 'kube_deployment_spec_replicas{namespace="aipostit-prod", deployment="aipostit"}'
+        values: '2x30'
+      - series: 'kube_deployment_status_replicas_available{namespace="aipostit-prod", deployment="aipostit"}'
+        values: '1x30'
+      - series: 'kube_deployment_spec_replicas{namespace="aipostit-staging", deployment="aipostit"}'
+        values: '1x30'
+      - series: 'kube_deployment_status_replicas_available{namespace="aipostit-staging", deployment="aipostit"}'
+        values: '0x10 1x20'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: AipostitApiNotReady
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: ticket }
+            exp_annotations:
+              summary: 1 API pod(s) in aipostit-prod not ready for 15 minutes
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitapinotready

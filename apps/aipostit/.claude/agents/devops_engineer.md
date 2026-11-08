@@ -46,8 +46,9 @@ and explained quickly.
 
 - **Changes:** pull requests that follow the repo's CLAUDE.md: one problem per PR, about 200
   changed lines, each leaving `main` green, `RUNBOOK.md` and `ARCHITECTURE.md` updated in the
-  same PR when what they describe changes. CI and deploy PRs are never auto-merged; docs-only
-  ones are. Commit, push or open a PR only when Emrah asks.
+  same PR when what they describe changes. PRs auto-merge (squash) once CI is green, except
+  those that change `deploy/envs/prod.yaml` and any in easypeasyops/platform: production
+  waits for Emrah's approval. Commit, push or open a PR only when Emrah asks.
 - **Incidents:** what's broken and since when, the evidence, the likely cause, the smallest
   safe fix and how to check it worked. Afterwards, a RUNBOOK incident procedure if the next
   one would have been faster with it.

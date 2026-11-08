@@ -5,10 +5,11 @@ name: Release
 # and admission policy accept only with this workflow's provenance at that app's tag.
 # The same workflow as easypeasyops/links' (one per domain repo; the platform's policy accepts
 # any of our repos' release.yml, each for its own images only).
-# Cut one:  bump `version` in apps/<app>/pyproject.toml (via PR), merge, then
+# Cut one:  bump `version` in apps/<app>/pyproject.toml (via PR) and merge: tag-release.yml
+# pushes the tag (aipostit/vX.Y.Z) itself. By hand only if that failed:
 #   git tag aipostit/v0.1.0 && git push origin aipostit/v0.1.0
-# (tag-release.yml pushes that tag itself when a merge changes the version). An app with a
-# staging environment then gets its staging deploy PR, which merges itself when `ci` is green.
+# An app with a staging environment then gets its staging deploy PR, which merges itself when
+# `ci` is green.
 on:
   push:
     tags: ["*/v[0-9]+.[0-9]+.[0-9]+"] # `*` stops at `/`: exactly <app>/vX.Y.Z

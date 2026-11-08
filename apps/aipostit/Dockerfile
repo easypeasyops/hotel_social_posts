@@ -34,8 +34,14 @@ FROM python:3.15-slim-trixie@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd4
 # The base image's pip (with its vendored urllib3, msgpack, ...), ensurepip's bundled
 # wheels and Debian's apt go: nothing installs at run time, so they are attack surface and
 # scanner findings.
+# Temporary: zlib1g comes up to Debian's security fix (CVE-2026-76844, CVE-2026-85091)
+# before apt goes, because the base image isn't rebuilt with it yet. Drop the upgrade
+# once Dependabot moves the digest to an image that has 1:1.3.dfsg+really1.3.1-1+deb13u1.
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app \
+ && apt-get update \
+ && apt-get install --yes --no-install-recommends --only-upgrade zlib1g \
+ && rm -rf /var/lib/apt/lists/* \
  && python -m pip uninstall --yes --quiet pip \
  && rm -rf /usr/local/lib/python3.*/ensurepip \
  && dpkg --purge apt libapt-pkg7.0

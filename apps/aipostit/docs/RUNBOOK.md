@@ -12,7 +12,14 @@ This runbook covers local startup, deployment checks, common incidents, and reco
 - **Supabase:** Postgres, Auth, the private `hotel-assets` Storage bucket (uploads) and the public `published-media` bucket (images being posted).
 - **External providers:** Anthropic, DeepL, and Buffer.
 - **Cron:** the cluster's `generate-weekly` and `sync-buffer` CronJobs (below). Railway ran the app and its cron until plan 5.9.
-- **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC, prod only: staging shares prod's Supabase). Run it now: `kubectl -n aipostit-prod create job generate-now --from=cronjob/aipostit-generate-weekly`; in staging, queue one hotel with `POST /internal/jobs/generate/<hotel_id>`. The `sync-buffer` CronJob (hourly at :15, prod only) marks drafts Buffer has sent `published` and those it couldn't send `failed`; run it now with `kubectl -n aipostit-prod create job sync-now --from=cronjob/aipostit-sync-buffer`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh aipostit .env`, then restart the API and the worker to read changed keys (`kubectl -n aipostit-<env> rollout restart deployment`).
+- **In the cluster (from plan 5.9):** the same pieces from `deploy/` (ARCHITECTURE, In the cluster): API and worker Deployments, the Redis StatefulSet, the `generate-weekly` CronJob (Mondays 06:00 UTC, prod only: staging shares prod's Supabase). Run it now: `kubectl -n aipostit-prod create job generate-now --from=cronjob/aipostit-generate-weekly`; in staging, queue one hotel with `POST /internal/jobs/generate/<hotel_id>`. The `sync-buffer` CronJob (hourly at :15, prod only) marks drafts Buffer has sent `published` and those it couldn't send `failed`; run it now with `kubectl -n aipostit-prod create job sync-now --from=cronjob/aipostit-sync-buffer`. Its keys come from the platform's store: `platform/scripts/load-app-env.sh aipostit .env`. The cluster's copy (the ExternalSecret `aipostit-env`) refreshes only hourly, so make it copy now and check the key names before restarting, or the pods restart with the old keys:
+
+```sh
+kubectl -n aipostit-<env> annotate externalsecret aipostit-env force-sync=$(date +%s) --overwrite
+kubectl -n aipostit-<env> get externalsecret aipostit-env   # STATUS SecretSynced, a fresh refresh
+kubectl -n aipostit-<env> get secret aipostit-env -o json | jq '.data | keys'   # names only
+kubectl -n aipostit-<env> rollout restart deployment
+```
 
 ## Prerequisites and configuration
 
@@ -34,7 +41,7 @@ SESSION_COOKIE_SECURE=true
 PUBLIC_BASE_URL=http://localhost:8000
 ```
 
-The blank values above are placeholders; supply secrets through your secret manager. `REDIS_URL` defaults to the local URL shown. `SESSION_COOKIE_SECURE=false` is required only when using plain HTTP on local development; keep it true in deployed environments. `CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional. Keep the Supabase service-role key server-side only; it bypasses row-level security.
+The blank values above are placeholders; supply secrets through your secret manager. `REDIS_URL` defaults to the local URL shown. `SESSION_COOKIE_SECURE=false` is required wherever the front door is plain HTTP: local development, and the kind cluster for now (both environments set it false in `deploy/envs/`). Keep it true wherever the front door is HTTPS. `CLAUDE_DRAFT_MODEL` and `CLAUDE_PREMIUM_MODEL` are optional. Keep the Supabase service-role key server-side only; it bypasses row-level security.
 
 Create operator accounts through the Supabase Auth administration process. The application provides password sign-in (and Google, when enabled) plus a forgot-password flow, but does not provide sign-up or MFA. An account reaches the dashboard and the operator API only with the operator role, which you set by hand. Staging and prod share one Supabase project, so this covers both. In the Supabase **SQL editor**:
 
@@ -102,7 +109,7 @@ In Supabase **Authentication → Sign In / Providers**, keep **Allow new users t
 2. In `.env`, set `SMTP_USERNAME=<the gmail address>` and `SMTP_PASSWORD=<the 16-character app password>`. `SMTP_HOST` and `SMTP_PORT` default to `smtp.gmail.com` and 587. Gmail sends as the account itself, so leave `MAIL_FROM` empty unless it's an alias verified in Gmail.
 3. Restart the API and send an invite to yourself from a test hotel.
 
-In the cluster the keys come from the platform's store like the others. That script replaces the whole store with the file's keys, so add `SMTP_USERNAME` and `SMTP_PASSWORD` to the same `.env` that holds all of aipostit's keys, then run `platform/scripts/load-app-env.sh aipostit ../hotel_social_posts/apps/aipostit/.env` from the platform checkout and check that the printed key list includes both. Then set `config.inviteEmail: "true"` in the environment's `deploy/envs/` values, which hands the two keys to the pods; the network policy already allows port 587 out. Never set it before the keys are in the store: a pod whose env names a missing key doesn't start. Gmail allows about 500 recipients a day and may file the first emails as spam: tell the recipient to look there. If a send fails, the page says so and the API log has the SMTP error ("The staff invite email could not be sent"); an `SMTPAuthenticationError` means the app password was revoked or mistyped.
+In the cluster the keys come from the platform's store like the others. That script replaces the whole store with the file's keys, so add `SMTP_USERNAME` and `SMTP_PASSWORD` to the same `.env` that holds all of aipostit's keys, then run `platform/scripts/load-app-env.sh aipostit ../hotel_social_posts/apps/aipostit/.env` from the platform checkout and check that the printed key list includes both. Make the cluster copy them now (the `force-sync` annotation in "Service topology" above) and check `aipostit-env` lists both before going on. Then set `config.inviteEmail: "true"` in the environment's `deploy/envs/` values, which hands the two keys to the pods; the network policy already allows port 587 out. Never set it before the keys are in the store: a pod whose env names a missing key doesn't start. Gmail allows about 500 recipients a day and may file the first emails as spam: tell the recipient to look there. If a send fails, the page says so and the API log has the SMTP error ("The staff invite email could not be sent"); an `SMTPAuthenticationError` means the app password was revoked or mistyped.
 
 ### Google sign-in
 
@@ -212,6 +219,14 @@ docker compose logs api | grep -o '{.*' | jq -c 'select(.status >= 500) | {ts, r
 docker compose logs worker | grep -o '{.*' | jq -c 'select(.msg == "translation failed") | {draft_id, language, error}'
 ```
 
+In the cluster, the same with `kubectl` (add `--since=1h` to narrow; each API pod logs its own requests, so read them all):
+
+```sh
+kubectl -n aipostit-<env> logs -l app.kubernetes.io/name=aipostit --prefix --tail=-1 | grep '"request_id": "<id>"'
+kubectl -n aipostit-<env> logs -l app.kubernetes.io/name=aipostit --tail=-1 | grep -o '{.*' | jq -c 'select(.status >= 500) | {ts, route, status, request_id}'
+kubectl -n aipostit-<env> logs deploy/aipostit-worker | grep -o '{.*' | jq -c 'select(.msg == "translation failed") | {draft_id, language, error}'
+```
+
 ## Reading the metrics
 
 The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its public port: `curl -s localhost:9100/metrics | grep ^http_`. Per route template and status: `http_requests_total` counts requests and `http_request_duration_seconds` buckets their latency. A rising `status="5.."` count on one route points at that route's dependency; `route="unmatched"` is requests for paths the app doesn't have.
@@ -273,6 +288,7 @@ Because `/healthz` is liveness-only, a successful response is not proof that dep
 ### Jobs are not progressing
 
 1. Check that the worker service is running the Celery command above and is configured with the same Redis URL as the API.
+   In the cluster, ask the worker itself: the worker has no probe, so a hung Celery process looks Running and `AipostitWorkerDown` stays quiet. `kubectl -n aipostit-<env> exec deploy/aipostit-worker -- celery -A app.jobs.tasks.celery_app inspect ping --timeout 5` answers `pong` from a healthy worker; no reply means restart it (`rollout restart deployment/aipostit-worker`); its tasks wait in Redis and are redelivered.
 2. Inspect worker logs for broker connection failures, task exceptions, and exhausted retries.
 3. Confirm Redis reachability and inspect the queue using the service's approved operational tooling.
 4. Check whether the task reached an external provider; do not blindly enqueue duplicates if a task may have completed an external action.
@@ -322,7 +338,7 @@ The application currently schedules Turkish text only. A draft becomes `publishe
 
 - Store secrets only in a protected local `.env` (ignored by Git) and the platform's store, loaded from it with `platform/scripts/load-app-env.sh`.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY`, provider tokens, or `CRON_SECRET` to browser code or client logs.
-- Dashboard browser sessions use an HttpOnly, SameSite=Strict cookie containing only an opaque Redis session ID. Session access and refresh tokens live in Redis. Keep `SESSION_COOKIE_SECURE=true` in deployed environments.
+- Dashboard browser sessions use an HttpOnly, SameSite=Strict cookie containing only an opaque Redis session ID. Session access and refresh tokens live in Redis. Keep `SESSION_COOKIE_SECURE=true` wherever the front door is HTTPS (the kind cluster's is plain HTTP, so both environments set it false).
 - Password recovery requires `PUBLIC_BASE_URL` and a matching Supabase Auth redirect allow-list entry for `/auth/callback`.
 - Hotel upload capabilities are shareable secrets in a URL fragment and expire after 24 hours. Share them only with the intended hotel contact.
 - API hotel/asset/content routes require Supabase bearer authentication. The current database client uses the service-role key for server-side requests, so authenticated users are not isolated by hotel in application logic.

@@ -56,7 +56,7 @@ flowchart LR
 
 The API and worker are separate processes but use the same source image and environment. The container's default command starts the API; the worker needs its own service/start command. The API also requires Redis for browser sessions.
 
-**The image** (plan 5.3, as shortly's): two stages, so the runtime holds only the virtualenv from `uv.lock` and `app/`; base images pinned by digest and bumped by Dependabot (`.github/dependabot.yaml`, with the Python dependencies and the Actions); runs as UID 10001, not root, with code and dependencies owned by root and only readable; no pip, ensurepip or apt (nothing installs at run time); exposes 8000 (app) and 9100 (metrics); `uvicorn` is PID 1 in exec form, so SIGTERM reaches it and requests in flight get 20 s to finish. The worker runs the same image with `celery -A app.jobs.tasks.celery_app worker`.
+**The image** (plan 5.3, as shortly's): two stages, so the runtime holds only the virtualenv from `uv.lock` and `app/`; base images pinned by digest and bumped by Dependabot (`.github/dependabot.yaml`, with the Python dependencies and the Actions); for now the runtime stage also upgrades `zlib1g` to Debian's security fix, which the pinned base image lacks, and drops that once a newer digest carries it; runs as UID 10001, not root, with code and dependencies owned by root and only readable; no pip, ensurepip or apt (nothing installs at run time); exposes 8000 (app) and 9100 (metrics); `uvicorn` is PID 1 in exec form, so SIGTERM reaches it and requests in flight get 20 s to finish. The worker runs the same image with `celery -A app.jobs.tasks.celery_app worker`.
 
 ## Operator authentication and dashboard
 

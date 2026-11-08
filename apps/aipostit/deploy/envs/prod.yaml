@@ -71,3 +71,55 @@ monitoring:
               annotations:
                 summary: "{{ $value }} API pod(s) in {{ $labels.namespace }} not ready for 15 minutes"
                 runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitapinotready
+        - name: aipostit-workloads
+          rules:
+            - alert: AipostitWorkerDown
+              # No Celery worker: nothing is generated, translated, published or synced.
+              expr: |
+                max by (namespace) (kube_deployment_status_replicas_available{namespace=~"aipostit-.+", deployment="aipostit-worker"}) == 0
+              for: 10m
+              labels: { severity: page }
+              annotations:
+                summary: "No worker in {{ $labels.namespace }} for 10 minutes: jobs are not running"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitworkerdown
+            - alert: AipostitRedisDown
+              # Redis is the broker and the session store: no logins, no jobs.
+              expr: |
+                max by (namespace) (kube_statefulset_status_replicas_ready{namespace=~"aipostit-.+", statefulset="aipostit-redis"}) < 1
+              for: 5m
+              labels: { severity: page }
+              annotations:
+                summary: "Redis in {{ $labels.namespace }} has not been ready for 5 minutes"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitredisdown
+            - alert: AipostitCrashLooping
+              # Kubernetes is backing off restarting a container. Not a restart count: the
+              # laptop's sleep restarts pods without anything being wrong.
+              expr: |
+                max by (namespace, pod, container) (kube_pod_container_status_waiting_reason{namespace=~"aipostit-.+", reason="CrashLoopBackOff"}) == 1
+              for: 10m
+              labels: { severity: ticket }
+              annotations:
+                summary: "{{ $labels.pod }} ({{ $labels.container }}) in {{ $labels.namespace }} is crash-looping"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitcrashlooping
+            - alert: AipostitJobFailed
+              # A Job (a CronJob's run, or one made by hand) failed in the last 6 hours. Failed
+              # Jobs are kept (history), so older ones are left out or this would never resolve.
+              expr: |
+                max by (namespace, job_name) (kube_job_status_failed{namespace=~"aipostit-.+"}) > 0
+                unless on (namespace, job_name)
+                  max by (namespace, job_name) (time() - kube_job_status_start_time{namespace=~"aipostit-.+"}) > 21600
+              labels: { severity: ticket }
+              annotations:
+                summary: "The job {{ $labels.job_name }} in {{ $labels.namespace }} failed"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitjobfailed
+            - alert: AipostitWeeklyGenerationMissed
+              # No successful weekly generation for 8 days: the Monday run failed, or never
+              # started (the laptop asleep past the CronJob's 50-minute starting deadline).
+              # Quiet until the first success: before it the metric doesn't exist.
+              expr: |
+                time() - max by (namespace) (kube_cronjob_status_last_successful_time{namespace=~"aipostit-.+", cronjob="aipostit-generate-weekly"}) > 8 * 86400
+              for: 10m
+              labels: { severity: ticket }
+              annotations:
+                summary: "No weekly generation has succeeded in {{ $labels.namespace }} for 8 days"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitweeklygenerationmissed

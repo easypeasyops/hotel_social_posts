@@ -33,5 +33,9 @@ same PR.
   formatter's output) don't count, but say so in the description.
 - A bigger change goes in as a stack, each PR leaving `main` working and CI green on its own.
 - A refactor and a behaviour change never share a PR.
-- Docs-only PRs: turn on auto-merge (squash) when opening them. Code and CI PRs: never
-  auto-merge.
+- **Auto-merge everything but production** (Emrah, 2026-11-08): turn on auto-merge (squash)
+  when opening a PR, code, CI and docs alike; it merges once CI is green, and a release
+  still reaches staging the usual way (bump → tag → staging). Production needs Emrah's
+  approval, so never auto-merge a PR that changes an `apps/<app>/deploy/envs/prod.yaml`
+  (prod's image, settings or alert rules). PRs in easypeasyops/platform reach prod as soon
+  as they merge: Emrah merges those too.

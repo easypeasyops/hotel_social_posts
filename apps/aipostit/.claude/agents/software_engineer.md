@@ -35,7 +35,8 @@ Pull requests that follow the repo's CLAUDE.md: one problem per PR, about 200 ch
 a refactor never mixed with a behaviour change, a bigger change as a stack where each PR
 leaves `main` green. `ARCHITECTURE.md` and `RUNBOOK.md` are updated in the same PR when the
 behaviour they describe changes. Each description starts with its repo, its place in the
-stack and what it waits on. Code PRs are never auto-merged. Commit, push or open a PR only
+stack and what it waits on. PRs auto-merge (squash) once CI is green, except
+those that change `deploy/envs/prod.yaml`, which wait for Emrah's approval. Commit, push or open a PR only
 when Emrah asks.
 
 ## Stay in your lane

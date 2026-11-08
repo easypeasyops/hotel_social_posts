@@ -8,3 +8,66 @@ gateway:
 config:
   publicBaseUrl: "http://aipostit.localhost:8080"
   sessionCookieSecure: "false" # the kind front door is plain HTTP
+# aipostit's alert rules, for both environments: the chart ships monitoring.rules only from
+# the one release per cluster with clusterWide (prod's), and every rule aggregates by
+# namespace, so staging's alerts come from here too. Alertmanager (the platform's
+# deploy/kind/monitoring-values.yaml) sends each environment's to its Slack channel.
+# Severities are the platform's: page (red, @channel in prod) and ticket (yellow).
+# Each alert has a promtool scenario (deploy/prometheus/alerts_test.yaml) and a RUNBOOK
+# section its runbook_url names (tests/test_alert_rules.py checks both). Probes are left out
+# of the request alerts: they are most of the traffic and always succeed.
+monitoring:
+  clusterWide: true
+  rules:
+    alerts: |
+      groups:
+        - name: aipostit-api
+          rules:
+            - alert: AipostitApiDown
+              # No API pod scraped (or none left to scrape): no dashboard, no hotel pages.
+              expr: |
+                sum by (namespace) (up{job="aipostit", namespace=~"aipostit-.+"}) == 0
+                or sum by (namespace) (absent(up{job="aipostit", namespace="aipostit-prod"}))
+                or sum by (namespace) (absent(up{job="aipostit", namespace="aipostit-staging"}))
+              for: 5m
+              labels: { severity: page }
+              annotations:
+                summary: "The API in {{ $labels.namespace }} has been down for 5 minutes"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitapidown
+            - alert: AipostitHighErrorRate
+              # Over 5% of requests failing with 5xx over 30 minutes, and at least 5 of them:
+              # traffic is low, so a ratio alone would fire on one failed request.
+              expr: |
+                (
+                  sum by (namespace) (rate(http_requests_total{job="aipostit", route!~"/healthz|/readyz|/health", status=~"5.."}[30m]))
+                  / sum by (namespace) (rate(http_requests_total{job="aipostit", route!~"/healthz|/readyz|/health"}[30m]))
+                ) > 0.05
+                and sum by (namespace) (increase(http_requests_total{job="aipostit", route!~"/healthz|/readyz|/health", status=~"5.."}[30m])) >= 5
+              for: 10m
+              labels: { severity: ticket }
+              annotations:
+                summary: "The API in {{ $labels.namespace }} is failing over 5% of requests (5xx)"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostithigherrorrate
+            - alert: AipostitSlowResponses
+              # p95 over 30 minutes above 2.5 s (a bucket bound), with at least 20 requests.
+              expr: |
+                histogram_quantile(0.95, sum by (namespace, le) (rate(http_request_duration_seconds_bucket{job="aipostit", route!~"/healthz|/readyz|/health|unmatched"}[30m]))) > 2.5
+                and sum by (namespace) (increase(http_request_duration_seconds_count{job="aipostit", route!~"/healthz|/readyz|/health|unmatched"}[30m])) >= 20
+              for: 15m
+              labels: { severity: ticket }
+              annotations:
+                summary: "The API in {{ $labels.namespace }} answers slowly: p95 over 2.5 s"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitslowresponses
+            - alert: AipostitApiNotReady
+              # Fewer API pods available than asked for: a pod failing /readyz (Redis) or
+              # not starting. Longer than any rollout.
+              expr: |
+                max by (namespace) (
+                  kube_deployment_spec_replicas{namespace=~"aipostit-.+", deployment="aipostit"}
+                  - kube_deployment_status_replicas_available{namespace=~"aipostit-.+", deployment="aipostit"}
+                ) > 0
+              for: 15m
+              labels: { severity: ticket }
+              annotations:
+                summary: "{{ $value }} API pod(s) in {{ $labels.namespace }} not ready for 15 minutes"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitapinotready

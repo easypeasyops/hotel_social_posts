@@ -1,18 +1,13 @@
 """Staff invites: a staff_invites row (migration 006) for one email and role, pending until
 it's accepted, revoked or expired, and its link (/signup), emailed in Turkish, like the staff
-pages, where SMTP is set up. (/hotel/staff still makes unrecorded ones: send_invite_email.)"""
+pages, where SMTP is set up."""
 
 import logging
 from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 from uuid import uuid4
 
-from app.auth.upload_tokens import (
-    STAFF_INVITE_TTL_SECONDS,
-    create_recorded_invite_token,
-    create_token,
-    staff_invite_purpose,
-)
+from app.auth.upload_tokens import create_recorded_invite_token
 from app.mail import MailError, mail_configured, send_mail
 
 logger = logging.getLogger(__name__)
@@ -36,15 +31,6 @@ def _send_invite_mail(hotel: dict, role: str, email: str, link: str, days: int) 
         f"Bağlantı yalnızca bu e-posta adresiyle ({email}) kullanılabilir. "
         f"Bu daveti beklemiyorsanız e-postayı yok sayabilirsiniz.\n",
     )
-
-
-def send_invite_email(base_url: str, hotel: dict, role: str, email: str) -> None:
-    """/hotel/staff's 7-day invite for one address, not recorded (until it sends invites with
-    create_invite too). Raises MailError when the email can't be sent."""
-    email = email.strip().lower()
-    invite = create_token(hotel["id"], staff_invite_purpose(role), STAFF_INVITE_TTL_SECONDS, email)
-    link = f"{base_url.rstrip('/')}/signup#invite={quote(invite, safe='')}"
-    _send_invite_mail(hotel, role, email, link, STAFF_INVITE_TTL_SECONDS // 86400)
 
 
 def create_invite(

@@ -1,5 +1,6 @@
-"""A hotel admin manages the hotel's staff at /hotel/staff: invite links with a role, role
-changes and removal, for the hotel's other members only. Other roles are refused."""
+"""A hotel admin manages the hotel's staff at /hotel/staff: invites (recorded, for one address
+and role, emailed where SMTP is set up), role changes and removal, for the hotel's other members
+only. Other roles are refused."""
 
 from types import SimpleNamespace
 from typing import Any
@@ -10,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app import mail
 from app.auth.dependencies import get_current_user
-from app.auth.upload_tokens import read_staff_invite
+from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
 from app.database import get_supabase
 from app.main import create_app
 from tests.fakes import FakeDB
@@ -28,7 +29,9 @@ def _client(role: str = "hotel_admin") -> tuple[TestClient, FakeDB]:
         ],
     )  # fmt: skip
     app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id="me", app_metadata={})
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id="me", email="me@example.com", app_metadata={}
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False), db
 
@@ -48,12 +51,29 @@ def test_the_admin_sees_the_team_of_their_hotel() -> None:
     assert 'href="/hotel/staff"' in client.get("/hotel").text
 
 
-def test_the_admin_makes_an_invite_for_a_role() -> None:
-    client, _ = _client()
-    page = client.post("/hotel/staff/invite", data={"role": "content_moderator"})
+INVITE = {"email": "Yeni@Example.com", "role": "content_moderator"}
 
-    invite = page.text.split("/signup#invite=", 1)[1].split('"', 1)[0]
-    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_moderator", None)
+
+def _link(page: Any) -> str:
+    return unquote(page.text.split("/signup#invite=", 1)[1].split('"', 1)[0])
+
+
+def test_without_smtp_the_admin_records_an_invite_and_gets_its_link() -> None:
+    client, db = _client()
+    page = client.post("/hotel/staff/invite", data={**INVITE, "valid_days": "3"})
+
+    assert page.status_code == 200
+    assert "e-posta gönderilmedi" in page.text and "Kopyala" in page.text
+    [row] = db.written("staff_invites")
+    assert {k: row[k] for k in ("hotel_id", "role", "email", "valid_days", "invited_by_email")} == {
+        "hotel_id": "hotel-1",
+        "role": "content_moderator",
+        "email": "yeni@example.com",
+        "valid_days": 3,
+        "invited_by_email": "me@example.com",
+    }
+    assert read_recorded_invite(_link(page)) == ("hotel-1", row["id"])
+    assert read_staff_invite(_link(page)) is None  # no older-purpose token
     assert page.headers["cache-control"] == "no-store"
 
 
@@ -72,7 +92,10 @@ def test_the_admin_changes_a_role_and_removes_a_member() -> None:
         ("/hotel/staff/me/role", {"role": "content_creator"}, 409),  # their own
         ("/hotel/staff/me/remove", {}, 409),
         ("/hotel/staff/u2/role", {"role": "owner"}, 422),
-        ("/hotel/staff/invite", {"role": "owner"}, 422),
+        ("/hotel/staff/invite", {**INVITE, "role": "owner"}, 422),
+        ("/hotel/staff/invite", {**INVITE, "email": "yeni"}, 422),
+        ("/hotel/staff/invite", {**INVITE, "valid_days": "0"}, 422),
+        ("/hotel/staff/invite", {**INVITE, "valid_days": "31"}, 422),
     ],
 )
 def test_the_admin_cant_change_themselves_or_make_up_a_role(
@@ -95,7 +118,7 @@ def test_another_hotels_member_is_out_of_reach() -> None:
     ("method", "path", "form"),
     [
         ("get", "/hotel/staff", None),
-        ("post", "/hotel/staff/invite", {"role": "hotel_admin"}),
+        ("post", "/hotel/staff/invite", INVITE),
         ("post", "/hotel/staff/u2/role", {"role": "hotel_admin"}),
         ("post", "/hotel/staff/u2/remove", {}),
     ],
@@ -140,30 +163,29 @@ def smtp(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     return sent
 
 
-def test_the_admin_emails_an_invite_for_one_address(smtp: list[Any]) -> None:
+def test_the_admin_emails_an_invite_it_records(smtp: list[Any]) -> None:
     client, db = _client()
-    page = client.post(
-        "/hotel/staff/invite-email", data={"email": "yeni@example.com", "role": "content_creator"}
-    )
+    page = client.post("/hotel/staff/invite", data=INVITE)
 
     assert page.status_code == 200
     assert "Davet yeni@example.com adresine gönderildi." in page.text
     [message] = smtp
-    invite = message.get_content().split("/signup#invite=", 1)[1].split()[0]
-    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_creator", "yeni@example.com")
-    assert db.writes == []
+    assert "içerik moderatörü olarak" in message.get_content()
+    invite = unquote(message.get_content().split("/signup#invite=", 1)[1].split()[0])
+    row = db.written("staff_invites")[0]
+    assert read_recorded_invite(invite) == ("hotel-1", row["id"])
+    assert db.written("staff_invites")[1]["send_count"] == 1
 
 
-def test_without_smtp_the_team_page_has_no_invite_email() -> None:
+def test_the_team_page_has_one_invite_form() -> None:
     client, _ = _client()
-    assert "E-posta ile davet" not in client.get("/hotel/staff").text
-    form = {"email": "yeni@example.com", "role": "content_creator"}
-    assert client.post("/hotel/staff/invite-email", data=form).status_code == 404
+    page = client.get("/hotel/staff").text
+    assert page.count('action="/hotel/staff/invite"') == 1
+    assert "E-posta ile davet" not in page and "Bağlantı oluştur" not in page
 
 
 @pytest.mark.parametrize("role", ["content_moderator", "content_creator"])
-def test_other_roles_cant_email_invites(smtp: list[Any], role: str) -> None:
-    client, _ = _client(role)
-    form = {"email": "yeni@example.com", "role": "content_creator"}
-    assert client.post("/hotel/staff/invite-email", data=form).status_code == 403
-    assert smtp == []
+def test_other_roles_cant_send_invites(smtp: list[Any], role: str) -> None:
+    client, db = _client(role)
+    assert client.post("/hotel/staff/invite", data=INVITE).status_code == 403
+    assert (smtp, db.writes) == ([], [])

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.account import full_name
 from app.assets import service as asset_service
 from app.assets.models import AssetCategory
 from app.auth.dependencies import (
@@ -26,7 +27,7 @@ from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
 from app.hotels.invites import create_invite, list_invites, revoke_invite
 from app.hotels.models import HotelUpdate, SocialChannel
-from app.hotels.staff import ROLES, can_moderate
+from app.hotels.staff import ROLE_LABELS_TR, ROLES, can_moderate
 from supabase import Client
 
 router = APIRouter(prefix="/hotel")
@@ -347,3 +348,23 @@ def staff_save_details(
         return _details_page(request, hotel, 422, error=True)
     hotel_service.update_hotel(db, hotel_id, payload)
     return RedirectResponse("/hotel/details?done=saved", status_code=303)
+
+
+@router.get("/profile", name="staff_profile")
+def staff_profile(
+    request: Request,
+    member: dict = Depends(require_staff_member),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    return templates.TemplateResponse(
+        request,
+        "staff/profile.html",
+        {
+            "request": request,
+            "hotel": hotel_service.get_hotel(db, member["hotel_id"]),
+            "email": user.email,
+            "name": full_name(user),
+            "role": ROLE_LABELS_TR[member["role"]],
+        },
+    )

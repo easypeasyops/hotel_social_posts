@@ -32,3 +32,16 @@ def menu(user: Any, member: dict | None = None) -> dict:
         "role": member["role"] if member else None,
         "role_label": ROLE_LABELS_TR[member["role"]] if member else None,
     }
+
+
+MAX_NAME_LENGTH = 100
+
+
+def save_full_name(db: Any, user_id: str, name: str) -> str | None:
+    """Set the account's full name, trimmed; None, saving nothing, if it is blank or too long.
+    Supabase merges user_metadata, so the account's other keys stay."""
+    name = " ".join(name.split())
+    if not name or len(name) > MAX_NAME_LENGTH:
+        return None
+    db.auth.admin.update_user_by_id(user_id, {"user_metadata": {"full_name": name}})
+    return name

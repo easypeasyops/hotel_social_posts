@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.account import full_name
+from app.account import full_name, save_full_name
 from app.assets import service as asset_service
 from app.assets.models import AssetCategory
 from app.auth.dependencies import (
@@ -357,6 +357,27 @@ def staff_profile(
     user=Depends(get_current_user),
     db: Client = Depends(get_supabase),
 ):
+    return _profile_page(
+        request, db, member, user, saved=request.query_params.get("done") == "saved"
+    )
+
+
+@router.post("/profile")
+def staff_save_profile(
+    request: Request,
+    name: str = Form(""),
+    member: dict = Depends(require_staff_member),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    if save_full_name(db, user.id, name) is None:
+        return _profile_page(request, db, member, user, 422, error=True, typed=name)
+    return RedirectResponse("/hotel/profile?done=saved", status_code=303)
+
+
+def _profile_page(
+    request: Request, db: Client, member: dict, user, status_code: int = 200, **extra: object
+):
     return templates.TemplateResponse(
         request,
         "staff/profile.html",
@@ -366,5 +387,7 @@ def staff_profile(
             "email": user.email,
             "name": full_name(user),
             "role": ROLE_LABELS_TR[member["role"]],
+            **extra,
         },
+        status_code=status_code,
     )

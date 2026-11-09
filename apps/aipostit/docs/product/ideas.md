@@ -7,7 +7,7 @@ Value and effort are judgement until a customer confirms them.
 |---|---|---|
 | Posts driven by empty dates | now (manual pilot) | Content that fills empty rooms; bookings, not likes. Pilot by hand first (decisions.md) |
 | Staff invite tracking | next (spec) | One email per invite, status, revoke, expiry and retention per hotel; Emrah's own need, no hotel asked yet ([spec](spec-staff-invite-tracking.md)) |
-| Reject feedback into generation | next | Small PR; better drafts every week |
+| Reject feedback into generation | next (after invite tracking) | Small PR; better drafts every week |
 | Brand voice that learns | next | Grows from reject feedback and edits: a per-hotel style memory the hotel can see and correct; a fact check of drafts against the profile |
 | Target guest markets per hotel | parked | Replaces fixed tier languages; GBP posts per language; needs guest-mix answers |
 | AI art director | parked | Claude tags and scores photos, finds gaps, sends staff weekly shot lists; fits the asset pipeline |

@@ -9,7 +9,7 @@ operator and hotel admins see status and can revoke; expiry is chosen per invite
 default, 1 to 30) and invitee emails are kept per hotel's retention (90 days by default),
 purged daily (7 to 180 days). One button, Send invite, records and emails it; the invite
 table shows each pending invite's link with a copy button, for WhatsApp and the like.
-Built after the reject-feedback PR, retention included; resend and role change wait. Old invites
+Built next, before the reject-feedback PR, retention included; resend and role change wait. Old invites
 run out on their own. Spec: [spec-staff-invite-tracking.md](spec-staff-invite-tracking.md).
 **Changes if:** a hotel needs one link for many staff (seasonal hires, say).
 
@@ -44,7 +44,8 @@ account. **Changes if:** hotels tell us their guests do read translated captions
 
 Reviewers' reject feedback is stored and never read. Feeding recent rejections into the
 prompt makes every hotel's drafts better each week: the next small code change after the
-pilot starts.
+pilot starts. **2026-11-09:** moved behind staff invite tracking (PRs 1 to 8), which Emrah put
+first.
 
 ## 2026-11-06: Release toil cut (done, PR #124)
 

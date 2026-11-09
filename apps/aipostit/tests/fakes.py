@@ -118,13 +118,15 @@ class FakeBucket:
         self.storage.files[(self.bucket, path)] = data
         self.storage.uploads.append((self.bucket, path, options or {}))
 
-    def list(self, prefix: str) -> builtins.list[dict[str, str]]:
+    def list(self, prefix: str, options: dict[str, int] | None = None) -> builtins.list[dict]:
         start = f"{prefix}/"
-        return [
+        names = [
             {"name": path[len(start) :]}
             for bucket, path in self.storage.files
             if bucket == self.bucket and path.startswith(start)
         ]
+        offset = (options or {}).get("offset", 0)
+        return names[offset : offset + (options or {}).get("limit", 100)]
 
     def remove(self, paths: builtins.list[str]) -> None:
         for path in paths:

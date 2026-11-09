@@ -2,7 +2,7 @@
 # ran it before 5.9. Same image digest staging ran.
 environment: prod
 image:
-  digest: "sha256:7e7f146614d42ba936ec989bfd52716d7aa27a7cb7a7a6d6f93be214176ac4b5" # aipostit v0.4.2, as staging
+  digest: "sha256:762b96bec599bc4366bcd905ed948fffc1c098594fb1f688704bcbf09a9ee2f7" # aipostit v0.5.1, as staging
 gateway:
   hostnames: ["aipostit.localhost"]
 config:

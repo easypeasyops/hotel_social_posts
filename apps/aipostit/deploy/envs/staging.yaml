@@ -4,7 +4,7 @@
 # the digest in a merged PR IS the deploy; the first one lands with platform plan 5.9.
 environment: staging
 image:
-  digest: "sha256:fc07b68656f673758d3e1189c810312b2a1244edb28c1a258092b89272ee5ae7" # aipostit v0.5.0
+  digest: "sha256:762b96bec599bc4366bcd905ed948fffc1c098594fb1f688704bcbf09a9ee2f7" # aipostit v0.5.1
 replicaCount: 1
 gateway:
   hostnames: ["staging.aipostit.localhost"]

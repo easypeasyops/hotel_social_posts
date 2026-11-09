@@ -1,6 +1,7 @@
 """A stand-in for the Supabase client: each table answers selects with the rows a test gives
-it (filtered by `eq` and `in_` on columns the rows have) and records what the code writes;
-an `update` changes the matching rows. Storage keeps files in memory."""
+it (filtered by `eq` and `in_` on columns the rows have, and by `is_` null and `gt`) and
+records what the code writes; an `update` changes the matching rows. Storage keeps files in
+memory."""
 
 import builtins
 from types import SimpleNamespace
@@ -14,12 +15,23 @@ class FakeQuery:
         self.one = False
         self.only: tuple[str, list[Any]] | None = None
         self.equal: list[tuple[str, Any]] = []
+        self.unset: list[str] = []
+        self.above: list[tuple[str, Any]] = []
 
     def select(self, *_: Any, **__: Any) -> FakeQuery:
         return self
 
     def eq(self, column: str, value: Any) -> FakeQuery:
         self.equal.append((column, value))
+        return self
+
+    def is_(self, column: str, value: str) -> FakeQuery:
+        assert value == "null", "the fake knows is_(column, 'null') only"
+        self.unset.append(column)
+        return self
+
+    def gt(self, column: str, value: Any) -> FakeQuery:
+        self.above.append((column, value))
         return self
 
     def in_(self, column: str, values: list[Any]) -> FakeQuery:
@@ -56,6 +68,9 @@ class FakeQuery:
         rows = self.db.rows.get(self.table, [])
         # A filter on a column the test's rows don't have is ignored, as before eq filtered.
         rows = [r for r in rows if all(r.get(c, v) == v for c, v in self.equal)]
+        rows = [r for r in rows if all(r.get(c) is None for c in self.unset)]
+        # Compared as given: tests use ISO timestamps in one format, as the code does.
+        rows = [r for r in rows if all(c in r and r[c] > v for c, v in self.above)]
         if self.only:
             column, values = self.only
             rows = [row for row in rows if row.get(column) in values]

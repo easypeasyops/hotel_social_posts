@@ -23,7 +23,7 @@ kubectl -n aipostit-<env> rollout restart deployment
 
 ## Prerequisites and configuration
 
-Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff, `004` its `role` column, `005` the assets' `thumbnail_path`, `006` the `staff_invites` table and `hotels.invite_retention_days`), and configure provider credentials.
+Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff, `004` its `role` column, `005` the assets' `thumbnail_path`, `006` the `staff_invites` table and `hotels.invite_retention_days`, `007` `hotels.logo_version`), and configure provider credentials.
 
 Set the following environment variables in the local `.env`; in the cluster they come from the platform's store, loaded from that file (below):
 
@@ -95,6 +95,12 @@ kubectl -n aipostit-prod exec deploy/aipostit-worker -- celery -A app.jobs.tasks
 ```
 
 It queues the task and prints its ID; the worker log then says `Made N thumbnails`. It only touches `ready` JPEGs and PNGs with no `thumbnail_path`, so running it again does only what's left. A photo it can't read is logged (`is not a photo Pillow can open`, or `Could not make a thumbnail`) and skipped: it stays `ready` and keeps showing full size.
+
+Hotel logos need migration `007`. Run it in the SQL editor **before** merging the version bump of any release that sets logos (without the column, an upload fails and a hotel's pages can't record its logo); it is safe for the version already running, which neither selects nor writes it. Staging and prod share the project, so once covers both:
+
+```sql
+alter table hotels add column logo_version bigint;
+```
 
 Staff invite tracking needs migration `006` (applied to the shared project on 2026-11-09). Run `supabase/migrations/006_staff_invites.sql` in the SQL editor **before** merging the version bump of any release that reads or writes invites: staging and prod share the Supabase project, and a merged bump reaches staging on its own. It only adds a table and a column with a default, so it is safe for the version already running, which uses neither. The dashboard's **Send invite** and `/hotel/staff`'s **Davet gönder** write to `staff_invites`, so `006` must be applied before the release that contains it reaches staging; without it every invite fails.
 

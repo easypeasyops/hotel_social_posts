@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.account import full_name
 from app.assets import service as asset_service
 from app.auth.dependencies import require_operator
 from app.auth.upload_tokens import UPLOAD_TOKEN_TTL_SECONDS, create_upload_token
@@ -94,6 +95,15 @@ def _hotels_draft(db: Client, hotel_id: str, draft_id: str) -> dict:
 @router.get("")
 def dashboard_home():
     return RedirectResponse("/dashboard/hotels", status_code=303)
+
+
+@router.get("/profile")
+def profile(request: Request, user=Depends(require_operator)):
+    return templates.TemplateResponse(
+        request,
+        "dashboard/profile.html",
+        {"request": request, "email": user.email, "name": full_name(user)},
+    )
 
 
 @router.get("/hotels")

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Your profile — aipostit{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Your profile</h1>
+
+<section class="bg-white border border-gray-200 rounded-lg p-6">
+  <dl class="grid gap-4 text-sm sm:grid-cols-[10rem_1fr]">
+    <dt class="font-medium">Full name</dt>
+    <dd class="text-gray-600">{{ name or "Not added yet" }}</dd>
+    <dt class="font-medium">Email</dt>
+    <dd class="text-gray-600 break-all">{{ email }}</dd>
+    <dt class="font-medium">Role</dt>
+    <dd class="text-gray-600">Operator (all hotels)</dd>
+  </dl>
+</section>
+{% endblock %}

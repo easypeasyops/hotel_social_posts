@@ -6,6 +6,11 @@ from supabase import Client
 
 ROLES = ("hotel_admin", "content_moderator", "content_creator")
 MODERATORS = ("hotel_admin", "content_moderator")
+ROLE_LABELS_TR = {
+    "hotel_admin": "Otel yöneticisi",
+    "content_moderator": "İçerik moderatörü",
+    "content_creator": "İçerik üreticisi",
+}
 
 
 def member_of(db: Client, user_id: str) -> dict | None:

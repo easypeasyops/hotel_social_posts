@@ -63,7 +63,9 @@ def test_without_smtp_the_admin_records_an_invite_and_gets_its_link() -> None:
     page = client.post("/hotel/staff/invite", data={**INVITE, "valid_days": "3"})
 
     assert page.status_code == 200
-    assert "e-posta gönderilmedi" in page.text and "Kopyala" in page.text
+    assert "E-posta gönderilmedi: bağlantıyı kopyalayıp yeni@example.com" in page.text
+    assert 'id="invite-link" data-copy="http://testserver/signup#invite=' in page.text
+    assert "readonly" not in page.text
     [row] = db.written("staff_invites")
     assert {k: row[k] for k in ("hotel_id", "role", "email", "valid_days", "invited_by_email")} == {
         "hotel_id": "hotel-1",
@@ -81,9 +83,13 @@ def test_the_admin_changes_a_role_and_removes_a_member() -> None:
     client, db = _client()
     changed = client.post("/hotel/staff/u2/role", data={"role": "content_moderator"})
     assert (changed.status_code, _roles(db)["u2"]) == (303, "content_moderator")
+    assert changed.headers["location"] == "/hotel/staff?done=role#members"
+    assert "Rol değiştirildi." in client.get(changed.headers["location"]).text
 
-    client.post("/hotel/staff/u2/remove")
+    removed = client.post("/hotel/staff/u2/remove")
     assert "u2" not in _roles(db)
+    assert removed.headers["location"] == "/hotel/staff?done=removed#members"
+    assert "Ekipten çıkarıldı." in client.get(removed.headers["location"]).text
 
 
 @pytest.mark.parametrize(

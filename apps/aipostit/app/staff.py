@@ -272,7 +272,7 @@ def staff_change_role(
 ):
     _other_member(user_id, user.id, role)
     staff_service.set_role(db, hotel_id, user_id, role)
-    return RedirectResponse("/hotel/staff?done=role", status_code=303)
+    return RedirectResponse("/hotel/staff?done=role#members", status_code=303)
 
 
 @router.post("/staff/{user_id}/remove")
@@ -284,7 +284,7 @@ def staff_remove(
 ):
     _other_member(user_id, user.id)
     staff_service.remove_member(db, hotel_id, user_id)
-    return RedirectResponse("/hotel/staff?done=removed", status_code=303)
+    return RedirectResponse("/hotel/staff?done=removed#members", status_code=303)
 
 
 @router.post("/staff/invites/{invite_id}/revoke")

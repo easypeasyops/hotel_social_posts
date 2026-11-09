@@ -2,6 +2,11 @@
 {% block title %}Ekip{% endblock %}
 {% set roles = {"hotel_admin": "Otel yöneticisi", "content_moderator": "İçerik moderatörü", "content_creator": "İçerik üreticisi"} %}
 {% set field = "min-h-11 px-3 rounded-lg border border-sand-500 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600" %}
+{% set secondary = "min-h-11 px-3 rounded-lg text-sand-700 underline hover:text-red-800 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700" %}
+{% set copy_button = "min-h-11 px-3 rounded-lg border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600" %}
+{% set statuses = {"pending": "bekliyor", "accepted": "kabul edildi", "expired": "süresi doldu", "revoked": "iptal edildi"} %}
+{% set badge = {"pending": "bg-amber-100 text-amber-900", "accepted": "bg-green-100 text-green-900", "expired": "bg-sand-100 text-sand-700", "revoked": "bg-sand-100 text-sand-700"} %}
+{% set done = request.query_params.get("done") %}
 {% block content %}
 <div>
   <a href="/hotel" class="text-sm font-medium text-iris-600 underline">← Dosyalarınız</a>
@@ -9,19 +14,13 @@
   <p class="mt-1 text-sand-700">Otel yöneticileri bu sayfayı ve otel bilgilerini yönetir. İçerik moderatörleri dosya ve paylaşımları düzenler, onaylar ve siler. İçerik üreticileri dosya yükler ve paylaşımları görür.</p>
 </div>
 
-{% if request.query_params.get("done") in ("role", "removed", "revoked") %}
-<div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Kaydedildi.</p></div>
-{% endif %}
-
+<div id="team" class="space-y-6">
 <section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
-  <h2 class="font-semibold">Davet</h2>
+  <h2 class="font-semibold">Birini davet edin</h2>
   <p class="mt-1 text-sand-700">Davet bir kez ve yalnızca yazdığınız e-posta adresiyle kullanılabilir.</p>
-  {% if invite_error %}
-  <div role="alert" class="mt-3 flex gap-3 p-4 rounded-xl bg-red-100 text-red-800"><span aria-hidden="true">!</span><p>{{ invite_error }}</p></div>
-  {% endif %}
-  <form method="post" action="/hotel/staff/invite" class="mt-3 flex flex-wrap items-center gap-2">
+  <form method="post" action="/hotel/staff/invite" data-inline="team" class="mt-3 flex flex-wrap items-center gap-2">
     <label for="invite-email" class="sr-only">E-posta adresi</label>
-    <input id="invite-email" name="email" type="email" required placeholder="ad@otel.com" class="min-w-0 flex-1 {{ field }}" />
+    <input id="invite-email" name="email" type="email" required placeholder="ad@otel.com" class="min-w-0 flex-1 basis-56 {{ field }}" />
     <label for="invite-role" class="sr-only">Rol</label>
     <select id="invite-role" name="role" class="{{ field }}">
       {% for value, label in roles.items() %}
@@ -32,30 +31,83 @@
     <input id="invite-days" name="valid_days" type="number" min="1" max="30" value="7" required class="w-20 {{ field }}" />
     <button class="min-h-11 px-4 rounded-lg bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Davet gönder</button>
   </form>
+  {% if invite_error %}
+  <div role="alert" data-focus tabindex="-1" class="mt-3 flex gap-3 p-4 rounded-xl bg-red-100 text-red-800"><span aria-hidden="true">!</span><p>{{ invite_error }}</p></div>
+  {% endif %}
   {% if invite_link %}
-  <div class="mt-4 p-4 rounded-xl bg-iris-50">
-    <p role="status" class="text-sm font-medium">{% if invite_sent %}Davet {{ invite_email }} adresine gönderildi.{% else %}Davet kaydedildi, e-posta gönderilmedi: bu bağlantıyı {{ invite_email }} adresine siz iletin.{% endif %}</p>
-    <div class="mt-2 flex gap-2">
-      <input id="invite-link" readonly value="{{ invite_link }}" aria-label="Davet bağlantısı" class="w-full {{ field }}" />
-      <button type="button" class="min-h-11 px-3 rounded-lg border border-sand-500 bg-white"
-              onclick="navigator.clipboard.writeText(document.getElementById('invite-link').value)">Kopyala</button>
-    </div>
+  <div role="status" data-focus tabindex="-1" class="mt-3 p-4 rounded-xl bg-iris-50 flex flex-wrap items-center gap-3">
+    <p class="flex-1 basis-56 text-sm font-medium">{% if invite_sent %}Davet {{ invite_email }} adresine gönderildi.{% else %}E-posta gönderilmedi: bağlantıyı kopyalayıp {{ invite_email }} adresine siz iletin.{% endif %}</p>
+    <button type="button" id="invite-link" data-copy="{{ invite_link }}" data-copied="Kopyalandı ✓" class="{{ copy_button }}">Bağlantıyı kopyala</button>
   </div>
   {% endif %}
 </section>
 
-<section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
+<section id="invites" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
+  <h2 class="font-semibold">Bekleyen davetler</h2>
+  {% if done == "revoked" %}
+  <div role="status" data-focus tabindex="-1" class="mt-3 flex gap-3 p-3 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Davet iptal edildi.</p></div>
+  {% endif %}
+  {% set pending_invites = invites|selectattr("status", "equalto", "pending")|list %}
+  {% set ended_invites = invites|rejectattr("status", "equalto", "pending")|list %}
+  {% if pending_invites %}
+  <ul class="mt-3 divide-y divide-sand-100">
+    {% for invite in pending_invites %}
+    <li class="py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div class="min-w-0 flex-1 basis-64">
+        <p id="invite-{{ invite.id }}" class="font-medium truncate">{{ invite.email }}</p>
+        <p class="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-sand-700">
+          <span class="rounded-md px-2 py-0.5 text-xs font-medium {{ badge.pending }}">{{ statuses.pending }}</span>
+          {% if not invite.last_sent_at %}<span class="rounded-md px-2 py-0.5 text-xs font-medium bg-red-100 text-red-900">e-posta gönderilmedi</span>{% endif %}
+          <span>{{ roles.get(invite.role, invite.role) }} · davet eden {{ invite.invited_by_email }} · {{ (invite.created_at or "")[:10] }} · son gün {{ invite.expires_at[:10] }}</span>
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" data-copy="{{ invite.link }}" data-invite="{{ invite.id }}" data-copied="Kopyalandı ✓" aria-describedby="invite-{{ invite.id }}" class="{{ copy_button }}">Bağlantıyı kopyala</button>
+        <form method="post" action="/hotel/staff/invites/{{ invite.id }}/revoke" data-inline="team"
+              onsubmit='return confirm({{ (invite.email ~ " daveti iptal edilsin mi? Bağlantısı hemen çalışmaz olur.")|tojson }})'>
+          <button aria-describedby="invite-{{ invite.id }}" class="{{ secondary }}">İptal et</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="mt-1 text-sand-700">Bekleyen davet yok.</p>
+  {% endif %}
+  {% if ended_invites %}
+  <details id="ended-invites" class="mt-3">
+    <summary class="py-3 cursor-pointer text-sand-700 hover:text-iris-950">Sona eren davetler ({{ ended_invites|length }})</summary>
+    <ul class="divide-y divide-sand-100 text-sand-700">
+      {% for invite in ended_invites %}
+      <li class="py-3">
+        <p class="truncate">{{ invite.email }}</p>
+        <p class="mt-1 flex flex-wrap items-center gap-1.5 text-sm">
+          <span class="rounded-md px-2 py-0.5 text-xs font-medium {{ badge[invite.status] }}">{{ statuses[invite.status] }}{% if invite.status == "accepted" %} {{ invite.accepted_at[:10] }}{% endif %}</span>
+          <span>{{ roles.get(invite.role, invite.role) }} · davet eden {{ invite.invited_by_email }} · {{ (invite.created_at or "")[:10] }} · son gün {{ invite.expires_at[:10] }}</span>
+        </p>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  <p class="mt-2 text-sm text-sand-700">Kayıt tutulmaya başlamadan önceki davetler burada görünmez; süreleri dolana kadar çalışır.</p>
+</section>
+
+<section id="members" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
   <h2 class="font-semibold">Ekip üyeleri</h2>
+  {% if done in ("role", "removed") %}
+  <div role="status" data-focus tabindex="-1" class="mt-3 flex gap-3 p-3 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>{% if done == "role" %}Rol değiştirildi.{% else %}Ekipten çıkarıldı.{% endif %}</p></div>
+  {% endif %}
   <ul class="mt-3 divide-y divide-sand-100">
     {% for member in members %}
     <li class="py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="min-w-0">
-        <p class="font-medium truncate">{{ member.email }}</p>
+        <p id="member-{{ member.user_id }}" class="font-medium truncate">{{ member.email }}</p>
         <p class="text-sm text-sand-700">{{ roles.get(member.role, member.role) }}{% if member.user_id == me %} · siz{% endif %}</p>
       </div>
       {% if member.user_id != me %}
       <div class="flex flex-wrap items-center gap-2">
-        <form method="post" action="/hotel/staff/{{ member.user_id }}/role" class="flex items-center gap-2">
+        <form method="post" action="/hotel/staff/{{ member.user_id }}/role" data-inline="team" class="flex items-center gap-2">
           <label for="role-{{ member.user_id }}" class="sr-only">{{ member.email }} rolü</label>
           <select id="role-{{ member.user_id }}" name="role" class="{{ field }}">
             {% for value, label in roles.items() %}
@@ -64,9 +116,9 @@
           </select>
           <button class="min-h-11 px-3 rounded-lg border border-sand-500 font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">Değiştir</button>
         </form>
-        <form method="post" action="/hotel/staff/{{ member.user_id }}/remove"
+        <form method="post" action="/hotel/staff/{{ member.user_id }}/remove" data-inline="team"
               onsubmit='return confirm({{ (member.email ~ " ekipten çıkarılsın mı? Erişimi hemen kapanır.")|tojson }})'>
-          <button class="min-h-11 px-3 rounded-lg border border-red-200 text-red-800 font-semibold hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Çıkar</button>
+          <button aria-describedby="member-{{ member.user_id }}" class="{{ secondary }}">Çıkar</button>
         </form>
       </div>
       {% endif %}
@@ -74,34 +126,6 @@
     {% endfor %}
   </ul>
 </section>
-
-{% set statuses = {"pending": "bekliyor", "accepted": "kabul edildi", "expired": "süresi doldu", "revoked": "iptal edildi"} %}
-<section id="invites" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
-  <h2 class="font-semibold">Davetler</h2>
-  {% if invites %}
-  <ul class="mt-3 divide-y divide-sand-100">
-    {% for invite in invites %}
-    <li class="py-3">
-      <p class="font-medium truncate">{{ invite.email }}</p>
-      <p class="text-sm text-sand-700">{{ roles.get(invite.role, invite.role) }} · {{ statuses[invite.status] }}{% if invite.status == "accepted" %} {{ invite.accepted_at[:10] }}{% elif invite.status == "pending" and not invite.last_sent_at %} · e-posta gönderilmedi{% endif %}</p>
-      <p class="text-sm text-sand-700">Davet eden {{ invite.invited_by_email }} · {{ (invite.created_at or "")[:10] }} · son gün {{ invite.expires_at[:10] }}</p>
-      {% if invite.link %}
-      <div class="mt-2 flex gap-2">
-        <input id="invite-link-{{ invite.id }}" readonly value="{{ invite.link }}" aria-label="{{ invite.email }} davet bağlantısı" class="w-full {{ field }}" />
-        <button type="button" class="min-h-11 px-3 rounded-lg border border-sand-500 bg-white"
-                onclick="navigator.clipboard.writeText(document.getElementById('invite-link-{{ invite.id }}').value)">Kopyala</button>
-        <form method="post" action="/hotel/staff/invites/{{ invite.id }}/revoke"
-              onsubmit='return confirm({{ (invite.email ~ " daveti iptal edilsin mi? Bağlantısı hemen çalışmaz olur.")|tojson }})'>
-          <button class="min-h-11 px-3 rounded-lg border border-red-200 text-red-800 font-semibold hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">İptal et</button>
-        </form>
-      </div>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="mt-1 text-sand-700">Henüz davet yok.</p>
-  {% endif %}
-  <p class="mt-2 text-sm text-sand-700">Kayıt tutulmaya başlamadan önceki davetler burada görünmez; süreleri dolana kadar çalışır.</p>
-</section>
+</div>
+<script src="/static/inline.js" defer></script>
 {% endblock %}

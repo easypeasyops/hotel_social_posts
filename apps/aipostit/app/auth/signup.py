@@ -1,7 +1,8 @@
 """Hotel staff sign-up, only from an invite link (/signup#invite=…): a signed, 7-day
 capability for one hotel and role (staff_invite_purpose), and for one email when it was sent
-to one person. The account is made with the service role (Supabase's own sign-up stays off),
-tied to that hotel in hotel_members, and signed in."""
+to one person; or a recorded invite (STAFF_INVITE_RECORD_PURPOSE), whose staff_invites row
+gives the email and role and works once. The account is made with the service role
+(Supabase's own sign-up stays off), tied to that hotel in hotel_members, and signed in."""
 
 import logging
 
@@ -12,8 +13,9 @@ from supabase_auth.errors import AuthApiError
 
 from app.auth.router import _set_session_cookie, templates
 from app.auth.sessions import create_session
-from app.auth.upload_tokens import read_staff_invite
+from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
 from app.database import get_supabase, get_supabase_anon
+from app.hotels.invites import claim_invite, pending_invite, release_invite
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -46,6 +48,12 @@ def sign_up(
     password_confirmation: str = Form(...),
 ):
     invited = read_staff_invite(invite)
+    # Only a recorded invite's token reads staff_invites, so the older ones work without it.
+    recorded = read_recorded_invite(invite) if invited is None else None
+    if recorded is not None:
+        row = pending_invite(get_supabase(), recorded[1], recorded[0])
+        if row is not None:
+            invited = recorded[0], row["role"], row["email"]
     if invited is None:
         return _page(request, 400, invite_error=INVALID_INVITE)
     hotel_id, role, invited_email = invited
@@ -61,6 +69,11 @@ def sign_up(
     db = get_supabase()
     if not db.table("hotels").select("id").eq("id", hotel_id).execute().data:
         return _page(request, 400, invite_error=INVALID_INVITE)
+    # A recorded invite is taken before the account is made, so a racing sign-up gets nothing;
+    # every failure below hands it back.
+    invite_id = recorded[1] if recorded is not None else None
+    if invite_id is not None and not claim_invite(db, invite_id):
+        return _page(request, 400, invite_error=INVALID_INVITE)
 
     try:
         # Confirmed at once: the invite, not the inbox, is what vouches for this person.
@@ -68,6 +81,7 @@ def sign_up(
             {"email": email, "password": password, "email_confirm": True}
         )
     except AuthApiError as exc:
+        release_invite(db, invite_id)
         logger.info("Supabase refused a staff sign-up (status=%s, code=%s)", exc.status, exc.code)
         if exc.code == "email_exists":
             return _page(request, 409, error="An account with this email already exists.", **form)
@@ -76,6 +90,7 @@ def sign_up(
         return _page(request, 400, error="Could not create the account.", **form)
     except Exception:
         logger.exception("Staff sign-up failed")
+        release_invite(db, invite_id)
         return _page(request, 502, error="Sign-up is temporarily unavailable.", **form)
 
     user = created.user
@@ -86,6 +101,7 @@ def sign_up(
     except Exception:
         logger.exception("Staff sign-up could not record the hotel; removing the new account")
         db.auth.admin.delete_user(user.id)
+        release_invite(db, invite_id)
         return _page(request, 502, error="Sign-up is temporarily unavailable.", **form)
 
     # The account exists now; if signing it in fails, the sign-in page takes it from here.

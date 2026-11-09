@@ -4,14 +4,35 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-6">Your profile</h1>
 
-<section class="bg-white border border-gray-200 rounded-lg p-6">
-  <dl class="grid gap-4 text-sm sm:grid-cols-[10rem_1fr]">
-    <dt class="font-medium">Full name</dt>
-    <dd class="text-gray-600">{{ name or "Not added yet" }}</dd>
+{% if saved %}
+<div role="status" class="bg-green-100 text-green-800 rounded px-4 py-3 mb-4 text-sm">Saved.</div>
+{% elif error %}
+<div role="alert" class="bg-red-100 text-red-800 rounded px-4 py-3 mb-4 text-sm">Enter your full name (up to 100 characters).</div>
+{% endif %}
+
+<section class="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+  <form method="post" action="/dashboard/profile" class="space-y-3">
+    <div>
+      <label for="name" class="block text-sm font-medium mb-1">Full name</label>
+      <input id="name" name="name" value="{{ typed if typed is defined else name }}" required maxlength="100" autocomplete="name"
+             class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+    </div>
+    <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">Save</button>
+  </form>
+  <dl class="grid gap-4 text-sm sm:grid-cols-[10rem_1fr] border-t border-gray-200 pt-6">
     <dt class="font-medium">Email</dt>
     <dd class="text-gray-600 break-all">{{ email }}</dd>
     <dt class="font-medium">Role</dt>
     <dd class="text-gray-600">Operator (all hotels)</dd>
   </dl>
+</section>
+
+<section class="bg-white border border-gray-200 rounded-lg p-6 mt-6">
+  <h2 class="font-medium">Password</h2>
+  <p class="text-sm text-gray-600 mt-1">We'll email {{ email }} a link to change your password.</p>
+  <form method="post" action="/forgot-password" class="mt-3">
+    <input type="hidden" name="email" value="{{ email }}" />
+    <button type="submit" class="border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50">Email me a link to change my password</button>
+  </form>
 </section>
 {% endblock %}

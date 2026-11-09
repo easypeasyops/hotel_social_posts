@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.account import full_name
+from app.account import full_name, save_full_name
 from app.assets import service as asset_service
 from app.auth.dependencies import require_operator
 from app.auth.upload_tokens import UPLOAD_TOKEN_TTL_SECONDS, create_upload_token
@@ -97,13 +97,30 @@ def dashboard_home():
     return RedirectResponse("/dashboard/hotels", status_code=303)
 
 
-@router.get("/profile")
-def profile(request: Request, user=Depends(require_operator)):
+def _profile_page(request: Request, user, status_code: int = 200, **extra: object):
     return templates.TemplateResponse(
         request,
         "dashboard/profile.html",
-        {"request": request, "email": user.email, "name": full_name(user)},
+        {"request": request, "email": user.email, "name": full_name(user), **extra},
+        status_code=status_code,
     )
+
+
+@router.get("/profile")
+def profile(request: Request, user=Depends(require_operator)):
+    return _profile_page(request, user, saved=request.query_params.get("done") == "saved")
+
+
+@router.post("/profile")
+def save_profile(
+    request: Request,
+    name: str = Form(""),
+    user=Depends(require_operator),
+    db: Client = Depends(get_supabase),
+):
+    if save_full_name(db, user.id, name) is None:
+        return _profile_page(request, user, 422, error=True, typed=name)
+    return RedirectResponse("/dashboard/profile?done=saved", status_code=303)
 
 
 @router.get("/hotels")

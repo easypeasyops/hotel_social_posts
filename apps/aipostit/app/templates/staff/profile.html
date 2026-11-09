@@ -1,15 +1,26 @@
 {% extends "staff/base.html" %}
 {% block title %}Profiliniz{% endblock %}
+{% set field = "mt-1 block w-full min-h-11 px-3 rounded-lg border border-sand-500 bg-white text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600" %}
+{% set primary = "min-h-11 px-4 rounded-lg bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600" %}
 {% block content %}
 <div>
   <a href="/hotel" class="text-sm font-medium text-iris-600 underline">← Dosyalarınız</a>
   <h1 class="mt-2 text-2xl font-semibold tracking-tight">Profiliniz</h1>
 </div>
 
-<section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
-  <dl class="grid gap-4 sm:grid-cols-[10rem_1fr]">
-    <dt class="font-medium">Ad soyad</dt>
-    <dd class="text-sand-700">{{ name or "Henüz eklenmedi" }}</dd>
+{% if saved %}
+<div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Kaydedildi.</p></div>
+{% elif error %}
+<div role="alert" class="flex gap-3 p-4 rounded-xl bg-red-100 text-red-800"><span aria-hidden="true">!</span><p>Adınızı ve soyadınızı yazın (en çok 100 karakter).</p></div>
+{% endif %}
+
+<section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-6">
+  <form method="post" action="/hotel/profile" class="space-y-3">
+    <label class="block"><span class="font-medium">Ad soyad</span>
+      <input name="name" value="{{ typed if typed is defined else name }}" required maxlength="100" autocomplete="name" class="{{ field }}" /></label>
+    <button type="submit" class="{{ primary }}">Kaydet</button>
+  </form>
+  <dl class="grid gap-4 sm:grid-cols-[10rem_1fr] border-t border-sand-100 pt-6">
     <dt class="font-medium">E-posta</dt>
     <dd class="text-sand-700 break-all">{{ email }}</dd>
     <dt class="font-medium">Otel</dt>
@@ -17,5 +28,14 @@
     <dt class="font-medium">Rol</dt>
     <dd class="text-sand-700">{{ role }}</dd>
   </dl>
+</section>
+
+<section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
+  <h2 class="font-semibold">Şifre</h2>
+  <p class="mt-1 text-sand-700">Şifrenizi değiştirmek için {{ email }} adresine bir bağlantı göndeririz.</p>
+  <form method="post" action="/forgot-password" class="mt-3">
+    <input type="hidden" name="email" value="{{ email }}" />
+    <button type="submit" class="min-h-11 px-4 rounded-lg border border-sand-500 bg-white font-semibold hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iris-600">Şifre değiştirme bağlantısı gönder</button>
+  </form>
 </section>
 {% endblock %}

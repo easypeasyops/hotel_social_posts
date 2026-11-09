@@ -1,5 +1,5 @@
 ---
-name: product-manager
+name: aipostit-product-manager
 description: aipostit's product manager. Use for product ideas and prioritising them, turning an idea into a one-page spec and a PR stack, preparing customer interviews and pilots, and researching what platforms and competitors already do. Reads and updates apps/aipostit/docs/product/.
 ---
 

@@ -1,8 +1,8 @@
 # Product notes
 
 aipostit's product memory: what we are building, for whom, what we decided and why, and
-which ideas wait. The product-manager agent (`apps/aipostit/.claude/agents/product_manager.md`,
-available to sessions started in `apps/aipostit`) reads these first and keeps them up to date;
+which ideas wait. The product-manager agent (`.claude/agents/product-manager.md`,
+available to sessions started at the repo root) reads these first and keeps them up to date;
 anyone else can too. `ARCHITECTURE.md` and `RUNBOOK.md`
 say how the product works today; these say where it is going.
 

@@ -55,6 +55,15 @@
       {% endfor %}
     </select>
   </div>
+  {% if hotel %}
+  <div>
+    <label for="invite_retention_days" class="block text-sm font-medium mb-1">Keep ended invites for (days)</label>
+    <input id="invite_retention_days" name="invite_retention_days" type="number" min="7" max="180" required
+           value="{{ hotel.invite_retention_days or 90 }}"
+           class="w-32 border border-gray-300 rounded px-3 py-2 text-sm" />
+    <p class="text-xs text-gray-500 mt-1">How long an accepted, revoked or expired invite, and the email it names, is kept after it ends: 7 to 180 days, 90 by default.</p>
+  </div>
+  {% endif %}
   <fieldset>
     <legend class="block text-sm font-medium mb-2">Channels</legend>
     <div class="grid grid-cols-2 gap-2">

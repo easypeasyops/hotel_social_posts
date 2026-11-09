@@ -34,6 +34,8 @@ class HotelUpdate(BaseModel):
     tier: SubscriptionTier | None = None
     channels: list[SocialChannel] | None = None
     contact_email: str | None = None
+    # Days an ended invite's row, and so its email, is kept (migration 006; the purge is PR 7).
+    invite_retention_days: int | None = Field(None, ge=7, le=180)
 
 
 class Hotel(BaseModel):

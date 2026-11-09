@@ -142,6 +142,26 @@ def test_a_failed_send_records_the_invite_as_not_sent(smtp: type[FakeSMTP]) -> N
     assert [w[1] for w in db.writes] == ["insert"]  # no last_sent_at
 
 
+def test_a_sent_email_whose_record_fails_still_reads_sent(smtp: type[FakeSMTP]) -> None:
+    class SendNotRecorded(FakeDB):
+        def table(self, name: str) -> Any:
+            query = super().table(name)
+            if self.writes:  # the insert went in; the update after the send fails
+                query.update = self.fail  # type: ignore[method-assign]
+            return query
+
+        def fail(self, row: dict[str, Any]) -> Any:
+            raise RuntimeError("timeout")
+
+    db = SendNotRecorded(hotels=[HOTEL])
+    response = send(db)
+
+    assert response.status_code == 200
+    assert "Invite sent to new.staff@example.com." in response.text
+    assert len(smtp.sent) == 1
+    assert [w[1] for w in db.writes] == ["insert"]
+
+
 def test_without_smtp_the_invite_is_recorded_and_its_link_shown() -> None:
     db = FakeDB(hotels=[HOTEL])
     response = send(db)

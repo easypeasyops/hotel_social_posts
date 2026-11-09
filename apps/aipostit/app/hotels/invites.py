@@ -61,10 +61,15 @@ def create_invite(
     except MailError:
         logger.exception("The staff invite email could not be sent")
         return link, False
-    sent_at = datetime.now(UTC).isoformat()
-    db.table("staff_invites").update({"last_sent_at": sent_at, "send_count": 1}).eq(
-        "id", invite_id
-    ).execute()
+    # The email went out: a failure to note that is logged, not an error page, which would
+    # have the inviter send it again. The invite then reads "email not sent".
+    try:
+        sent_at = datetime.now(UTC).isoformat()
+        db.table("staff_invites").update({"last_sent_at": sent_at, "send_count": 1}).eq(
+            "id", invite_id
+        ).execute()
+    except Exception:
+        logger.exception("Staff invite %s was emailed but its send wasn't recorded", invite_id)
     return link, True
 
 

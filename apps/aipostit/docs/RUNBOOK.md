@@ -23,7 +23,7 @@ kubectl -n aipostit-<env> rollout restart deployment
 
 ## Prerequisites and configuration
 
-Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff, `004` its `role` column, `005` the assets' `thumbnail_path`), and configure provider credentials.
+Before starting the app, provision Supabase and Redis, create the `hotel-assets` Storage bucket, apply the migrations in `supabase/migrations/` in order (`002` creates the public `published-media` bucket, `003` the `hotel_members` table for hotel staff, `004` its `role` column, `005` the assets' `thumbnail_path`, `006` the `staff_invites` table and `hotels.invite_retention_days`), and configure provider credentials.
 
 Set the following environment variables in the local `.env`; in the cluster they come from the platform's store, loaded from that file (below):
 
@@ -89,6 +89,8 @@ kubectl -n aipostit-prod exec deploy/aipostit-worker -- celery -A app.jobs.tasks
 ```
 
 It queues the task and prints its ID; the worker log then says `Made N thumbnails`. It only touches `ready` JPEGs and PNGs with no `thumbnail_path`, so running it again does only what's left. A photo it can't read is logged (`is not a photo Pillow can open`, or `Could not make a thumbnail`) and skipped: it stays `ready` and keeps showing full size.
+
+Staff invite tracking needs migration `006`. Run `supabase/migrations/006_staff_invites.sql` in the SQL editor **before** merging the version bump of any release that reads or writes invites: staging and prod share the Supabase project, and a merged bump reaches staging on its own. It only adds a table and a column with a default, so it is safe for the version already running, which uses neither.
 
 To take someone's access away, use **Remove** next to their email in the hotel's "Hotel staff" section (or delete their `hotel_members` row). It takes effect on their next request. Their Supabase account stays, with no access; delete it in **Authentication → Users** if it shouldn't exist at all. Set `PUBLIC_BASE_URL` to the exact app origin used in browser (no trailing slash required).
 

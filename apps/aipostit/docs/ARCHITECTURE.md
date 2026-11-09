@@ -150,13 +150,15 @@ All API route prefixes below are registered in `app/main.py`.
 
 ## Data model
 
-The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket; `003_hotel_members.sql` adds `hotel_members`; `004_hotel_member_roles.sql` adds its `role`; `005_asset_thumbnails.sql` adds `assets.thumbnail_path`.
+The initial schema is defined in `supabase/migrations/001_initial_schema.sql`; `002_published_media_bucket.sql` adds the public `published-media` Storage bucket; `003_hotel_members.sql` adds `hotel_members`; `004_hotel_member_roles.sql` adds its `role`; `005_asset_thumbnails.sql` adds `assets.thumbnail_path`; `006_staff_invites.sql` adds `staff_invites` and `hotels.invite_retention_days`, which no released version uses yet (staff invite tracking, `docs/product/spec-staff-invite-tracking.md`).
 
 - `hotels`: hotel profile, subscription tier, channels, contact, and Buffer channel IDs per network (`buffer_profiles`, named for the REST API's profiles).
 - `assets`: hotel-owned metadata, Storage path, category, and processing state.
 - `content_drafts`: Turkish source text, channel, review/publishing status, and associated asset IDs.
 - `content_translations`: translated text keyed uniquely by draft and language.
 - `hotel_members`: hotel staff accounts, one hotel each (`user_id` primary key, cascading from `auth.users` and `hotels`), with a `role` checked to `hotel_admin`, `content_moderator` or `content_creator` (default `hotel_admin`, so staff from before roles, and rows an older image inserts, keep what they could do). Row-level security is on with no policies, so only the service-role key reads or writes it.
+- `staff_invites`: one row per staff invite, cascading from `hotels`: the invitee's `email` (required, lower case), the `role` it gives (checked as `hotel_members.role`), `valid_days` (1 to 30, default 7), `invited_by_email`, `created_at`, `expires_at`, `last_sent_at` (null when no email went out) and `send_count`, and `accepted_at` or `revoked_at` (never both) with `revoked_by_email`. Its status (pending, accepted, expired, revoked) is derived from those columns, not stored. Indexed by hotel and creation time, for a hotel's list, and by when the invite ended (the earliest of `accepted_at`, `revoked_at` and `expires_at`), for the purge. Row-level security is on with no policies, as for `hotel_members`.
+- `hotels.invite_retention_days`: how many days an ended invite's row is kept (default 90, checked 7 to 180).
 - `publish_log`: Buffer post ID (`buffer_update_id`, named for the REST API's updates) and scheduling status.
 
 Assets, drafts, translations, and publish-log records use foreign keys with cascading deletion from their owning hotel or draft. `hotels` and `content_drafts` have `updated_at` triggers. The migration does not define row-level security policies, indexes beyond primary/unique constraints, or Storage bucket policies.

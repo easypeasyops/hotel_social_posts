@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from app.auth.dependencies import get_current_user, require_operator
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
 HOTEL = {"id": "hotel-1", "name": "Ege Konak", "slug": "ege-konak", "location": "Ayvalık",
          "contact_email": "info@egekonak.test", "description": "Deniz kenarında",
@@ -22,7 +22,9 @@ FORM = {"name": "Ege Konak", "location": "Ayvalık", "contact_email": "info@egek
 
 def operator(db: FakeDB) -> TestClient:
     app = create_app()
-    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(email="op@example.com")
+    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(
+        user_metadata=NAMED, email="op@example.com"
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)
 
@@ -30,7 +32,9 @@ def operator(db: FakeDB) -> TestClient:
 def staff(db: FakeDB, role: str = "hotel_admin") -> TestClient:
     db.rows["hotel_members"] = [{"user_id": "me", "hotel_id": "hotel-1", "role": role}]
     app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id="me", app_metadata={})
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        user_metadata=NAMED, id="me", app_metadata={}
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)
 

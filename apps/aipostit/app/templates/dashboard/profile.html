@@ -4,7 +4,9 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-6">Your profile</h1>
 
-{% if saved %}
+{% if request.query_params.get("name") == "required" and not error %}
+<div role="status" class="bg-gray-100 text-gray-800 rounded px-4 py-3 mb-4 text-sm">Add your full name to continue.</div>
+{% elif saved %}
 <div role="status" class="bg-green-100 text-green-800 rounded px-4 py-3 mb-4 text-sm">Saved.</div>
 {% elif error %}
 <div role="alert" class="bg-red-100 text-red-800 rounded px-4 py-3 mb-4 text-sm">Enter your full name (up to 100 characters).</div>
@@ -12,6 +14,7 @@
 
 <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
   <form method="post" action="/dashboard/profile" class="space-y-3">
+    {% if not name %}<input type="hidden" name="first" value="1" />{% endif %}
     <div>
       <label for="name" class="block text-sm font-medium mb-1">Full name</label>
       <input id="name" name="name" value="{{ typed if typed is defined else name }}" required maxlength="100" autocomplete="name"

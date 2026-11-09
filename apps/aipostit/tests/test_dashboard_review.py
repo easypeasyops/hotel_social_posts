@@ -1,6 +1,7 @@
 """Reviewing drafts in the dashboard: the hotel page lists drafts waiting for review with
 their images, and its buttons approve (queueing the publish) or reject them."""
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -10,7 +11,7 @@ from app.auth.dependencies import require_operator
 from app.database import get_supabase
 from app.jobs import tasks
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
 HOTEL = {"id": "hotel-1", "name": "Ege Konak", "location": "Bodrum", "slug": "ege-konak",
          "tier": "standard", "channels": ["instagram"], "contact_email": "a@b.invalid"}  # fmt: skip
@@ -37,7 +38,9 @@ def published(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 def _client(db: FakeDB) -> TestClient:
     app = create_app()
-    app.dependency_overrides[require_operator] = lambda: {"id": "operator"}
+    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(
+        id="operator", user_metadata=NAMED
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)
 

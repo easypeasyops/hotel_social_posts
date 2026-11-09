@@ -15,7 +15,7 @@ from app.auth.dependencies import get_current_user, require_operator
 from app.database import get_supabase
 from app.hotels.invites import invite_status
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 from tests.test_recorded_invite_signup import supabase_with
 from tests.test_staff_signup import (
     sign_up,
@@ -70,7 +70,9 @@ def test_the_status_comes_from_the_row(fields: dict[str, str], status: str) -> N
 
 def dashboard(db: FakeDB) -> str:
     app = create_app()
-    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(email="op@example.com")
+    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(
+        user_metadata=NAMED, email="op@example.com"
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app).get("/dashboard/hotels/hotel-1").text
 
@@ -80,7 +82,7 @@ def team_page(role: str, db: FakeDB) -> Any:
         {"user_id": "me", "hotel_id": "hotel-1", "email": "me@example.com", "role": role}
     ]
     app = create_app()
-    me = SimpleNamespace(id="me", email="me@example.com", app_metadata={})
+    me = SimpleNamespace(user_metadata=NAMED, id="me", email="me@example.com", app_metadata={})
     app.dependency_overrides[get_current_user] = lambda: me
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False).get("/hotel/staff")

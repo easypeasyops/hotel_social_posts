@@ -13,7 +13,7 @@ from app.auth.dependencies import get_current_user, require_operator
 from app.auth.upload_tokens import create_recorded_invite_token
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 from tests.test_invite_table import HOTEL, invite, links
 from tests.test_recorded_invite_signup import supabase_with
 from tests.test_staff_signup import sign_up
@@ -25,7 +25,9 @@ def db_with(*rows: dict[str, Any]) -> FakeDB:
 
 def operator(db: FakeDB) -> TestClient:
     app = create_app()
-    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(email="op@example.com")
+    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(
+        user_metadata=NAMED, email="op@example.com"
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)
 
@@ -35,7 +37,7 @@ def staff(db: FakeDB, role: str = "hotel_admin", hotel_id: str = "hotel-1") -> T
         {"user_id": "me", "hotel_id": hotel_id, "email": "admin@example.com", "role": role}
     ]
     app = create_app()
-    me = SimpleNamespace(id="me", email="admin@example.com", app_metadata={})
+    me = SimpleNamespace(user_metadata=NAMED, id="me", email="admin@example.com", app_metadata={})
     app.dependency_overrides[get_current_user] = lambda: me
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)

@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from redis.exceptions import RedisError
 from supabase_auth.errors import AuthApiError
 
+from app.account import clean_full_name
 from app.auth.router import _set_session_cookie, templates
 from app.auth.sessions import create_session
 from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
@@ -43,6 +44,7 @@ def signup_page(request: Request):
 def sign_up(
     request: Request,
     invite: str = Form(""),
+    full_name: str = Form(""),
     email: str = Form(...),
     password: str = Form(...),
     password_confirmation: str = Form(...),
@@ -57,10 +59,13 @@ def sign_up(
     if invited is None:
         return _page(request, 400, invite_error=INVALID_INVITE)
     hotel_id, role, invited_email = invited
-    form = {"invite": invite, "email": email}
+    form = {"invite": invite, "email": email, "full_name": full_name}
     if invited_email is not None and email.strip().lower() != invited_email:
         # An invite sent to one person: only the address it was sent to signs up with it.
         return _page(request, 403, error=f"This invite is for {invited_email}.", **form)
+    name = clean_full_name(full_name)
+    if name is None:
+        return _page(request, 422, error="Enter your full name (up to 100 characters).", **form)
     if len(password) < 8:
         return _page(request, 422, error="Password must be at least 8 characters.", **form)
     if password != password_confirmation:
@@ -78,7 +83,12 @@ def sign_up(
     try:
         # Confirmed at once: the invite, not the inbox, is what vouches for this person.
         created = db.auth.admin.create_user(
-            {"email": email, "password": password, "email_confirm": True}
+            {
+                "email": email,
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {"full_name": name},
+            }
         )
     except AuthApiError as exc:
         release_invite(db, invite_id)

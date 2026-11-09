@@ -4,7 +4,7 @@ from fastapi import Depends, Header, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase_auth.errors import AuthApiError
 
-from app.account import menu
+from app.account import full_name, menu
 from app.auth.sessions import (
     SESSION_COOKIE,
     RedisError,
@@ -111,6 +111,25 @@ def require_staff_member(
         raise HTTPException(status_code=403, detail="This account is not hotel staff")
     request.state.account = menu(user, member)
     return member
+
+
+def _ask_for_name(request: Request, user, profile: str) -> None:
+    """An account without a full name (one made before sign-up asked for it) goes to its profile
+    page to add one before any other page; only page loads (GET), so no form loses its post."""
+    if request.method == "GET" and request.url.path != profile and not full_name(user):
+        raise HTTPException(status_code=303, headers={"Location": f"{profile}?name=required"})
+
+
+def operator_page(request: Request, user=Depends(require_operator)) -> None:
+    """The dashboard's pages: an operator, with a name (_ask_for_name)."""
+    _ask_for_name(request, user, "/dashboard/profile")
+
+
+def staff_page(
+    request: Request, user=Depends(get_current_user), _: dict = Depends(require_staff_member)
+) -> None:
+    """The /hotel pages: hotel staff, with a name (_ask_for_name)."""
+    _ask_for_name(request, user, "/hotel/profile")
 
 
 def require_staff(member: dict = Depends(require_staff_member)) -> str:

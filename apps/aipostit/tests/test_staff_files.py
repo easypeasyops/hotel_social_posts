@@ -10,9 +10,9 @@ from fastapi.testclient import TestClient
 from app.auth.dependencies import get_current_user
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
-STAFF = SimpleNamespace(id="staff-1", app_metadata={"provider": "email"})
+STAFF = SimpleNamespace(user_metadata=NAMED, id="staff-1", app_metadata={"provider": "email"})
 
 
 def _asset(asset_id: str, hotel_id: str = "hotel-1") -> dict[str, Any]:

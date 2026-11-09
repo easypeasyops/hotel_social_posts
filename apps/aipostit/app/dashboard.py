@@ -178,6 +178,7 @@ def update_hotel(
     tier: str = Form("standard"),
     channels: list[str] = Form(default=[]),
     description: str = Form(""),
+    invite_retention_days: str | None = Form(None),
     db: Client = Depends(get_supabase),
 ):
     current = hotel_service.get_hotel(db, hotel_id)
@@ -189,6 +190,7 @@ def update_hotel(
             tier=tier,
             channels=channels,
             contact_email=contact_email,
+            invite_retention_days=invite_retention_days,
         )
     except ValueError as exc:
         return templates.TemplateResponse(

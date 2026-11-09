@@ -326,19 +326,24 @@ def staff_save_details(
     contact_email: str = Form(""),
     channels: list[str] = Form([]),
     description: str = Form(""),
+    invite_retention_days: str | None = Form(None),
     hotel_id: str = Depends(require_hotel_admin),
     db: Client = Depends(get_supabase),
 ):
-    """The details a hotel admin keeps up to date. The slug, tier and Buffer profiles stay with
-    operators (the dashboard)."""
+    """The details a hotel admin keeps up to date, and how long ended invites are kept. The slug,
+    tier and Buffer profiles stay with operators (the dashboard)."""
     form = {"name": name.strip(), "location": location.strip(),
             "contact_email": contact_email.strip(), "description": description.strip()}  # fmt: skip
     try:
         if not (form["name"] and form["location"] and form["contact_email"]):
             raise ValueError("missing")
-        payload = HotelUpdate(**form, channels=channels)
+        payload = HotelUpdate(
+            **form, channels=channels, invite_retention_days=invite_retention_days
+        )
     except ValueError:
         hotel = {**hotel_service.get_hotel(db, hotel_id), **form, "channels": channels}
+        if invite_retention_days is not None:
+            hotel["invite_retention_days"] = invite_retention_days
         return _details_page(request, hotel, 422, error=True)
     hotel_service.update_hotel(db, hotel_id, payload)
     return RedirectResponse("/hotel/details?done=saved", status_code=303)

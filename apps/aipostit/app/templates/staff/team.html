@@ -9,7 +9,7 @@
   <p class="mt-1 text-sand-700">Otel yöneticileri bu sayfayı ve otel bilgilerini yönetir. İçerik moderatörleri dosya ve paylaşımları düzenler, onaylar ve siler. İçerik üreticileri dosya yükler ve paylaşımları görür.</p>
 </div>
 
-{% if request.query_params.get("done") in ("role", "removed") %}
+{% if request.query_params.get("done") in ("role", "removed", "revoked") %}
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Kaydedildi.</p></div>
 {% endif %}
 
@@ -90,6 +90,10 @@
         <input id="invite-link-{{ invite.id }}" readonly value="{{ invite.link }}" aria-label="{{ invite.email }} davet bağlantısı" class="w-full {{ field }}" />
         <button type="button" class="min-h-11 px-3 rounded-lg border border-sand-500 bg-white"
                 onclick="navigator.clipboard.writeText(document.getElementById('invite-link-{{ invite.id }}').value)">Kopyala</button>
+        <form method="post" action="/hotel/staff/invites/{{ invite.id }}/revoke"
+              onsubmit='return confirm({{ (invite.email ~ " daveti iptal edilsin mi? Bağlantısı hemen çalışmaz olur.")|tojson }})'>
+          <button class="min-h-11 px-3 rounded-lg border border-red-200 text-red-800 font-semibold hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">İptal et</button>
+        </form>
       </div>
       {% endif %}
     </li>

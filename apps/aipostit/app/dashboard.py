@@ -13,7 +13,7 @@ from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
-from app.hotels.invites import create_invite, list_invites
+from app.hotels.invites import create_invite, list_invites, revoke_invite
 from app.hotels.models import HotelCreate, HotelUpdate
 from app.jobs import tasks
 from supabase import Client
@@ -264,6 +264,17 @@ def send_staff_invite(
 def remove_staff(hotel_id: str, user_id: str, db: Client = Depends(get_supabase)):
     staff_service.remove_member(db, hotel_id, user_id)
     return RedirectResponse(f"/dashboard/hotels/{hotel_id}#staff", status_code=303)
+
+
+@router.post("/hotels/{hotel_id}/invites/{invite_id}/revoke")
+def revoke_staff_invite(
+    hotel_id: str,
+    invite_id: str,
+    user=Depends(require_operator),
+    db: Client = Depends(get_supabase),
+):
+    revoke_invite(db, hotel_id, invite_id, user.email)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#invites", status_code=303)
 
 
 @router.post("/hotels/{hotel_id}/staff/{user_id}/role")

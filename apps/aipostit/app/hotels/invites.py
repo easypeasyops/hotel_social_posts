@@ -136,6 +136,18 @@ def pending_invite(db, invite_id: str, hotel_id: str) -> dict | None:
     return row
 
 
+def revoke_invite(db, hotel_id: str, invite_id: str, by_email: str) -> None:
+    """Ends a pending invite of this hotel at once: its link then fails at /signup. One
+    conditional update, so another hotel's invite, or one already accepted, revoked or expired
+    (or claimed by a sign-up a moment before), is left as it is."""
+    now = datetime.now(UTC).isoformat()
+    db.table("staff_invites").update({"revoked_at": now, "revoked_by_email": by_email}).eq(
+        "id", invite_id
+    ).eq("hotel_id", hotel_id).is_("accepted_at", "null").is_("revoked_at", "null").gt(
+        "expires_at", now
+    ).execute()
+
+
 def claim_invite(db, invite_id: str) -> bool:
     """Marks a pending invite accepted, in one conditional update, so of two sign-ups racing
     on it only one gets True."""

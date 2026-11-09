@@ -96,7 +96,7 @@ kubectl -n aipostit-prod exec deploy/aipostit-worker -- celery -A app.jobs.tasks
 
 It queues the task and prints its ID; the worker log then says `Made N thumbnails`. It only touches `ready` JPEGs and PNGs with no `thumbnail_path`, so running it again does only what's left. A photo it can't read is logged (`is not a photo Pillow can open`, or `Could not make a thumbnail`) and skipped: it stays `ready` and keeps showing full size.
 
-Hotel logos need migration `007`. Run it in the SQL editor **before** merging the version bump of any release that sets logos (without the column, an upload fails and a hotel's pages can't record its logo); it is safe for the version already running, which neither selects nor writes it. Staging and prod share the project, so once covers both:
+Hotel logos need migration `007` (applied to the shared project on 2026-11-09). Run it in the SQL editor **before** merging the version bump of any release that sets logos (without the column, an upload fails and a hotel's pages can't record its logo); it is safe for the version already running, which neither selects nor writes it. Staging and prod share the project, so once covers both:
 
 ```sql
 alter table hotels add column logo_version bigint;

@@ -53,7 +53,7 @@ def test_the_operator_revokes_a_pending_invite() -> None:
     response = client.post("/dashboard/hotels/hotel-1/invites/id-new/revoke")
     assert (response.status_code, response.headers["location"]) == (
         303,
-        "/dashboard/hotels/hotel-1#invites",
+        "/dashboard/hotels/hotel-1?done=revoked#invites",
     )
     assert (row(db)["revoked_at"] is not None, row(db)["revoked_by_email"]) == (
         True,

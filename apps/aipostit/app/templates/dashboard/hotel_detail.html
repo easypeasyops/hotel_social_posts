@@ -28,10 +28,16 @@
   </dl>
 </section>
 
+{% set done = request.query_params.get("done") %}
+{% set badge = {"pending": "bg-amber-100 text-amber-900", "accepted": "bg-green-100 text-green-900", "expired": "bg-gray-100 text-gray-700", "revoked": "bg-gray-100 text-gray-700"} %}
+{% set pending_invites = invites|selectattr("status", "equalto", "pending")|list %}
+{% set ended_invites = invites|rejectattr("status", "equalto", "pending")|list %}
 <section id="staff" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
   <h2 class="font-semibold">Hotel staff</h2>
   <p class="text-sm text-gray-600 mt-1">Staff accounts see this hotel only: its files, uploads and drafts. Hotel admins and content moderators edit and decide content; content creators upload and look. An invite works once, only for the address it names.</p>
-  <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff-invite" class="mt-4 flex flex-wrap items-center gap-2">
+
+  <h3 class="font-semibold mt-5">Invite someone</h3>
+  <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff-invite" data-inline="staff" class="mt-2 flex flex-wrap items-center gap-2">
     <label for="staff-invite-email" class="sr-only">Email</label>
     <input id="staff-invite-email" name="email" type="email" required placeholder="name@hotel.com"
            class="border border-gray-300 rounded px-3 py-2 text-sm w-64 max-w-full" />
@@ -48,86 +54,99 @@
     <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">Send invite</button>
   </form>
   {% if staff_invite_error %}
-  <p role="alert" class="mt-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-900">{{ staff_invite_error }}</p>
+  <p role="alert" data-focus tabindex="-1" class="mt-3 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-900">{{ staff_invite_error }}</p>
   {% endif %}
   {% if staff_invite_link %}
-  <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
-    <p role="status" class="text-sm font-medium">{% if staff_invite_sent %}Invite sent to {{ staff_invite_email }}.{% else %}Invite recorded, email not sent: send this link to {{ staff_invite_email }} yourself.{% endif %}</p>
-    <div class="mt-2 flex gap-2">
-      <input id="staff-invite-link" readonly value="{{ staff_invite_link }}" aria-label="Invite link"
-             class="w-full border border-blue-200 bg-white rounded px-3 py-2 text-sm" />
-      <button type="button" class="border border-blue-200 bg-white rounded px-3 py-2 text-sm"
-              onclick="navigator.clipboard.writeText(document.getElementById('staff-invite-link').value)">Copy</button>
-    </div>
+  <div role="status" data-focus tabindex="-1" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded flex flex-wrap items-center gap-2">
+    <p class="text-sm font-medium flex-1">{% if staff_invite_sent %}Invite sent to {{ staff_invite_email }}.{% else %}Email not sent: copy the link to send it to {{ staff_invite_email }} yourself.{% endif %}</p>
+    <button type="button" id="staff-invite-link" data-copy="{{ staff_invite_link }}" data-copied="Copied ✓"
+            class="border border-blue-300 bg-white rounded px-3 py-1.5 text-sm hover:bg-blue-100">Copy invite link</button>
   </div>
   {% endif %}
-  {% if staff %}
-  <div class="mt-5 divide-y divide-gray-200 border-t border-gray-200">
-    {% for member in staff %}
-    <div class="py-3 flex items-center justify-between gap-4 text-sm">
-      <div class="min-w-0">
-        <p class="font-medium truncate">{{ member.email }}</p>
-        <p class="text-gray-500">Joined {{ (member.created_at or "")[:10] }}</p>
+
+  <h3 id="invites" class="font-semibold mt-6">Pending invites</h3>
+  {% if done == "revoked" %}
+  <p role="status" data-focus tabindex="-1" class="mt-2 text-sm text-green-800">Invite revoked.</p>
+  {% endif %}
+  {% if pending_invites %}
+  <ul class="mt-2 divide-y divide-gray-200 border-t border-gray-200">
+    {% for invite in pending_invites %}
+    <li class="py-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <div class="min-w-0 flex-1 basis-64">
+        <p id="invite-{{ invite.id }}" class="font-medium truncate">{{ invite.email }}</p>
+        <p class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+          <span class="rounded px-1.5 py-0.5 {{ badge.pending }}">pending</span>
+          {% if not invite.last_sent_at %}<span class="rounded px-1.5 py-0.5 bg-red-100 text-red-900">email not sent</span>{% endif %}
+          <span>{{ staff_roles.get(invite.role, invite.role) }} · by {{ invite.invited_by_email }} · made {{ (invite.created_at or "")[:10] }} · expires {{ invite.expires_at[:10] }}</span>
+        </p>
       </div>
-      <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff/{{ member.user_id }}/role" class="ml-auto flex items-center gap-2">
-        <label for="role-{{ member.user_id }}" class="sr-only">Role of {{ member.email }}</label>
-        <select id="role-{{ member.user_id }}" name="role" class="border border-gray-300 rounded px-2 py-1 text-xs">
-          {% for value, label in staff_roles.items() %}
-          <option value="{{ value }}" {% if value == member.role %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="text-xs text-blue-700 hover:underline">Change</button>
-      </form>
-      <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff/{{ member.user_id }}/remove"
-            onsubmit='return confirm({{ ("Remove " ~ member.email ~ " from this hotel? They lose access at once.")|tojson }})'>
-        <button type="submit" class="text-xs text-red-700 hover:underline">Remove</button>
-      </form>
-    </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" data-copy="{{ invite.link }}" data-invite="{{ invite.id }}" data-copied="Copied ✓" aria-describedby="invite-{{ invite.id }}"
+                class="border border-gray-300 rounded px-3 py-1.5 text-xs hover:bg-gray-50">Copy invite link</button>
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/invites/{{ invite.id }}/revoke" data-inline="staff"
+              onsubmit='return confirm({{ ("Revoke the invite for " ~ invite.email ~ "? Its link stops working at once.")|tojson }})'>
+          <button type="submit" aria-describedby="invite-{{ invite.id }}" class="px-2 py-1.5 text-xs text-gray-500 underline hover:text-red-700">Revoke</button>
+        </form>
+      </div>
+    </li>
     {% endfor %}
-  </div>
+  </ul>
   {% else %}
-  <p class="text-sm text-gray-600 mt-5 border-t border-gray-200 pt-4">No staff accounts yet.</p>
+  <p class="text-sm text-gray-600 mt-2">No pending invites.</p>
   {% endif %}
-  <h3 id="invites" class="font-semibold mt-6">Invites</h3>
-  {% if invites %}
-  <div class="mt-2 overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-left text-gray-500">
-        <tr><th class="py-2 pr-3">Email</th><th class="pr-3">Role</th><th class="pr-3">Status</th><th class="pr-3">Made</th><th class="pr-3">Expires</th><th>Invited by</th></tr>
-      </thead>
-      <tbody class="divide-y divide-gray-200">
-        {% for invite in invites %}
-        <tr class="align-top">
-          <td class="py-2 pr-3">{{ invite.email }}</td>
-          <td class="pr-3">{{ staff_roles.get(invite.role, invite.role) }}</td>
-          <td class="pr-3">{{ invite.status }}{% if invite.status == "accepted" %} {{ invite.accepted_at[:10] }}{% elif invite.status == "pending" and not invite.last_sent_at %}, email not sent{% endif %}</td>
-          <td class="pr-3">{{ (invite.created_at or "")[:10] }}</td>
-          <td class="pr-3">{{ invite.expires_at[:10] }}</td>
-          <td>{{ invite.invited_by_email }}</td>
-        </tr>
-        {% if invite.link %}
-        <tr><td colspan="6" class="pb-2">
-          <div class="flex gap-2">
-            <input id="invite-link-{{ invite.id }}" readonly value="{{ invite.link }}" aria-label="Invite link for {{ invite.email }}"
-                   class="w-full border border-gray-300 rounded px-2 py-1 text-xs" />
-            <button type="button" class="border border-gray-300 rounded px-2 py-1 text-xs"
-                    onclick="navigator.clipboard.writeText(document.getElementById('invite-link-{{ invite.id }}').value)">Copy</button>
-            <form method="post" action="/dashboard/hotels/{{ hotel.id }}/invites/{{ invite.id }}/revoke"
-                  onsubmit='return confirm({{ ("Revoke the invite for " ~ invite.email ~ "? Its link stops working at once.")|tojson }})'>
-              <button type="submit" class="text-xs text-red-700 hover:underline px-2 py-1">Revoke</button>
-            </form>
-          </div>
-        </td></tr>
-        {% endif %}
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <p class="text-sm text-gray-600 mt-2">No invites yet.</p>
+  {% if ended_invites %}
+  <details id="ended-invites" class="mt-3">
+    <summary class="cursor-pointer text-sm text-gray-600 hover:text-gray-900">Ended invites ({{ ended_invites|length }})</summary>
+    <ul class="mt-2 divide-y divide-gray-200 text-gray-500">
+      {% for invite in ended_invites %}
+      <li class="py-2 text-sm">
+        <p class="truncate">{{ invite.email }}</p>
+        <p class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+          <span class="rounded px-1.5 py-0.5 {{ badge[invite.status] }}">{{ invite.status }}{% if invite.status == "accepted" %} {{ invite.accepted_at[:10] }}{% endif %}</span>
+          <span>{{ staff_roles.get(invite.role, invite.role) }} · by {{ invite.invited_by_email }} · made {{ (invite.created_at or "")[:10] }} · expires {{ invite.expires_at[:10] }}</span>
+        </p>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
   {% endif %}
   <p class="text-xs text-gray-500 mt-2">Invites made before invites were recorded aren't listed; they still work until they expire.</p>
+
+  <h3 id="members" class="font-semibold mt-6">Members</h3>
+  {% if done in ("role", "removed") %}
+  <p role="status" data-focus tabindex="-1" class="mt-2 text-sm text-green-800">{% if done == "role" %}Role changed.{% else %}Removed from this hotel.{% endif %}</p>
+  {% endif %}
+  {% if staff %}
+  <ul class="mt-2 divide-y divide-gray-200 border-t border-gray-200">
+    {% for member in staff %}
+    <li class="py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+      <div class="min-w-0">
+        <p id="member-{{ member.user_id }}" class="font-medium truncate">{{ member.email }}</p>
+        <p class="text-gray-500">Joined {{ (member.created_at or "")[:10] }}</p>
+      </div>
+      <div class="ml-auto flex flex-wrap items-center gap-2">
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff/{{ member.user_id }}/role" data-inline="staff" class="flex items-center gap-2">
+          <label for="role-{{ member.user_id }}" class="sr-only">Role of {{ member.email }}</label>
+          <select id="role-{{ member.user_id }}" name="role" class="border border-gray-300 rounded px-2 py-1 text-xs">
+            {% for value, label in staff_roles.items() %}
+            <option value="{{ value }}" {% if value == member.role %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="border border-gray-300 rounded px-2 py-1 text-xs hover:bg-gray-50">Change</button>
+        </form>
+        <form method="post" action="/dashboard/hotels/{{ hotel.id }}/staff/{{ member.user_id }}/remove" data-inline="staff"
+              onsubmit='return confirm({{ ("Remove " ~ member.email ~ " from this hotel? They lose access at once.")|tojson }})'>
+          <button type="submit" aria-describedby="member-{{ member.user_id }}" class="px-2 py-1 text-xs text-gray-500 underline hover:text-red-700">Remove</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-gray-600 mt-2">No staff accounts yet.</p>
+  {% endif %}
 </section>
+<script src="/static/inline.js" defer></script>
 
 <section id="media" class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
   <div class="flex flex-wrap items-center justify-between gap-3">

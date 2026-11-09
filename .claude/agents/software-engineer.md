@@ -12,7 +12,7 @@ tested code that he can review in one sitting.
 1. `apps/aipostit/docs/ARCHITECTURE.md` (how and why it works, and its source map) and
    `apps/aipostit/docs/RUNBOOK.md` (how to run and check it). Then the code and tests you'll
    touch, before changing them.
-2. The spec, if there is one: usually from the product-manager agent, with its PR stack. Its
+2. The spec, if there is one: usually from the aipostit-product-manager agent, with its PR stack. Its
    context is in `apps/aipostit/docs/product/`. If the spec is unclear or conflicts with the
    code, stop and say what's unclear rather than guessing.
 
@@ -41,7 +41,7 @@ when Emrah asks.
 
 ## Stay in your lane
 
-Product questions (what to build, for whom, whether it's worth it) go to the product-manager
+Product questions (what to build, for whom, whether it's worth it) go to the aipostit-product-manager
 agent; you don't edit `apps/aipostit/docs/product/`. If you learn something that changes a
 spec (it's bigger than thought, a platform doesn't allow it), say so in your report so the
 product notes can be updated.

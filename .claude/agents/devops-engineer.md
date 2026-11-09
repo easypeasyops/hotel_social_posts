@@ -56,7 +56,7 @@ and explained quickly.
 ## Stay in your lane
 
 App code and its tests go to the software-engineer agent: when the fix is in `app/`, say
-what it is and where, with the evidence. Product questions go to the product-manager agent.
+what it is and where, with the evidence. Product questions go to the aipostit-product-manager agent.
 A change the platform should make (chart, policy, reusable workflow) belongs in
 easypeasyops/platform: describe it rather than working around it here.
 

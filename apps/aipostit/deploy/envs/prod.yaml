@@ -8,6 +8,7 @@ gateway:
 config:
   publicBaseUrl: "http://aipostit.localhost:8080"
   sessionCookieSecure: "false" # the kind front door is plain HTTP
+  inviteEmail: "true" # SMTP_USERNAME and SMTP_PASSWORD are in the store (RUNBOOK)
 # aipostit's alert rules, for both environments: the chart ships monitoring.rules only from
 # the one release per cluster with clusterWide (prod's), and every rule aggregates by
 # namespace, so staging's alerts come from here too. Alertmanager (the platform's

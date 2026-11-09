@@ -1,6 +1,7 @@
 """An operator sees a hotel's staff accounts on its dashboard page, changes their roles and can
 remove one, which takes that account's access away at once."""
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.auth.dependencies import require_operator
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
 HOTEL = {"id": "hotel-1", "name": "Lagoon Bay", "slug": "lagoon-bay"}
 HOSTILE = "x'+alert(1)+'@example.com"  # an email a staff member could sign up with
@@ -35,7 +36,7 @@ def members() -> list[dict[str, Any]]:
 
 def operator(db: FakeDB) -> TestClient:
     app = create_app()
-    app.dependency_overrides[require_operator] = lambda: object()
+    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(user_metadata=NAMED)
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)
 

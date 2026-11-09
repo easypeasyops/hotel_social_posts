@@ -10,6 +10,10 @@
     <form id="signup-form" method="post" action="/signup" class="stack" {% if invite_error %}hidden{% endif %}>
       <input type="hidden" id="invite" name="invite" value="{{ invite or '' }}" />
       <div>
+        <label for="full_name">Full name</label>
+        <input id="full_name" name="full_name" type="text" autocomplete="name" required maxlength="100" value="{{ full_name or '' }}" />
+      </div>
+      <div>
         <label for="email">Work email</label>
         <input id="email" name="email" type="email" autocomplete="email" required value="{{ email or '' }}" />
       </div>

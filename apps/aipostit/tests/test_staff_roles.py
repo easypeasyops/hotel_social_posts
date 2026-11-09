@@ -11,9 +11,9 @@ from app.auth.dependencies import get_current_user
 from app.database import get_supabase
 from app.jobs import tasks
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
-STAFF = SimpleNamespace(id="staff-1", app_metadata={})
+STAFF = SimpleNamespace(user_metadata=NAMED, id="staff-1", app_metadata={})
 CHANGES = [
     ("/hotel/files/free/edit", {"name": "havuz", "category": "pool"}),
     ("/hotel/files/free/delete", {}),

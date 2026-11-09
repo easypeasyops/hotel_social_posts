@@ -62,6 +62,7 @@ def supabase_with(
 def sign_up(invite: str | None = None, **overrides: str) -> Any:
     form = {
         "invite": create_token("hotel-1", STAFF_INVITE_PURPOSE, 60) if invite is None else invite,
+        "full_name": "Ayşe Kaya",
         "email": "staff@example.com",
         "password": "lagoon-bay-2026",
         "password_confirmation": "lagoon-bay-2026",
@@ -78,7 +79,12 @@ def test_an_invite_makes_a_staff_account_for_its_hotel_and_signs_it_in(
 
     assert (response.status_code, response.headers["location"]) == (303, "/hotel")
     assert admin.created == [
-        {"email": "staff@example.com", "password": "lagoon-bay-2026", "email_confirm": True}
+        {
+            "email": "staff@example.com",
+            "password": "lagoon-bay-2026",
+            "email_confirm": True,
+            "user_metadata": {"full_name": "Ayşe Kaya"},
+        }
     ]
     assert db.writes == [
         (

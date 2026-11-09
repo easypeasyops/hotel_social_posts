@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from app.auth.dependencies import get_current_user
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
 FORM = {"name": "Ege Konak Otel", "location": "Ayvalık", "contact_email": "info@egekonak.test",
         "description": "Deniz kenarında", "channels": ["instagram", "tiktok"]}  # fmt: skip
@@ -25,7 +25,9 @@ def _client(role: str = "hotel_admin") -> tuple[TestClient, FakeDB]:
         hotel_members=[{"user_id": "me", "hotel_id": "hotel-1", "role": role}],
     )  # fmt: skip
     app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id="me", app_metadata={})
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        user_metadata=NAMED, id="me", app_metadata={}
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False), db
 

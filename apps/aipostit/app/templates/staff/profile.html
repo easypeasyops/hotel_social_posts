@@ -8,7 +8,9 @@
   <h1 class="mt-2 text-2xl font-semibold tracking-tight">Profiliniz</h1>
 </div>
 
-{% if saved %}
+{% if request.query_params.get("name") == "required" and not error %}
+<div role="status" class="flex gap-3 p-4 rounded-xl bg-iris-50 text-iris-950"><span aria-hidden="true">👋</span><p>Devam etmeden önce adınızı ve soyadınızı ekleyin.</p></div>
+{% elif saved %}
 <div role="status" class="flex gap-3 p-4 rounded-xl bg-green-100 text-green-800"><span aria-hidden="true">✓</span><p>Kaydedildi.</p></div>
 {% elif error %}
 <div role="alert" class="flex gap-3 p-4 rounded-xl bg-red-100 text-red-800"><span aria-hidden="true">!</span><p>Adınızı ve soyadınızı yazın (en çok 100 karakter).</p></div>
@@ -16,6 +18,7 @@
 
 <section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-6">
   <form method="post" action="/hotel/profile" class="space-y-3">
+    {% if not name %}<input type="hidden" name="first" value="1" />{% endif %}
     <label class="block"><span class="font-medium">Ad soyad</span>
       <input name="name" value="{{ typed if typed is defined else name }}" required maxlength="100" autocomplete="name" class="{{ field }}" /></label>
     <button type="submit" class="{{ primary }}">Kaydet</button>

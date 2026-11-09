@@ -18,6 +18,7 @@ from app.auth.dependencies import (
     require_moderator,
     require_staff,
     require_staff_member,
+    staff_page,
 )
 from app.auth.upload_tokens import create_upload_token
 from app.content import service as content_service
@@ -30,7 +31,7 @@ from app.hotels.models import HotelUpdate, SocialChannel
 from app.hotels.staff import ROLE_LABELS_TR, ROLES, can_moderate
 from supabase import Client
 
-router = APIRouter(prefix="/hotel")
+router = APIRouter(prefix="/hotel", dependencies=[Depends(staff_page)])
 templates = Jinja2Templates(directory="app/templates")
 
 
@@ -366,13 +367,15 @@ def staff_profile(
 def staff_save_profile(
     request: Request,
     name: str = Form(""),
+    first: bool = Form(False),
     member: dict = Depends(require_staff_member),
     user=Depends(get_current_user),
     db: Client = Depends(get_supabase),
 ):
     if save_full_name(db, user.id, name) is None:
         return _profile_page(request, db, member, user, 422, error=True, typed=name)
-    return RedirectResponse("/hotel/profile?done=saved", status_code=303)
+    # A first name (the step _ask_for_name sends to) goes on to the pages it was keeping back.
+    return RedirectResponse("/hotel" if first else "/hotel/profile?done=saved", status_code=303)
 
 
 def _profile_page(

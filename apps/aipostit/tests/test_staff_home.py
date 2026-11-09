@@ -14,9 +14,9 @@ from app.auth.dependencies import get_current_user
 from app.auth.upload_tokens import verify_upload_token
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
-STAFF = SimpleNamespace(id="staff-1", app_metadata={"provider": "email"})
+STAFF = SimpleNamespace(user_metadata=NAMED, id="staff-1", app_metadata={"provider": "email"})
 HOTELS = [{"id": "hotel-1", "name": "Lagoon Bay", "slug": "lagoon-bay"}, {"id": "hotel-2"}]
 ASSETS = [
     {
@@ -137,7 +137,7 @@ def test_upload_opens_the_upload_page_with_a_link_for_their_hotel() -> None:
 
 
 def test_an_account_that_is_not_staff_is_refused() -> None:
-    nobody = SimpleNamespace(id="nobody-1", app_metadata={})
+    nobody = SimpleNamespace(user_metadata=NAMED, id="nobody-1", app_metadata={})
     assert signed_in_as(nobody).get("/hotel").status_code == 403
 
 

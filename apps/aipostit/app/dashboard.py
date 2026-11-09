@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.account import full_name, save_full_name
 from app.assets import service as asset_service
-from app.auth.dependencies import require_operator
+from app.auth.dependencies import operator_page, require_operator
 from app.auth.upload_tokens import UPLOAD_TOKEN_TTL_SECONDS, create_upload_token
 from app.content import service as content_service
 from app.content.preview import image_choices, review_images
@@ -19,7 +19,7 @@ from app.hotels.models import HotelCreate, HotelUpdate
 from app.jobs import tasks
 from supabase import Client
 
-router = APIRouter(prefix="/dashboard", dependencies=[Depends(require_operator)])
+router = APIRouter(prefix="/dashboard", dependencies=[Depends(operator_page)])
 templates = Jinja2Templates(directory="app/templates")
 
 
@@ -115,12 +115,15 @@ def profile(request: Request, user=Depends(require_operator)):
 def save_profile(
     request: Request,
     name: str = Form(""),
+    first: bool = Form(False),
     user=Depends(require_operator),
     db: Client = Depends(get_supabase),
 ):
     if save_full_name(db, user.id, name) is None:
         return _profile_page(request, user, 422, error=True, typed=name)
-    return RedirectResponse("/dashboard/profile?done=saved", status_code=303)
+    # A first name (the step _ask_for_name sends to) goes on to the pages it was keeping back.
+    next_page = "/dashboard/hotels" if first else "/dashboard/profile?done=saved"
+    return RedirectResponse(next_page, status_code=303)
 
 
 @router.get("/hotels")

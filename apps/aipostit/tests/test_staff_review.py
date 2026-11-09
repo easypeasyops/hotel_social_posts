@@ -11,9 +11,9 @@ from app.auth.dependencies import get_current_user
 from app.database import get_supabase
 from app.jobs import tasks
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
-STAFF = SimpleNamespace(id="staff-1", app_metadata={})
+STAFF = SimpleNamespace(user_metadata=NAMED, id="staff-1", app_metadata={})
 SIGNED = "https://supabase.invalid/storage/v1/object/sign/hotel-assets"
 HOTEL = {"id": "hotel-1", "name": "Ege Konak", "slug": "ege-konak"}
 POOL = {"id": "asset-1", "hotel_id": "hotel-1", "filename": "pool.jpg", "category": "pool",

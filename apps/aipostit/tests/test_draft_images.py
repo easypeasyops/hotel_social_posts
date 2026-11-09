@@ -11,10 +11,10 @@ from app.auth.dependencies import get_current_user
 from app.database import get_supabase
 from app.main import create_app
 from app.publishing.buffer import MAX_IMAGES
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
-OPERATOR = SimpleNamespace(id="op-1", app_metadata={"role": "operator"})
-STAFF = SimpleNamespace(id="staff-1", app_metadata={})
+OPERATOR = SimpleNamespace(user_metadata=NAMED, id="op-1", app_metadata={"role": "operator"})
+STAFF = SimpleNamespace(user_metadata=NAMED, id="staff-1", app_metadata={})
 HOTEL = {"id": "hotel-1", "name": "Ege Konak", "slug": "ege-konak", "channels": ["instagram"]}
 
 

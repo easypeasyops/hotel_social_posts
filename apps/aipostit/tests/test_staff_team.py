@@ -14,7 +14,7 @@ from app.auth.dependencies import get_current_user
 from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 
 
 def _client(role: str = "hotel_admin") -> tuple[TestClient, FakeDB]:
@@ -30,7 +30,7 @@ def _client(role: str = "hotel_admin") -> tuple[TestClient, FakeDB]:
     )  # fmt: skip
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id="me", email="me@example.com", app_metadata={}
+        user_metadata=NAMED, id="me", email="me@example.com", app_metadata={}
     )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False), db

@@ -7,6 +7,9 @@ import builtins
 from types import SimpleNamespace
 from typing import Any
 
+# user_metadata for a test account that has its full name, so pages don't send it to add one.
+NAMED = {"full_name": "Test User"}
+
 
 class FakeQuery:
     def __init__(self, db: FakeDB, table: str) -> None:

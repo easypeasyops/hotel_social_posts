@@ -17,7 +17,7 @@ from app.auth.dependencies import get_current_user, require_operator
 from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
 from app.database import get_supabase
 from app.main import create_app
-from tests.fakes import FakeDB
+from tests.fakes import NAMED, FakeDB
 from tests.test_staff_signup import (
     TOKENS,
     FakeAdmin,
@@ -64,7 +64,9 @@ def smtp(monkeypatch: pytest.MonkeyPatch) -> type[FakeSMTP]:
 
 def operator(db: FakeDB) -> TestClient:
     app = create_app()
-    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(email="op@example.com")
+    app.dependency_overrides[require_operator] = lambda: SimpleNamespace(
+        user_metadata=NAMED, email="op@example.com"
+    )
     app.dependency_overrides[get_supabase] = lambda: db
     return TestClient(app, follow_redirects=False)
 
@@ -123,8 +125,8 @@ def test_the_emailed_link_signs_up(smtp: type[FakeSMTP], monkeypatch: pytest.Mon
         sign_in_with_password=lambda credentials: SimpleNamespace(session=SimpleNamespace(**TOKENS))
     )
     monkeypatch.setattr(signup, "get_supabase_anon", lambda: SimpleNamespace(auth=sign_in))
-    form = {"invite": invite, "email": "new.staff@example.com", "password": "ege-konak-2026",
-            "password_confirmation": "ege-konak-2026"}  # fmt: skip
+    form = {"invite": invite, "full_name": "Can Demir", "email": "new.staff@example.com",
+            "password": "ege-konak-2026", "password_confirmation": "ege-konak-2026"}  # fmt: skip
 
     response = TestClient(create_app(), follow_redirects=False).post("/signup", data=form)
     assert (response.status_code, response.headers["location"]) == (303, "/hotel")
@@ -197,7 +199,9 @@ def test_the_page_has_one_invite_form() -> None:
 def test_only_an_operator_sends_invites_from_the_dashboard() -> None:
     db = FakeDB(hotels=[HOTEL])
     app = create_app()
-    staff = SimpleNamespace(id="u1", email="admin@example.com", app_metadata={})
+    staff = SimpleNamespace(
+        user_metadata=NAMED, id="u1", email="admin@example.com", app_metadata={}
+    )
     app.dependency_overrides[get_current_user] = lambda: staff
     app.dependency_overrides[get_supabase] = lambda: db
     form = {"email": "new@example.com", "role": "content_creator"}

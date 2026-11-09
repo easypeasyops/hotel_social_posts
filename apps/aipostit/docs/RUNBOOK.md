@@ -351,6 +351,7 @@ The application currently schedules Turkish text only. A draft becomes `publishe
 - Hotel upload capabilities are shareable secrets in a URL fragment and expire after 24 hours. Share them only with the intended hotel contact.
 - API hotel/asset/content routes require Supabase bearer authentication. The current database client uses the service-role key for server-side requests, so authenticated users are not isolated by hotel in application logic.
 - A valid `GET /health` is public and reveals only liveness.
+- Profile photos are personal data: a 256 px WebP per account at `avatars/{user_id}.webp` in the private `hotel-assets` bucket, served only to the account itself. Removing someone from a hotel, or deleting their Supabase account, leaves the object; when someone asks for their data to go, delete it in Storage too (or they remove it themselves on their profile page first).
 - Hotel deletion cascades to associated assets metadata, drafts, translations, and publish log rows. Confirm retention and deletion requirements before deleting a hotel; Storage objects are not explicitly removed by that database cascade.
 - Use Supabase's configured backup/restore procedures for database recovery. This repository does not define backup schedules or a restore automation.
 

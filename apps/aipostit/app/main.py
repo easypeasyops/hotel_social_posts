@@ -19,6 +19,7 @@ from app.dashboard import router as dashboard_router
 from app.hotels.router import router as hotels_router
 from app.jobs.router import router as jobs_router
 from app.observability import Metrics, RequestContextMiddleware, configure_logging, serve_metrics
+from app.profile_photo import router as profile_photo_router
 from app.staff import router as staff_router
 
 
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(signup_router, tags=["authentication"])
     app.include_router(dashboard_router, tags=["dashboard"])
     app.include_router(staff_router, tags=["hotel staff"])
+    app.include_router(profile_photo_router, tags=["profile"])
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
     @app.middleware("http")

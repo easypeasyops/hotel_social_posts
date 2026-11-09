@@ -24,7 +24,7 @@ from app.content.preview import image_choices, photo_links, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
-from app.hotels.invites import create_invite
+from app.hotels.invites import create_invite, list_invites
 from app.hotels.models import HotelUpdate, SocialChannel
 from app.hotels.staff import ROLES, can_moderate
 from supabase import Client
@@ -207,6 +207,7 @@ def _team_page(request: Request, db: Client, hotel_id: str, user_id: str, **extr
             "request": request,
             "hotel": hotel_service.get_hotel(db, hotel_id),
             "members": staff_service.list_members(db, hotel_id),
+            "invites": list_invites(db, str(request.base_url), hotel_id),
             "me": user_id,
             **extra,
         },

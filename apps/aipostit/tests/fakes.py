@@ -1,5 +1,5 @@
 """A stand-in for the Supabase client: each table answers selects with the rows a test gives
-it (filtered by `eq` and `in_` on columns the rows have, and by `is_` null and `gt`) and
+it (filtered by `eq` and `in_` on columns the rows have, and by `is_` null, `gt` and `lt`) and
 records what the code writes; an `update` changes the matching rows. Storage keeps files in
 memory."""
 
@@ -17,6 +17,7 @@ class FakeQuery:
         self.equal: list[tuple[str, Any]] = []
         self.unset: list[str] = []
         self.above: list[tuple[str, Any]] = []
+        self.below: list[tuple[str, Any]] = []
 
     def select(self, *_: Any, **__: Any) -> FakeQuery:
         return self
@@ -32,6 +33,10 @@ class FakeQuery:
 
     def gt(self, column: str, value: Any) -> FakeQuery:
         self.above.append((column, value))
+        return self
+
+    def lt(self, column: str, value: Any) -> FakeQuery:
+        self.below.append((column, value))
         return self
 
     def in_(self, column: str, values: list[Any]) -> FakeQuery:
@@ -71,6 +76,8 @@ class FakeQuery:
         rows = [r for r in rows if all(r.get(c) is None for c in self.unset)]
         # Compared as given: tests use ISO timestamps in one format, as the code does.
         rows = [r for r in rows if all(c in r and r[c] > v for c, v in self.above)]
+        # As in SQL, null is never less than anything.
+        rows = [r for r in rows if all(r.get(c) is not None and r[c] < v for c, v in self.below)]
         if self.only:
             column, values = self.only
             rows = [row for row in rows if row.get(column) in values]

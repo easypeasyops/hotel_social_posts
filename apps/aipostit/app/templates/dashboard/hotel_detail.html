@@ -6,9 +6,12 @@
 <div class="mb-6">
   <a href="/dashboard/hotels" class="text-sm text-gray-600 hover:text-gray-900">← All hotels</a>
   <div class="flex items-start justify-between gap-4 mt-3">
-    <div>
-      <h1 class="text-2xl font-semibold">{{ hotel.name }}</h1>
-      <p class="text-sm text-gray-600 mt-1">{{ hotel.location }} · /{{ hotel.slug }}</p>
+    <div class="flex items-center gap-4 min-w-0">
+      {% with logo_size="h-12 w-12 text-base", logo_tone="bg-gray-200 text-gray-700", logo_alt="" %}{% include "_hotel_logo.html" %}{% endwith %}
+      <div class="min-w-0">
+        <h1 class="text-2xl font-semibold">{{ hotel.name }}</h1>
+        <p class="text-sm text-gray-600 mt-1">{{ hotel.location }} · /{{ hotel.slug }}</p>
+      </div>
     </div>
     <a href="/dashboard/hotels/{{ hotel.id }}/edit"
        class="border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50">Edit hotel</a>

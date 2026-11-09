@@ -22,7 +22,10 @@
 <body class="min-h-screen bg-sand-50 text-iris-950 font-customer text-base">
   <header class="bg-white border-b border-sand-100">
     <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-      <a href="/hotel" class="font-semibold text-lg tracking-tight truncate">{{ hotel.name }}</a>
+      <a href="/hotel" class="flex items-center gap-2 min-w-0 font-semibold text-lg tracking-tight">
+        {% with logo_size="h-8 w-8 text-xs", logo_tone="bg-iris-100 text-iris-700", logo_alt="" %}{% include "_hotel_logo.html" %}{% endwith %}
+        <span class="truncate">{{ hotel.name }}</span>
+      </a>
       {% set account = request.state.account if request is defined and request.state.account is defined else {} %}
       {% set item = "flex items-center min-h-11 w-full px-4 text-left hover:bg-sand-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-iris-600" %}
       <details data-menu class="relative shrink-0">
@@ -37,7 +40,10 @@
           <div class="px-4 py-3 border-b border-sand-100">
             <p class="font-medium truncate">{{ account.name }}</p>
             <p class="text-sm text-sand-700 truncate">{{ account.email }}</p>
-            <p class="mt-1 text-sm text-sand-700">{{ hotel.name }} · {{ account.role_label }}</p>
+            <p class="mt-1 flex items-center gap-2 text-sm text-sand-700">
+              {% with logo_size="h-5 w-5 text-[0.5rem]", logo_tone="bg-iris-100 text-iris-700", logo_alt="" %}{% include "_hotel_logo.html" %}{% endwith %}
+              <span class="min-w-0">{{ hotel.name }} · {{ account.role_label }}</span>
+            </p>
           </div>
           {% endif %}
           <a href="/hotel/profile" class="{{ item }}">Profilim</a>

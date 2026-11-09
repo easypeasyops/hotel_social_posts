@@ -2,6 +2,17 @@
 
 Newest first. Each says what was decided, why, and what would change it.
 
+## 2026-11-09: Staff invites name one email and are tracked
+
+Every invite names one email and works once; multi-use links end. Invites get a row, so the
+operator and hotel admins see status and can revoke; expiry is chosen per invite (7 days by
+default, 1 to 30) and invitee emails are kept per hotel's retention (90 days by default),
+purged daily (7 to 180 days). One button, Send invite, records and emails it; the invite
+table shows each pending invite's link with a copy button, for WhatsApp and the like.
+Built after the reject-feedback PR, retention included; resend and role change wait. Old invites
+run out on their own. Spec: [spec-staff-invite-tracking.md](spec-staff-invite-tracking.md).
+**Changes if:** a hotel needs one link for many staff (seasonal hires, say).
+
 ## 2026-11-06: One bet at a time: the empty-dates pilot, by hand
 
 Of the ideas in ideas.md, "posts driven by empty dates" is the one to test first: it ties

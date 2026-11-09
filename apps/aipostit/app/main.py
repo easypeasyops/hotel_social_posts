@@ -16,6 +16,7 @@ from app.auth.signup import router as signup_router
 from app.config import get_settings
 from app.content.router import router as content_router
 from app.dashboard import router as dashboard_router
+from app.hotel_logo import router as hotel_logo_router
 from app.hotels.router import router as hotels_router
 from app.jobs.router import router as jobs_router
 from app.observability import Metrics, RequestContextMiddleware, configure_logging, serve_metrics
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router, tags=["dashboard"])
     app.include_router(staff_router, tags=["hotel staff"])
     app.include_router(profile_photo_router, tags=["profile"])
+    app.include_router(hotel_logo_router, tags=["hotel logo"])
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
     @app.middleware("http")

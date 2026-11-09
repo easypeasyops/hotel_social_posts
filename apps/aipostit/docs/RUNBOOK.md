@@ -363,7 +363,7 @@ The application currently schedules Turkish text only. A draft becomes `publishe
   kubectl -n aipostit-prod exec deploy/aipostit-worker -- python -m app.jobs.purge_photos
   ```
 
-  The log says `Purged N profile photos no one can see` (counts only). It exits 1 if Supabase couldn't be asked about some account (`Could not check the accounts of N profile photos`): those photos are kept, the rest deleted; run it again later. For a data request that can't wait, delete the object in Storage by hand.
+  The same run deletes the logos of deleted hotels (`hotel-logos/{hotel_id}.webp`; a hotel's deletion leaves its Storage objects). The log says `Purged N profile photos no one can see` and `Purged N logos of deleted hotels` (counts only). It exits 1 if Supabase couldn't be asked about some account (`Could not check the accounts of N profile photos`): those photos are kept, the rest deleted; run it again later. For a data request that can't wait, delete the object in Storage by hand.
 - Hotel deletion cascades to associated assets metadata, drafts, translations, and publish log rows. Confirm retention and deletion requirements before deleting a hotel; Storage objects are not explicitly removed by that database cascade.
 - Use Supabase's configured backup/restore procedures for database recovery. This repository does not define backup schedules or a restore automation.
 

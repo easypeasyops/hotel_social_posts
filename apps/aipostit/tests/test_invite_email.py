@@ -77,7 +77,7 @@ def send(db: FakeDB | None = None, **form: str) -> Any:
 
 
 def page_link(page: Any) -> str:
-    return unescape(page.text.split('id="staff-invite-link" readonly value="', 1)[1].split('"')[0])
+    return unescape(page.text.split('id="staff-invite-link" data-copy="', 1)[1].split('"')[0])
 
 
 def test_an_invite_is_recorded_and_emailed(smtp: type[FakeSMTP]) -> None:
@@ -137,7 +137,7 @@ def test_a_failed_send_records_the_invite_as_not_sent(smtp: type[FakeSMTP]) -> N
     response = send(db)
 
     assert response.status_code == 200
-    assert "email not sent" in response.text
+    assert "Email not sent" in response.text
     assert read_recorded_invite(unquote(page_link(response).split("#invite=")[1]))
     assert [w[1] for w in db.writes] == ["insert"]  # no last_sent_at
 
@@ -167,9 +167,14 @@ def test_without_smtp_the_invite_is_recorded_and_its_link_shown() -> None:
     response = send(db)
 
     assert response.status_code == 200
-    assert "email not sent: send this link to new.staff@example.com yourself" in response.text
+    assert (
+        "Email not sent: copy the link to send it to new.staff@example.com yourself."
+        in response.text
+    )
     assert len(db.written("staff_invites")) == 1
-    assert "Copy" in response.text
+    # The link is on its copy button, not shown as text
+    assert page_link(response).startswith("http://testserver/signup#invite=")
+    assert ">Copy invite link</button>" in response.text and "readonly" not in response.text
 
 
 @pytest.mark.parametrize(

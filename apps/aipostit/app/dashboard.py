@@ -265,7 +265,7 @@ def send_staff_invite(
 @router.post("/hotels/{hotel_id}/staff/{user_id}/remove")
 def remove_staff(hotel_id: str, user_id: str, db: Client = Depends(get_supabase)):
     staff_service.remove_member(db, hotel_id, user_id)
-    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#staff", status_code=303)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}?done=removed#members", status_code=303)
 
 
 @router.post("/hotels/{hotel_id}/invites/{invite_id}/revoke")
@@ -276,7 +276,7 @@ def revoke_staff_invite(
     db: Client = Depends(get_supabase),
 ):
     revoke_invite(db, hotel_id, invite_id, user.email)
-    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#invites", status_code=303)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}?done=revoked#invites", status_code=303)
 
 
 @router.post("/hotels/{hotel_id}/staff/{user_id}/role")
@@ -286,7 +286,7 @@ def change_staff_role(
     if role not in staff_service.ROLES:
         raise HTTPException(status_code=422, detail="Unknown staff role")
     staff_service.set_role(db, hotel_id, user_id, role)
-    return RedirectResponse(f"/dashboard/hotels/{hotel_id}#staff", status_code=303)
+    return RedirectResponse(f"/dashboard/hotels/{hotel_id}?done=role#members", status_code=303)
 
 
 @router.post("/hotels/{hotel_id}/generate")

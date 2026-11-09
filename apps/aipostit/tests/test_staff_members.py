@@ -59,7 +59,7 @@ def test_remove_takes_one_member_of_this_hotel_away() -> None:
 
     assert (response.status_code, response.headers["location"]) == (
         303,
-        "/dashboard/hotels/hotel-1#staff",
+        "/dashboard/hotels/hotel-1?done=removed#members",
     )
     assert [m["user_id"] for m in db.rows["hotel_members"]] == ["u2", "u3"]
 

@@ -22,3 +22,4 @@ cronJobs:
   generate-weekly: null
   sync-buffer: null
   purge-invites: null
+  purge-photos: null # prod's run deletes from the same shared Storage

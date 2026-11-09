@@ -2,10 +2,12 @@
 Supabase and of accounts with no access. Staff and operators keep theirs; an account Supabase
 can't be asked about is kept, and the purge then fails so the Job's alert fires."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+import yaml
 from supabase_auth.errors import AuthApiError
 
 from app import database, profile_photo
@@ -94,3 +96,14 @@ def test_the_job_exits_0_when_it_worked_and_1_when_it_failed(
 
     monkeypatch.setattr(profile_photo, "purge_orphan_photos", purge)
     assert purge_photos.main() == code
+
+
+def test_prod_runs_the_purge_daily_and_staging_doesnt() -> None:
+    deploy = Path(__file__).parent.parent / "deploy"
+    service = yaml.safe_load((deploy / "service/values.yaml").read_text())
+    staging = yaml.safe_load((deploy / "envs/staging.yaml").read_text())
+
+    job = service["cronJobs"]["purge-photos"]
+    assert job["command"] == ["python", "-m", "app.jobs.purge_photos"]
+    assert job["schedule"] == "30 4 * * *"
+    assert "purge-photos" in staging["cronJobs"] and staging["cronJobs"]["purge-photos"] is None

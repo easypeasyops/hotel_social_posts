@@ -1,0 +1,4 @@
+{#- The hotel's logo, or its initials without one. Set `logo_size` (Tailwind size classes) and
+    `logo_tone` (the initials' colours) before including; `logo_alt` names the image. -#}
+{% if hotel.logo_version %}<img src="/logos/{{ hotel.id }}?v={{ hotel.logo_version }}" alt="{{ logo_alt or '' }}" class="{{ logo_size }} shrink-0 rounded-lg border border-black/10 bg-white object-contain" />
+{%- else %}{% set words = (hotel.name or "?").split() %}<span aria-hidden="true" class="{{ logo_size }} {{ logo_tone }} shrink-0 grid place-items-center rounded-lg font-semibold">{{ (words[0][0] ~ (words[-1][0] if words|length > 1 else ""))|upper }}</span>{% endif %}

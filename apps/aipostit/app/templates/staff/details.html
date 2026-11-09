@@ -15,6 +15,28 @@
 <div role="alert" class="flex gap-3 p-4 rounded-xl bg-red-100 text-red-800"><span aria-hidden="true">!</span><p>Ad, konum ve iletişim adresi gerekli; kanallar listedekilerden, davet saklama süresi 7 ile 180 gün arası olmalı.</p></div>
 {% endif %}
 
+{% set logo = request.query_params.get("logo") %}
+<section id="logo" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
+  <h2 class="font-semibold">Logo</h2>
+  <p class="mt-1 text-sand-700">aipostit'te otelin adının yanında görünür; paylaşımlarda kullanılmaz.</p>
+  {% if logo == "invalid" %}<p role="alert" class="mt-2 text-red-800">Bu dosya kullanılamadı: en çok 5 MB bir JPEG, PNG ya da WebP görsel seçin.</p>
+  {% elif logo == "saved" %}<p role="status" class="mt-2 text-green-800">Logo kaydedildi.</p>
+  {% elif logo == "removed" %}<p role="status" class="mt-2 text-green-800">Logo kaldırıldı.</p>{% endif %}
+  <div class="mt-3 flex flex-wrap items-center gap-4">
+    {% with logo_size="h-20 w-20 text-2xl", logo_tone="bg-iris-100 text-iris-700", logo_alt=hotel.name ~ " logosu" %}{% include "_hotel_logo.html" %}{% endwith %}
+    <form method="post" action="/hotel/details/logo" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="logo-file">Logo seçin</label>
+      <input id="logo-file" name="logo" type="file" accept="image/jpeg,image/png,image/webp" required class="max-w-full text-sm file:mr-3 file:min-h-11 file:px-3 file:rounded-lg file:border file:border-sand-500 file:bg-white file:font-semibold" />
+      <button type="submit" class="min-h-11 px-4 rounded-lg bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Yükle</button>
+    </form>
+    {% if hotel.logo_version %}
+    <form method="post" action="/hotel/details/logo/remove">
+      <button type="submit" class="min-h-11 px-3 rounded-lg text-sand-700 underline hover:text-red-800 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Logoyu kaldır</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
 <form method="post" action="/hotel/details" class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8 space-y-4">
   <label class="block"><span class="font-medium">Otel adı</span>
     <input name="name" value="{{ hotel.name }}" required class="{{ field }}" /></label>

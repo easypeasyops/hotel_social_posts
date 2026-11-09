@@ -32,14 +32,22 @@ def photo_path(user_id: str) -> str:
     return f"avatars/{user_id}.webp"
 
 
-def make_photo(data: bytes) -> bytes:
-    """`data` as a PHOTO_SIZE square WebP, upright and cropped to its middle. Raises ValueError
+def make_photo(data: bytes, logo: bool = False) -> bytes:
+    """`data` as a PHOTO_SIZE square WebP, upright and cropped to its middle; a logo is fitted
+    whole instead, on white (transparency too), so nothing of it is cut off. Raises ValueError
     for anything but a JPEG, PNG or WebP image."""
     try:
         with Image.open(BytesIO(data)) as image:
             if image.format not in FORMATS:
                 raise ValueError(image.format)
-            square = ImageOps.fit(ImageOps.exif_transpose(image), (PHOTO_SIZE, PHOTO_SIZE))
+            upright = ImageOps.exif_transpose(image)
+            if logo:
+                rgba = upright.convert("RGBA")
+                on_white = Image.new("RGBA", rgba.size, "white")
+                on_white.alpha_composite(rgba)
+                square = ImageOps.pad(on_white, (PHOTO_SIZE, PHOTO_SIZE), color="white")
+            else:
+                square = ImageOps.fit(upright, (PHOTO_SIZE, PHOTO_SIZE))
             out = BytesIO()
             square.convert("RGB").save(out, "WEBP", quality=85)
             return out.getvalue()
@@ -99,14 +107,15 @@ def own_photo(user=Depends(get_current_user), db: Client = Depends(get_supabase)
     )
 
 
-def _stored_photo_owners(db: Client) -> list[str]:
-    """The user ids with a photo in avatars/, page by page (Storage lists 100 by default)."""
-    bucket, owners, offset = db.storage.from_(STORAGE_BUCKET), [], 0
+def _stored_ids(db: Client, folder: str) -> list[str]:
+    """The ids named by the WebPs in `folder` (avatars/, hotel-logos/), page by page (Storage
+    lists 100 by default)."""
+    bucket, ids, offset = db.storage.from_(STORAGE_BUCKET), [], 0
     while True:
-        page = bucket.list("avatars", {"limit": LIST_PAGE, "offset": offset})
-        owners += [o["name"].removesuffix(".webp") for o in page if o["name"].endswith(".webp")]
+        page = bucket.list(folder, {"limit": LIST_PAGE, "offset": offset})
+        ids += [o["name"].removesuffix(".webp") for o in page if o["name"].endswith(".webp")]
         if len(page) < LIST_PAGE:
-            return owners
+            return ids
         offset += LIST_PAGE
 
 
@@ -115,11 +124,12 @@ def purge_orphan_photos(db: Client) -> int:
     from Supabase, and of accounts with no access (neither hotel staff nor operator), whose
     photo_version is cleared too so a later return to a hotel shows initials, not a broken
     image. An account Supabase can't be asked about is kept and counted; then it raises once
-    the others are done. Logs counts only, never a user id or email."""
+    the others are done. The logos of deleted hotels (app/hotel_logo.py) go too, in the same
+    run. Logs counts only, never a user id or email."""
     members = cast(list[dict], db.table("hotel_members").select("user_id").execute().data)
     staff = {m["user_id"] for m in members}
     gone, unreadable = [], 0
-    for user_id in _stored_photo_owners(db):
+    for user_id in _stored_ids(db, "avatars"):
         if user_id in staff:
             continue
         try:
@@ -137,9 +147,12 @@ def purge_orphan_photos(db: Client) -> int:
         if user is not None:
             db.auth.admin.update_user_by_id(user_id, {"user_metadata": {"photo_version": None}})
         gone.append(photo_path(user_id))
-    if gone:
-        db.storage.from_(STORAGE_BUCKET).remove(gone)
+    hotels = {h["id"] for h in cast(list[dict], db.table("hotels").select("id").execute().data)}
+    logos = [f"hotel-logos/{h}.webp" for h in _stored_ids(db, "hotel-logos") if h not in hotels]
+    if gone or logos:
+        db.storage.from_(STORAGE_BUCKET).remove(gone + logos)
     logger.info("Purged %d profile photos no one can see", len(gone))
+    logger.info("Purged %d logos of deleted hotels", len(logos))
     if unreadable:
         raise RuntimeError(f"Could not check the accounts of {unreadable} profile photos")
     return len(gone)

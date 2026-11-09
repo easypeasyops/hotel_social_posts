@@ -17,9 +17,12 @@
   {% for hotel in hotels %}
   <a href="/dashboard/hotels/{{ hotel.id }}" class="block px-5 py-4 hover:bg-gray-50">
     <div class="flex items-center justify-between gap-4">
-      <div>
-        <h2 class="font-medium">{{ hotel.name }}</h2>
-        <p class="text-sm text-gray-600">{{ hotel.location }} · /{{ hotel.slug }}</p>
+      <div class="flex items-center gap-3 min-w-0">
+        {% with logo_size="h-10 w-10 text-sm", logo_tone="bg-gray-200 text-gray-700", logo_alt="" %}{% include "_hotel_logo.html" %}{% endwith %}
+        <div class="min-w-0">
+          <h2 class="font-medium">{{ hotel.name }}</h2>
+          <p class="text-sm text-gray-600">{{ hotel.location }} · /{{ hotel.slug }}</p>
+        </div>
       </div>
       <span class="text-xs uppercase tracking-wide text-gray-500">{{ hotel.tier }}</span>
     </div>

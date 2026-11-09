@@ -351,7 +351,13 @@ The application currently schedules Turkish text only. A draft becomes `publishe
 - Hotel upload capabilities are shareable secrets in a URL fragment and expire after 24 hours. Share them only with the intended hotel contact.
 - API hotel/asset/content routes require Supabase bearer authentication. The current database client uses the service-role key for server-side requests, so authenticated users are not isolated by hotel in application logic.
 - A valid `GET /health` is public and reveals only liveness.
-- Profile photos are personal data: a 256 px WebP per account at `avatars/{user_id}.webp` in the private `hotel-assets` bucket, served only to the account itself. Removing someone from a hotel, or deleting their Supabase account, leaves the object; when someone asks for their data to go, delete it in Storage too (or they remove it themselves on their profile page first).
+- Profile photos are personal data: a 256 px WebP per account at `avatars/{user_id}.webp` in the private `hotel-assets` bucket, served only to the account itself. Removing someone from a hotel, or deleting their Supabase account, leaves the object until the photo purge (`python -m app.jobs.purge_photos`, `purge_orphan_photos`) deletes it: a photo whose account is deleted, or is neither hotel staff nor an operator. Nothing schedules it yet; staging and prod share the Supabase project, so run it from prod only, and one run covers both:
+
+  ```bash
+  kubectl -n aipostit-prod exec deploy/aipostit-worker -- python -m app.jobs.purge_photos
+  ```
+
+  The log says `Purged N profile photos no one can see` (counts only). It exits 1 if Supabase couldn't be asked about some account (`Could not check the accounts of N profile photos`): those photos are kept, the rest deleted; run it again later. For a data request that can't wait, delete the object in Storage by hand.
 - Hotel deletion cascades to associated assets metadata, drafts, translations, and publish log rows. Confirm retention and deletion requirements before deleting a hotel; Storage objects are not explicitly removed by that database cascade.
 - Use Supabase's configured backup/restore procedures for database recovery. This repository does not define backup schedules or a restore automation.
 

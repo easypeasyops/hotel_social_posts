@@ -4,6 +4,7 @@ from fastapi import Depends, Header, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase_auth.errors import AuthApiError
 
+from app.account import menu
 from app.auth.sessions import (
     SESSION_COOKIE,
     RedisError,
@@ -81,11 +82,12 @@ def is_operator(user) -> bool:
     return (user.app_metadata or {}).get("role") == "operator"
 
 
-def require_operator(user=Depends(get_current_user)):
+def require_operator(request: Request, user=Depends(get_current_user)):
     """The dashboard and the operator API: a signed-in account without the operator role is
-    refused (403), not sent to sign in again."""
+    refused (403), not sent to sign in again. Pages read the user menu from request.state."""
     if not is_operator(user):
         raise HTTPException(status_code=403, detail="This account has no operator access")
+    request.state.account = menu(user)
     return user
 
 
@@ -99,11 +101,15 @@ def landing_page(user) -> str | None:
     return None
 
 
-def require_staff_member(user=Depends(get_current_user), db=Depends(get_supabase)) -> dict:
-    """The staff pages: this account's hotel and role (member_of); 403 for anyone else."""
+def require_staff_member(
+    request: Request, user=Depends(get_current_user), db=Depends(get_supabase)
+) -> dict:
+    """The staff pages: this account's hotel and role (member_of); 403 for anyone else. Pages
+    read the user menu from request.state."""
     member = member_of(db, user.id)
     if member is None:
         raise HTTPException(status_code=403, detail="This account is not hotel staff")
+    request.state.account = menu(user, member)
     return member
 
 

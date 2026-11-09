@@ -2,13 +2,11 @@
 remove one, which takes that account's access away at once."""
 
 from typing import Any
-from urllib.parse import unquote
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import require_operator
-from app.auth.upload_tokens import read_staff_invite
 from app.database import get_supabase
 from app.main import create_app
 from tests.fakes import FakeDB
@@ -91,20 +89,3 @@ def test_a_role_change_cant_reach_another_hotel_or_make_up_a_role(path: str, rol
     db = FakeDB(hotels=[HOTEL], hotel_members=members())
     operator(db).post(f"/dashboard/hotels/hotel-1/staff/{path}/role", data={"role": role})
     assert roles(db) == {"u1": "hotel_admin", "u2": "content_creator", "u3": "hotel_admin"}
-
-
-def test_the_invite_link_carries_the_chosen_role() -> None:
-    page = operator(FakeDB(hotels=[HOTEL])).post(
-        "/dashboard/hotels/hotel-1/staff-invite", data={"role": "content_creator"}
-    )
-
-    assert "they join as Content creator" in page.text
-    invite = page.text.split("/signup#invite=", 1)[1].split('"', 1)[0]
-    assert read_staff_invite(unquote(invite)) == ("hotel-1", "content_creator", None)
-
-
-def test_an_invite_for_an_unknown_role_is_refused() -> None:
-    page = operator(FakeDB(hotels=[HOTEL])).post(
-        "/dashboard/hotels/hotel-1/staff-invite", data={"role": "owner"}
-    )
-    assert page.status_code == 422

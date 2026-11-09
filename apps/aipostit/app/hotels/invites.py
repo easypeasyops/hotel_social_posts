@@ -1,13 +1,19 @@
-"""Staff invites sent by email: a 7-day invite for one role that only the address it's sent
-to can sign up with (/signup), in an email in Turkish, like the staff pages. And recorded
-invites: a staff_invites row (migration 006), pending until it's accepted, revoked or expired."""
+"""Staff invites: a staff_invites row (migration 006) for one email and role, pending until
+it's accepted, revoked or expired, and its link (/signup), emailed in Turkish, like the staff
+pages, where SMTP is set up. (/hotel/staff still makes unrecorded ones: send_invite_email.)"""
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
+from uuid import uuid4
 
-from app.auth.upload_tokens import STAFF_INVITE_TTL_SECONDS, create_token, staff_invite_purpose
-from app.mail import send_mail
+from app.auth.upload_tokens import (
+    STAFF_INVITE_TTL_SECONDS,
+    create_recorded_invite_token,
+    create_token,
+    staff_invite_purpose,
+)
+from app.mail import MailError, mail_configured, send_mail
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +24,8 @@ ROLE_NAMES_TR = {
 }
 
 
-def send_invite_email(base_url: str, hotel: dict, role: str, email: str) -> None:
+def _send_invite_mail(hotel: dict, role: str, email: str, link: str, days: int) -> None:
     """Raises MailError when the email can't be sent."""
-    email = email.strip().lower()
-    invite = create_token(hotel["id"], staff_invite_purpose(role), STAFF_INVITE_TTL_SECONDS, email)
-    link = f"{base_url.rstrip('/')}/signup#invite={quote(invite, safe='')}"
-    days = STAFF_INVITE_TTL_SECONDS // 86400
     send_mail(
         email,
         f"{hotel['name']} ekibine davetlisiniz",
@@ -34,6 +36,50 @@ def send_invite_email(base_url: str, hotel: dict, role: str, email: str) -> None
         f"Bağlantı yalnızca bu e-posta adresiyle ({email}) kullanılabilir. "
         f"Bu daveti beklemiyorsanız e-postayı yok sayabilirsiniz.\n",
     )
+
+
+def send_invite_email(base_url: str, hotel: dict, role: str, email: str) -> None:
+    """/hotel/staff's 7-day invite for one address, not recorded (until it sends invites with
+    create_invite too). Raises MailError when the email can't be sent."""
+    email = email.strip().lower()
+    invite = create_token(hotel["id"], staff_invite_purpose(role), STAFF_INVITE_TTL_SECONDS, email)
+    link = f"{base_url.rstrip('/')}/signup#invite={quote(invite, safe='')}"
+    _send_invite_mail(hotel, role, email, link, STAFF_INVITE_TTL_SECONDS // 86400)
+
+
+def create_invite(
+    db, base_url: str, hotel: dict, role: str, email: str, valid_days: int, invited_by: str
+) -> tuple[str, bool]:
+    """Records an invite for this email and role, valid for valid_days, and emails its link
+    where SMTP is set up. The link, and whether the email went out: if it didn't (no SMTP, or
+    the send failed), the invite stays pending with no last_sent_at."""
+    email = email.strip().lower()
+    invite_id, expires_at = str(uuid4()), datetime.now(UTC) + timedelta(days=valid_days)
+    db.table("staff_invites").insert(
+        {
+            "id": invite_id,
+            "hotel_id": hotel["id"],
+            "role": role,
+            "email": email,
+            "valid_days": valid_days,
+            "invited_by_email": invited_by,
+            "expires_at": expires_at.isoformat(),
+        }
+    ).execute()
+    invite = create_recorded_invite_token(hotel["id"], invite_id, email, expires_at)
+    link = f"{base_url.rstrip('/')}/signup#invite={quote(invite, safe='')}"
+    if not mail_configured():
+        return link, False
+    try:
+        _send_invite_mail(hotel, role, email, link, valid_days)
+    except MailError:
+        logger.exception("The staff invite email could not be sent")
+        return link, False
+    sent_at = datetime.now(UTC).isoformat()
+    db.table("staff_invites").update({"last_sent_at": sent_at, "send_count": 1}).eq(
+        "id", invite_id
+    ).execute()
+    return link, True
 
 
 def pending_invite(db, invite_id: str, hotel_id: str) -> dict | None:

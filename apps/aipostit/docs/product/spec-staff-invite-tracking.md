@@ -1,6 +1,6 @@
 # Spec: staff invite tracking
 
-Status: decided (Emrah, 2026-11-09), to build after the reject-feedback PR. Effort: M.
+Status: decided (Emrah, 2026-11-09), to build next, before the reject-feedback PR. Effort: M.
 
 ## Problem
 
@@ -143,8 +143,8 @@ None touches `deploy/envs/prod.yaml`, so all can auto-merge.
    default, 1 to 30. Resend gives it the same number of days again.
 3. Every invite names one email and works once; no multi-use links.
 4. A hotel admin can revoke or change invites the operator made.
-5. PRs 1 to 8 (retention included) come after the reject-feedback PR; Resend and change role
-   wait.
+5. PRs 1 to 8 (retention included) are built next, before the reject-feedback PR; Resend and
+   change role wait.
 6. Retention is per hotel, set by the operator or the hotel's admin: 90 days by default, 7
    to 180, enforced by a daily purge.
 7. One button, **Send invite**: no separate "Create link" and "Send email". The table shows

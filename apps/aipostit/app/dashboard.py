@@ -13,7 +13,7 @@ from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
-from app.hotels.invites import create_invite
+from app.hotels.invites import create_invite, list_invites
 from app.hotels.models import HotelCreate, HotelUpdate
 from app.jobs import tasks
 from supabase import Client
@@ -72,6 +72,7 @@ def _detail_context(
         "upload_link": upload_link,
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
         "staff": staff_service.list_members(db, hotel_id),
+        "invites": list_invites(db, str(request.base_url), hotel_id),
         "staff_invite_link": staff_invite_link,
         "staff_invite_email": staff_invite_email,
         "staff_invite_sent": staff_invite_sent,

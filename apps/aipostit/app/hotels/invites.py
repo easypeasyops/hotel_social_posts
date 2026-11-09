@@ -33,6 +33,48 @@ def _send_invite_mail(hotel: dict, role: str, email: str, link: str, days: int) 
     )
 
 
+def _link(base_url: str, hotel_id: str, invite_id: str, email: str, expires_at: datetime) -> str:
+    """An invite's /signup link, made again from its row whenever it's shown: none is stored."""
+    invite = create_recorded_invite_token(hotel_id, invite_id, email, expires_at)
+    return f"{base_url.rstrip('/')}/signup#invite={quote(invite, safe='')}"
+
+
+def invite_status(row: dict, now: datetime) -> str:
+    """accepted, revoked, expired or pending: derived from the row, not stored."""
+    if row["accepted_at"] is not None:
+        return "accepted"
+    if row["revoked_at"] is not None:
+        return "revoked"
+    if datetime.fromisoformat(row["expires_at"]) <= now:
+        return "expired"
+    return "pending"
+
+
+def list_invites(db, base_url: str, hotel_id: str) -> list[dict]:
+    """The hotel's invites, newest first, each with its status and, while pending, its link."""
+    rows = (
+        db.table("staff_invites")
+        .select(
+            "id, role, email, invited_by_email, created_at, expires_at, last_sent_at,"
+            " accepted_at, revoked_at"
+        )
+        .eq("hotel_id", hotel_id)
+        .order("created_at", desc=True)
+        .execute()
+        .data
+    )
+    now = datetime.now(UTC)
+    invites = []
+    for row in rows:
+        status = invite_status(row, now)
+        link = None
+        if status == "pending":
+            expires_at = datetime.fromisoformat(row["expires_at"])
+            link = _link(base_url, hotel_id, row["id"], row["email"], expires_at)
+        invites.append({**row, "status": status, "link": link})
+    return invites
+
+
 def create_invite(
     db, base_url: str, hotel: dict, role: str, email: str, valid_days: int, invited_by: str
 ) -> tuple[str, bool]:
@@ -52,8 +94,7 @@ def create_invite(
             "expires_at": expires_at.isoformat(),
         }
     ).execute()
-    invite = create_recorded_invite_token(hotel["id"], invite_id, email, expires_at)
-    link = f"{base_url.rstrip('/')}/signup#invite={quote(invite, safe='')}"
+    link = _link(base_url, hotel["id"], invite_id, email, expires_at)
     if not mail_configured():
         return link, False
     try:

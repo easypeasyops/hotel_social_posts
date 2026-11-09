@@ -7,7 +7,6 @@ import json
 from collections.abc import Iterator
 from types import SimpleNamespace
 from typing import Any
-from urllib.parse import unquote
 
 import fakeredis
 import pytest
@@ -15,15 +14,12 @@ from fastapi.testclient import TestClient
 from supabase_auth.errors import AuthApiError
 
 from app.auth import sessions, signup
-from app.auth.dependencies import require_operator
 from app.auth.upload_tokens import (
     STAFF_INVITE_PURPOSE,
     create_token,
     read_staff_invite,
-    read_token,
     staff_invite_purpose,
 )
-from app.database import get_supabase
 from app.main import create_app
 from tests.fakes import FakeDB
 
@@ -72,19 +68,6 @@ def sign_up(invite: str | None = None, **overrides: str) -> Any:
         **overrides,
     }
     return TestClient(create_app(), follow_redirects=False).post("/signup", data=form)
-
-
-def test_an_operator_creates_an_invite_for_the_sign_up_page() -> None:
-    app = create_app()
-    app.dependency_overrides[require_operator] = lambda: object()
-    app.dependency_overrides[get_supabase] = lambda: FakeDB(hotels=[HOTEL])
-    response = TestClient(app).post("/dashboard/hotels/hotel-1/staff-invite")
-
-    assert response.status_code == 200
-    link = response.text.split('id="staff-invite-link" readonly value="')[1].split('"')[0]
-    page, invite = link.split("#invite=")
-    assert page.endswith("/signup")
-    assert read_token(unquote(invite), STAFF_INVITE_PURPOSE) == "hotel-1"
 
 
 def test_an_invite_makes_a_staff_account_for_its_hotel_and_signs_it_in(

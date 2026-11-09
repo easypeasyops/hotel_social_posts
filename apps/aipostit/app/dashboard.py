@@ -1,4 +1,4 @@
-import logging
+from typing import Any
 from urllib.parse import quote  # noqa: I001
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -7,27 +7,19 @@ from fastapi.templating import Jinja2Templates
 
 from app.assets import service as asset_service
 from app.auth.dependencies import require_operator
-from app.auth.upload_tokens import (
-    STAFF_INVITE_TTL_SECONDS,
-    UPLOAD_TOKEN_TTL_SECONDS,
-    create_token,
-    create_upload_token,
-    staff_invite_purpose,
-)
+from app.auth.upload_tokens import UPLOAD_TOKEN_TTL_SECONDS, create_upload_token
 from app.content import service as content_service
 from app.content.preview import image_choices, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
-from app.hotels.invites import send_invite_email
+from app.hotels.invites import create_invite
 from app.hotels.models import HotelCreate, HotelUpdate
 from app.jobs import tasks
-from app.mail import MailError, mail_configured
 from supabase import Client
 
 router = APIRouter(prefix="/dashboard", dependencies=[Depends(require_operator)])
 templates = Jinja2Templates(directory="app/templates")
-logger = logging.getLogger(__name__)
 
 
 def _hotel_form_context(request: Request, hotel: dict | None = None, error: str | None = None):
@@ -56,8 +48,8 @@ def _detail_context(
     hotel_id: str,
     upload_link: str | None = None,
     staff_invite_link: str | None = None,
-    staff_invite_role: str | None = None,
-    staff_invite_sent_to: str | None = None,
+    staff_invite_email: str | None = None,
+    staff_invite_sent: bool = False,
     staff_invite_error: str | None = None,
 ) -> dict:
     hotel = hotel_service.get_hotel(db, hotel_id)
@@ -81,12 +73,10 @@ def _detail_context(
         "upload_link_expires_hours": UPLOAD_TOKEN_TTL_SECONDS // 3600,
         "staff": staff_service.list_members(db, hotel_id),
         "staff_invite_link": staff_invite_link,
-        "staff_invite_role": staff_invite_role,
-        "staff_invite_sent_to": staff_invite_sent_to,
+        "staff_invite_email": staff_invite_email,
+        "staff_invite_sent": staff_invite_sent,
         "staff_invite_error": staff_invite_error,
-        "invite_email_enabled": mail_configured(),
         "staff_roles": STAFF_ROLE_LABELS,
-        "staff_invite_expires_days": STAFF_INVITE_TTL_SECONDS // 86400,
         "generation_queued": request.query_params.get("generation") == "queued",
         "deletable": content_service.DELETABLE_STATUSES,
     }
@@ -233,52 +223,32 @@ def create_hotel_upload_link(
 
 
 @router.post("/hotels/{hotel_id}/staff-invite")
-def create_staff_invite_link(
-    hotel_id: str,
-    request: Request,
-    role: str = Form("hotel_admin"),
-    db: Client = Depends(get_supabase),
-):
-    """A link with which the hotel's staff make their own accounts (/signup) in this role, for
-    7 days."""
-    hotel_service.get_hotel(db, hotel_id)
-    if role not in staff_service.ROLES:
-        raise HTTPException(status_code=422, detail="Unknown staff role")
-    invite = create_token(hotel_id, staff_invite_purpose(role), STAFF_INVITE_TTL_SECONDS)
-    link = f"{str(request.base_url).rstrip('/')}/signup#invite={quote(invite, safe='')}"
-    response = templates.TemplateResponse(
-        request,
-        "dashboard/hotel_detail.html",
-        _detail_context(request, db, hotel_id, staff_invite_link=link, staff_invite_role=role),
-    )
-    response.headers["Cache-Control"] = "no-store"
-    return response
-
-
-@router.post("/hotels/{hotel_id}/staff-invite-email")
-def send_staff_invite_email(
+def send_staff_invite(
     hotel_id: str,
     request: Request,
     email: str = Form(...),
     role: str = Form("hotel_admin"),
+    valid_days: int = Form(7, ge=1, le=30),
+    user=Depends(require_operator),
     db: Client = Depends(get_supabase),
 ):
-    """An invite for this role, emailed to one person: only their address can sign up with it."""
+    """Records an invite for one person, in this role, and emails it where SMTP is set up;
+    only their address can sign up with it (/signup)."""
     hotel = hotel_service.get_hotel(db, hotel_id)
     if role not in staff_service.ROLES:
         raise HTTPException(status_code=422, detail="Unknown staff role")
-    if not mail_configured():
-        raise HTTPException(status_code=404, detail="Invite emails are not set up")
-    status_code, outcome = 200, {"staff_invite_sent_to": email.strip().lower()}
+    status_code, outcome = 200, dict[str, Any]()
     if "@" not in email.strip():
         status_code, outcome = 422, {"staff_invite_error": "Enter an email address."}
     else:
-        try:
-            send_invite_email(str(request.base_url), hotel, role, email)
-        except MailError:
-            logger.exception("The staff invite email could not be sent")
-            status_code = 502
-            outcome = {"staff_invite_error": "The email could not be sent. Try again later."}
+        link, sent = create_invite(
+            db, str(request.base_url), hotel, role, email, valid_days, user.email
+        )
+        outcome = {
+            "staff_invite_link": link,
+            "staff_invite_email": email.strip().lower(),
+            "staff_invite_sent": sent,
+        }
     response = templates.TemplateResponse(
         request,
         "dashboard/hotel_detail.html",

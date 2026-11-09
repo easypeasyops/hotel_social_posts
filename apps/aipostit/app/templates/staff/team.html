@@ -27,8 +27,10 @@
       <option value="{{ value }}" {% if value == "content_creator" %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <label for="invite-days" class="text-sm text-sand-700">Geçerlilik (gün)</label>
-    <input id="invite-days" name="valid_days" type="number" min="1" max="30" value="7" required class="w-20 {{ field }}" />
+    <span class="inline-flex items-center gap-2">
+      <label for="invite-days" class="text-sm text-sand-700">Geçerlilik (gün)</label>
+      <input id="invite-days" name="valid_days" type="number" min="1" max="30" value="7" required class="w-20 {{ field }}" />
+    </span>
     <button class="min-h-11 px-4 rounded-lg bg-iris-600 text-white font-semibold hover:bg-iris-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris-600">Davet gönder</button>
   </form>
   {% if invite_error %}

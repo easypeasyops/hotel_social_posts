@@ -47,10 +47,12 @@
       <option value="{{ value }}">{{ label }}</option>
       {% endfor %}
     </select>
-    <label for="staff-invite-days" class="text-sm text-gray-600">Valid for</label>
-    <input id="staff-invite-days" name="valid_days" type="number" min="1" max="30" value="7" required
-           class="border border-gray-300 rounded px-2 py-2 text-sm w-20" />
-    <span class="text-sm text-gray-600">days</span>
+    <span class="inline-flex items-center gap-2">
+      <label for="staff-invite-days" class="text-sm text-gray-600">Valid for</label>
+      <input id="staff-invite-days" name="valid_days" type="number" min="1" max="30" value="7" required
+             class="border border-gray-300 rounded px-2 py-2 text-sm w-20" />
+      <span class="text-sm text-gray-600">days</span>
+    </span>
     <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">Send invite</button>
   </form>
   {% if staff_invite_error %}

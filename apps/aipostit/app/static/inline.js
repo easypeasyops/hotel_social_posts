@@ -41,7 +41,9 @@
         }
         return response.text().then(function (html) {
           var fresh = new DOMParser().parseFromString(html, "text/html").getElementById(id);
-          if (!fresh) return location.assign(response.url);  // e.g. signed out: show that page
+          // No section in the answer: a page to go to if it succeeded (e.g. signed out, sent to
+          // the login page), else an error page (403, 500), which stays an inline error.
+          if (!fresh) return response.ok ? location.assign(response.url) : fail(form, response.status);
           var old = document.getElementById(id), y = window.scrollY;
           var open = Array.from(old.querySelectorAll("details[open][id]"), function (d) { return d.id; });
           old.outerHTML = fresh.outerHTML;

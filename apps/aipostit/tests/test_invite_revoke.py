@@ -74,7 +74,7 @@ def test_the_hotel_admin_revokes_the_operators_invite() -> None:
     )
     assert row(db)["revoked_by_email"] == "admin@example.com"
     page = client.get("/hotel/staff?done=revoked").text
-    assert "iptal edildi" in page and "Kaydedildi." in page and links(page) == {}
+    assert "iptal edildi" in page and "Davet iptal edildi." in page and links(page) == {}
 
 
 @pytest.mark.parametrize("role", ["content_moderator", "content_creator"])

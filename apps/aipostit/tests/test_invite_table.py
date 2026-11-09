@@ -87,16 +87,12 @@ def team_page(role: str, db: FakeDB) -> Any:
 
 
 def links(page: str) -> dict[str, str]:
-    """Each pending invite's link, by its id: on its copy button, never shown as text (on
-    /hotel/staff, until it gets the button too, in its field)."""
+    """Each pending invite's link, by its id: on its copy button, never shown as text."""
     found = {}
     for part in page.split(' data-copy="')[1:]:
         link, button = part.split(">", 1)[0].split('"', 1)
         if ' data-invite="' in button:
             found[button.split(' data-invite="', 1)[1].split('"', 1)[0]] = unescape(link)
-    for part in page.split('id="invite-link-')[1:]:
-        invite_id, rest = part.split('"', 1)
-        found[invite_id] = unescape(rest.split('value="', 1)[1].split('"', 1)[0])
     return found
 
 

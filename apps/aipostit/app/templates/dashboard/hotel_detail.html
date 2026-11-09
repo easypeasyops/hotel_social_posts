@@ -112,6 +112,10 @@
                    class="w-full border border-gray-300 rounded px-2 py-1 text-xs" />
             <button type="button" class="border border-gray-300 rounded px-2 py-1 text-xs"
                     onclick="navigator.clipboard.writeText(document.getElementById('invite-link-{{ invite.id }}').value)">Copy</button>
+            <form method="post" action="/dashboard/hotels/{{ hotel.id }}/invites/{{ invite.id }}/revoke"
+                  onsubmit='return confirm({{ ("Revoke the invite for " ~ invite.email ~ "? Its link stops working at once.")|tojson }})'>
+              <button type="submit" class="text-xs text-red-700 hover:underline px-2 py-1">Revoke</button>
+            </form>
           </div>
         </td></tr>
         {% endif %}

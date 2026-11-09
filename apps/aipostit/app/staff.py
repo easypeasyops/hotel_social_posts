@@ -24,7 +24,7 @@ from app.content.preview import image_choices, photo_links, review_images
 from app.database import get_supabase
 from app.hotels import service as hotel_service
 from app.hotels import staff as staff_service
-from app.hotels.invites import create_invite, list_invites
+from app.hotels.invites import create_invite, list_invites, revoke_invite
 from app.hotels.models import HotelUpdate, SocialChannel
 from app.hotels.staff import ROLES, can_moderate
 from supabase import Client
@@ -285,6 +285,18 @@ def staff_remove(
     _other_member(user_id, user.id)
     staff_service.remove_member(db, hotel_id, user_id)
     return RedirectResponse("/hotel/staff?done=removed", status_code=303)
+
+
+@router.post("/staff/invites/{invite_id}/revoke")
+def staff_revoke_invite(
+    invite_id: str,
+    hotel_id: str = Depends(require_hotel_admin),
+    user=Depends(get_current_user),
+    db: Client = Depends(get_supabase),
+):
+    """Any of the hotel's pending invites, the operator's too; another hotel's is left alone."""
+    revoke_invite(db, hotel_id, invite_id, user.email)
+    return RedirectResponse("/hotel/staff?done=revoked#invites", status_code=303)
 
 
 def _details_page(request: Request, hotel: dict, status_code: int = 200, **extra: object):

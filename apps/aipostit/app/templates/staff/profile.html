@@ -33,6 +33,29 @@
   </dl>
 </section>
 
+{% set account = request.state.account if request.state.account is defined else {} %}
+{% set photo = request.query_params.get("photo") %}
+<section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
+  <h2 class="font-semibold">Profil fotoğrafı</h2>
+  {% if photo == "invalid" %}<p role="alert" class="mt-2 text-red-800">Bu dosya kullanılamadı: en çok 5 MB bir JPEG, PNG ya da WebP fotoğraf seçin.</p>
+  {% elif photo == "saved" %}<p role="status" class="mt-2 text-green-800">Fotoğrafınız kaydedildi.</p>
+  {% elif photo == "removed" %}<p role="status" class="mt-2 text-green-800">Fotoğrafınız kaldırıldı.</p>{% endif %}
+  <div class="mt-3 flex flex-wrap items-center gap-4">
+    {% if account.avatar_url %}<img src="{{ account.avatar_url }}" alt="Profil fotoğrafınız" referrerpolicy="no-referrer" class="h-20 w-20 rounded-full object-cover" />
+    {% else %}<span aria-hidden="true" class="grid h-20 w-20 place-items-center rounded-full bg-iris-100 text-2xl font-semibold text-iris-700">{{ account.initials or "?" }}</span>{% endif %}
+    <form method="post" action="/account/photo" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="photo">Fotoğraf seçin</label>
+      <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required class="max-w-full text-sm file:mr-3 file:min-h-11 file:px-3 file:rounded-lg file:border file:border-sand-500 file:bg-white file:font-semibold" />
+      <button type="submit" class="{{ primary }}">Yükle</button>
+    </form>
+    {% if account.has_photo %}
+    <form method="post" action="/account/photo/remove">
+      <button type="submit" class="min-h-11 px-3 rounded-lg text-sand-700 underline hover:text-red-800 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">Fotoğrafı kaldır</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
 <section class="bg-white border border-sand-100 rounded-2xl shadow-soft p-5 sm:p-8">
   <h2 class="font-semibold">Şifre</h2>
   <p class="mt-1 text-sand-700">Şifrenizi değiştirmek için {{ email }} adresine bir bağlantı göndeririz.</p>

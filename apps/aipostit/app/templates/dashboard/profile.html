@@ -30,6 +30,29 @@
   </dl>
 </section>
 
+{% set account = request.state.account if request.state.account is defined else {} %}
+{% set photo = request.query_params.get("photo") %}
+<section class="bg-white border border-gray-200 rounded-lg p-6 mt-6">
+  <h2 class="font-medium">Profile photo</h2>
+  {% if photo == "invalid" %}<p role="alert" class="text-sm text-red-800 mt-1">That file can't be used: choose a JPEG, PNG or WebP photo of up to 5 MB.</p>
+  {% elif photo == "saved" %}<p role="status" class="text-sm text-green-800 mt-1">Photo saved.</p>
+  {% elif photo == "removed" %}<p role="status" class="text-sm text-green-800 mt-1">Photo removed.</p>{% endif %}
+  <div class="mt-3 flex flex-wrap items-center gap-4">
+    {% if account.avatar_url %}<img src="{{ account.avatar_url }}" alt="Your profile photo" referrerpolicy="no-referrer" class="h-20 w-20 rounded-full object-cover" />
+    {% else %}<span aria-hidden="true" class="grid h-20 w-20 place-items-center rounded-full bg-gray-200 text-2xl font-semibold text-gray-700">{{ account.initials or "?" }}</span>{% endif %}
+    <form method="post" action="/account/photo" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="photo">Choose a photo</label>
+      <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required class="max-w-full text-sm" />
+      <button type="submit" class="bg-black text-white rounded px-4 py-2 text-sm hover:bg-gray-800">Upload</button>
+    </form>
+    {% if account.has_photo %}
+    <form method="post" action="/account/photo/remove">
+      <button type="submit" class="text-sm text-gray-600 underline hover:text-red-800">Remove photo</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
 <section class="bg-white border border-gray-200 rounded-lg p-6 mt-6">
   <h2 class="font-medium">Password</h2>
   <p class="text-sm text-gray-600 mt-1">We'll email {{ email }} a link to change your password.</p>

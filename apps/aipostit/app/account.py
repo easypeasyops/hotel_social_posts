@@ -28,7 +28,13 @@ def menu(user: Any, member: dict | None = None) -> dict:
         "first_name": words[0] if words else "",
         "initials": "".join(w[0] for w in words[:1] + words[1:][-1:]).upper() or "?",
         "email": getattr(user, "email", None) or "",
-        "avatar_url": metadata.get("avatar_url") or None,
+        # The photo the account uploaded (app/profile_photo.py), else the one Google gave.
+        "avatar_url": (
+            f"/account/photo?v={metadata['photo_version']}"
+            if metadata.get("photo_version")
+            else metadata.get("avatar_url") or None
+        ),
+        "has_photo": bool(metadata.get("photo_version")),
         "role": member["role"] if member else None,
         "role_label": ROLE_LABELS_TR[member["role"]] if member else None,
     }

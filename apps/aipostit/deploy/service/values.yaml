@@ -63,6 +63,17 @@ cronJobs:
     resources:
       requests: { cpu: 20m, memory: 192Mi }
       limits: { memory: 384Mi }
+  # Deletes staff invites that ended longer ago than their hotel keeps them (spec: staff
+  # invite tracking). Unlike the two above it does the work in its own pod rather than
+  # `celery call`, so a failed purge fails the Job and AipostitJobFailed opens a ticket.
+  # Daily at 03:45 UTC, clear of sync-buffer's :15 and generate-weekly's Monday 06:00.
+  purge-invites:
+    schedule: "45 3 * * *"
+    command: [python, -m, app.jobs.purge_invites]
+    activeDeadlineSeconds: 300
+    resources:
+      requests: { cpu: 20m, memory: 192Mi }
+      limits: { memory: 384Mi }
 
 # The keys, from aipostit's own store in the platform (platform deploy/secrets/
 # app-stores.yaml), loaded there by hand from .env (platform scripts/load-app-env.sh); the

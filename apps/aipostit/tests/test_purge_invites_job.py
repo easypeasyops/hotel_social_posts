@@ -1,13 +1,17 @@
 """The purge-invites CronJob runs app.jobs.purge_invites: one purge, exit 0 when it worked and 1
 when it raised, so a failed purge fails the Job."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from app import database
 from app.hotels import invites
 from app.jobs import purge_invites
+
+DEPLOY = Path(__file__).parent.parent / "deploy"
 
 
 def run_with(monkeypatch: pytest.MonkeyPatch, purge: Any) -> tuple[int, list[object]]:
@@ -34,3 +38,13 @@ def test_a_purge_that_fails_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
 
     code, calls = run_with(monkeypatch, failing)
     assert code == 1 and len(calls) == 1
+
+
+def test_prod_runs_the_purge_daily_and_staging_doesnt() -> None:
+    service = yaml.safe_load((DEPLOY / "service/values.yaml").read_text())
+    staging = yaml.safe_load((DEPLOY / "envs/staging.yaml").read_text())
+
+    job = service["cronJobs"]["purge-invites"]
+    assert job["command"] == ["python", "-m", "app.jobs.purge_invites"]
+    assert job["schedule"] == "45 3 * * *"
+    assert "purge-invites" in staging["cronJobs"] and staging["cronJobs"]["purge-invites"] is None

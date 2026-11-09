@@ -61,7 +61,7 @@
     <input id="invite_retention_days" name="invite_retention_days" type="number" min="7" max="180" required
            value="{{ hotel.invite_retention_days or 90 }}"
            class="w-32 border border-gray-300 rounded px-3 py-2 text-sm" />
-    <p class="text-xs text-gray-500 mt-1">How long an accepted, revoked or expired invite, and the email it names, is kept after it ends: 7 to 180 days, 90 by default.</p>
+    <p class="text-xs text-gray-500 mt-1">How long an accepted, revoked or expired invite, and the email it names, is kept after it ends, then deleted by the daily purge: 7 to 180 days, 90 by default.</p>
   </div>
   {% endif %}
   <fieldset>

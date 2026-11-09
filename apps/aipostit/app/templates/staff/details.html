@@ -48,7 +48,7 @@
     <textarea name="description" rows="5" class="{{ field }} py-2">{{ hotel.description or "" }}</textarea></label>
   <label class="block"><span class="font-medium">Biten davetleri saklama süresi (gün)</span>
     <input name="invite_retention_days" type="number" min="7" max="180" required value="{{ hotel.invite_retention_days or 90 }}" class="{{ field }} max-w-32" />
-    <span class="mt-1 block text-sm text-sand-700">Kabul edilen, iptal edilen ya da süresi dolan bir davet ve içindeki e-posta adresi bittikten sonra bu kadar gün saklanır: 7 ile 180 gün arası, varsayılan 90.</span></label>
+    <span class="mt-1 block text-sm text-sand-700">Kabul edilen, iptal edilen ya da süresi dolan bir davet ve içindeki e-posta adresi bittikten sonra bu kadar gün saklanır, ardından günlük temizlikte silinir: 7 ile 180 gün arası, varsayılan 90.</span></label>
   <fieldset>
     <legend class="font-medium">Paylaşım kanalları</legend>
     <div class="mt-2 flex flex-wrap gap-4">

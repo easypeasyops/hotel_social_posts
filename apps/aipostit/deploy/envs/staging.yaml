@@ -17,7 +17,8 @@ config:
 # every hotel's drafts a second time each week. To test generation in staging, queue one
 # hotel: POST /internal/jobs/generate/<hotel_id> with the X-Cron-Secret header.
 # Nor the Buffer sync: prod's already syncs the same rows, and both would spend the one
-# Buffer quota.
+# Buffer quota. Nor the invite purge: prod's deletes the same rows.
 cronJobs:
   generate-weekly: null
   sync-buffer: null
+  purge-invites: null

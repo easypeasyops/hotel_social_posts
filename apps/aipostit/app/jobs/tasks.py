@@ -180,3 +180,13 @@ def sync_buffer_posts_task():
     from app.publishing.buffer import sync_scheduled_posts
 
     sync_scheduled_posts(get_supabase())
+
+
+@celery_app.task(name="tasks.purge_ended_invites")
+def purge_ended_invites_task() -> int:
+    """Deletes staff invites that ended longer ago than their hotel keeps them. No retries:
+    the deletes are idempotent and the next run catches up. Not scheduled yet (spec PR 8)."""
+    from app.database import get_supabase
+    from app.hotels.invites import purge_ended_invites
+
+    return purge_ended_invites(get_supabase())

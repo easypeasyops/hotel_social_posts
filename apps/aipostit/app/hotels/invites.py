@@ -175,3 +175,37 @@ def release_invite(db, invite_id: str | None) -> None:
         db.table("staff_invites").update({"accepted_at": None}).eq("id", invite_id).execute()
     except Exception:
         logger.exception("Could not release staff invite %s after a failed sign-up", invite_id)
+
+
+def purge_ended_invites(db, now: datetime | None = None) -> int:
+    """Deletes each hotel's invites that ended (accepted, revoked or expired, whichever came
+    first) more than its invite_retention_days ago, and returns how many. Pending invites are
+    kept. Accepting and revoking happen before expiry, and never both, so the three deletes
+    below match exactly the rows whose least(accepted_at, revoked_at, expires_at) is before
+    the cutoff, using the hotel_id index. A hotel that fails is logged and the rest go on;
+    then it raises. Logs counts and hotel ids only, never an email."""
+    now = now or datetime.now(UTC)
+    hotels = db.table("hotels").select("id, invite_retention_days").execute().data
+    total, failed = 0, 0
+    for hotel in hotels:
+        cutoff = (now - timedelta(days=hotel["invite_retention_days"])).isoformat()
+        try:
+            rows = db.table("staff_invites").delete().eq("hotel_id", hotel["id"])
+            accepted = rows.lt("accepted_at", cutoff).execute().data
+            rows = db.table("staff_invites").delete().eq("hotel_id", hotel["id"])
+            revoked = rows.lt("revoked_at", cutoff).execute().data
+            rows = db.table("staff_invites").delete().eq("hotel_id", hotel["id"])
+            rows = rows.is_("accepted_at", "null").is_("revoked_at", "null")
+            expired = rows.lt("expires_at", cutoff).execute().data
+            deleted = len(accepted) + len(revoked) + len(expired)
+        except Exception:
+            logger.exception("Could not purge the ended invites of hotel %s", hotel["id"])
+            failed += 1
+            continue
+        if deleted:
+            logger.info("Purged %d ended invites of hotel %s", deleted, hotel["id"])
+        total += deleted
+    logger.info("Purged %d ended invites across %d hotels", total, len(hotels))
+    if failed:
+        raise RuntimeError(f"Could not purge the ended invites of {failed} hotels")
+    return total

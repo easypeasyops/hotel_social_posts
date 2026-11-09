@@ -1,5 +1,5 @@
 ---
-name: software-engineer
+name: aipostit-software-engineer
 description: aipostit's software engineer. Use for building a feature from a spec, fixing a bug, adding tests, or a refactor in apps/aipostit, delivered as small PRs with tests and docs. Writes code in apps/aipostit/; reads apps/aipostit/docs/product/ but doesn't edit it.
 ---
 

@@ -74,6 +74,16 @@ cronJobs:
     resources:
       requests: { cpu: 20m, memory: 192Mi }
       limits: { memory: 384Mi }
+  # Deletes the profile photos no one can see any more (of deleted accounts and of accounts
+  # with no access) and the logos of deleted hotels (app/profile_photo.py). Like
+  # purge-invites it runs in its own pod, so a failed purge fails the Job. Daily at 04:30 UTC.
+  purge-photos:
+    schedule: "30 4 * * *"
+    command: [python, -m, app.jobs.purge_photos]
+    activeDeadlineSeconds: 300
+    resources:
+      requests: { cpu: 20m, memory: 192Mi }
+      limits: { memory: 384Mi }
 
 # The keys, from aipostit's own store in the platform (platform deploy/secrets/
 # app-stores.yaml), loaded there by hand from .env (platform scripts/load-app-env.sh); the

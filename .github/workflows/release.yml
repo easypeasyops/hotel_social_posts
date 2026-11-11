@@ -181,3 +181,30 @@ jobs:
             exit 0
           fi
           .github/scripts/deploy-pr.sh "$APP" staging "$DIGEST" "$VERSION"
+
+  # One line in #aipostit-deploys (.github/scripts/slack-notify.sh) for every release, failed ones too.
+  notify:
+    name: tell Slack
+    needs: [release, deploy-staging]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Post the result
+        env:
+          RELEASE: ${{ needs.release.result }}
+          STAGING: ${{ needs.deploy-staging.result }}
+          SLACK_DEPLOYS_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOYS_WEBHOOK_URL }}
+        run: |
+          repo="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          if [[ "$RELEASE" == success && "$STAGING" == success ]]; then
+            text=":package: *$GITHUB_REF_NAME* is built, scanned and signed (<$repo/releases/tag/$GITHUB_REF_NAME|release>). Its staging deploy PR merges itself once \`ci\` is green."
+          else
+            text=":red_circle: The release of *$GITHUB_REF_NAME* failed: <$repo/actions/runs/$GITHUB_RUN_ID|the run>."
+          fi
+          .github/scripts/slack-notify.sh "$text"

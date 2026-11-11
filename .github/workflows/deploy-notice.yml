@@ -1,0 +1,44 @@
+name: Deploy notice
+
+# A merge to main that changes an app's image digest in apps/<app>/deploy/envs/<env>.yaml is a
+# deploy: Argo CD rolls it out. Each one gets a line in #aipostit-deploys
+# (.github/scripts/slack-notify.sh), staging's with the link that promotes it to prod.
+# Rollbacks made by hand are posted the same way; changes that leave the digest alone are not.
+on:
+  push:
+    branches: [main]
+    paths: ["apps/*/deploy/envs/*.yaml"]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: tell Slack
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the push's first commit's parent
+      - name: Post each new digest
+        env:
+          BEFORE: ${{ github.event.before }}
+          SLACK_DEPLOYS_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOYS_WEBHOOK_URL }}
+        run: |
+          repo="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          for file in $(git diff --name-only "$BEFORE" HEAD -- 'apps/*/deploy/envs/*.yaml'); do
+            app=$(cut -d/ -f2 <<<"$file") env=$(basename "$file" .yaml)
+            new=$(grep '^  digest: ' "$file" || true)
+            old=$(git show "$BEFORE:$file" 2>/dev/null | grep '^  digest: ' || true)
+            [[ -n "$new" && "$new" != "$old" ]] || continue
+            # The line deploy-pr.sh writes: digest: "sha256:…" # <app> vX.Y.Z; a hand edit may lack the version.
+            version=$(sed -nE 's/.* # [a-z0-9-]+ (v[0-9]+\.[0-9]+\.[0-9]+).*/\1/p' <<<"$new")
+            [[ -n "$version" ]] || version=$(sed -nE 's/.*"sha256:([0-9a-f]{12}).*/sha256:\1/p' <<<"$new")
+            text=":rocket: *$app $env* now runs *$version*: Argo CD is rolling it out (<$repo/commit/$GITHUB_SHA|commit>)."
+            if [[ "$env" == staging ]]; then
+              text="$text Check staging, then <$repo/actions/workflows/promote.yml|promote it to prod>."
+            fi
+            .github/scripts/slack-notify.sh "$text"
+          done

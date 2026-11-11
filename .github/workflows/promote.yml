@@ -32,9 +32,15 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           APP: ${{ inputs.app }}
+          SLACK_DEPLOYS_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOYS_WEBHOOK_URL }}
         run: |
           [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::$APP is not an app name"; exit 1; }
           # The line deploy-pr.sh writes: digest: "sha256:…" # <app> vX.Y.Z
           read -r digest version < <(sed -nE 's/^  digest: "([^"]+)" # [a-z0-9-]+ v([0-9]+\.[0-9]+\.[0-9]+).*/\1 \2/p' "apps/$APP/deploy/envs/staging.yaml")
           [[ -n "${version:-}" ]] || { echo "::error::no digest and version in apps/$APP/deploy/envs/staging.yaml"; exit 1; }
           .github/scripts/deploy-pr.sh "$APP" prod "$digest" "$version"
+          # None open when prod already runs this digest (deploy-pr.sh opened nothing).
+          url=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "deploy/$APP-prod-v$version" --state open --json url -q '.[0].url')
+          if [[ -n "$url" ]]; then
+            .github/scripts/slack-notify.sh ":large_yellow_circle: The *$APP prod* deploy of *v$version* waits for your review: <$url|the PR>."
+          fi

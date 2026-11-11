@@ -183,6 +183,7 @@ A release is an image built, scanned and signed by `.github/workflows/release.ym
 4. The first release creates the GHCR package as private: make it public (package settings) so the cluster can pull it without credentials.
 5. Check the provenance: `gh attestation verify oci://ghcr.io/easypeasyops/hotel_social_posts/aipostit@<digest> --owner easypeasyops`.
 6. The workflow then opens the staging deploy PR (`.github/scripts/deploy-pr.sh`), which merges itself when `ci` is green; Argo CD deploys it. Check staging, then promote: **Actions → Promote to prod → Run workflow** (or `gh workflow run promote.yml`) opens the PR that gives prod staging's digest. Review and merge it yourself.
+7. #aipostit-deploys follows each step (below): the release built or failed, each environment's new version once its deploy PR merges (staging's message links **Promote to prod**), and the prod PR waiting for your review.
 
 The tag, the deploy PRs and their commits are made by the release GitHub App, because what the workflows' own `GITHUB_TOKEN` makes starts no other workflow (no release, no `ci` on a PR). Set it up once:
 
@@ -191,6 +192,15 @@ The tag, the deploy PRs and their commits are made by the release GitHub App, be
 3. Turn on **Allow auto-merge** (Settings → General), which the staging PR needs.
 
 If a workflow fails at "create-github-app-token", one of those is missing or the key was revoked: generate a new key and replace the secret.
+
+### Deploy messages in Slack
+
+`release.yml`, `promote.yml` and `deploy-notice.yml` (a merge that changes an image digest in `deploy/envs/<env>.yaml`, a hand rollback too) post to #aipostit-deploys through `.github/scripts/slack-notify.sh`. Alerts stay in the #aipostit-alerts-* channels. A message reports that a deploy PR merged; whether Argo CD synced it shows in the alert channels. Set it up once:
+
+1. Create the channel #aipostit-deploys, then a Slack app (api.slack.com/apps → From scratch) with **Incoming Webhooks** on, and add a webhook for that channel.
+2. Add its URL as the secret `SLACK_DEPLOYS_WEBHOOK_URL` in this repo's Settings → Secrets and variables → Actions.
+
+Slack never fails a workflow: without the secret, or when the post fails, the step only warns ("nothing posted to Slack", "the Slack post failed"). If messages stop, look for that warning in the run, then replace the webhook (a revoked one answers 403/404).
 
 ## Deployment and release checklist
 

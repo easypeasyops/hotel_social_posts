@@ -1,0 +1,87 @@
+name: Roll back
+
+# Actions → Roll back → Run workflow (later also `/aipostit rollback <env>` from Slack): opens
+# the PR that gives <env> the release before the one it runs, by its digest from that
+# release's notes (.github/scripts/deploy-pr.sh). Staging's PR merges itself when `ci` is
+# green; prod's waits for your review, as every prod PR. Run it again to go back one more.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: The app to roll back
+        default: aipostit
+      env:
+        description: The environment to roll back
+        type: choice
+        options: [staging, prod]
+      requested_by:
+        description: Who asked for it, for the PR (the Slack bot fills it in)
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rollback-${{ inputs.app }}-${{ inputs.env }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: open the rollback PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 0 # the release tags
+
+      # The version the env runs (the line deploy-pr.sh writes) and the release tag before
+      # it, as current= and target= in the output.
+      - name: Which release to go back to
+        id: target
+        env:
+          APP: ${{ inputs.app }}
+          ENV: ${{ inputs.env }}
+        run: |
+          [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::$APP is not an app name"; exit 1; }
+          [[ "$ENV" =~ ^(staging|prod)$ ]] || { echo "::error::$ENV is not staging or prod"; exit 1; }
+          file="apps/$APP/deploy/envs/$ENV.yaml"
+          current=$(sed -nE 's/^  digest: "[^"]+" # [a-z0-9-]+ v([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' "$file")
+          [[ -n "$current" ]] || { echo "::error::$file names no version on its digest line"; exit 1; }
+          target=$(git tag -l "$APP/v*" | sed -n "s|^$APP/v||p" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
+            { cat; echo "$current"; } | sort -uV | grep -B1 -x "$current" | grep -vx "$current" || true)
+          [[ -n "$target" ]] || { echo "::error::no $APP release before v$current"; exit 1; }
+          echo "::notice::$APP $ENV runs v$current: rolling back to v$target"
+          echo "current=$current" >>"$GITHUB_OUTPUT"
+          echo "target=$target" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: token
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          SLACK_DEPLOYS_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOYS_WEBHOOK_URL }}
+          APP: ${{ inputs.app }}
+          ENV: ${{ inputs.env }}
+          CURRENT: ${{ steps.target.outputs.current }}
+          TARGET: ${{ steps.target.outputs.target }}
+          REQUESTED_BY: ${{ inputs.requested_by }}
+        run: |
+          # The digest release.yml wrote into the release's notes: <image>@sha256:…
+          digest=$(gh release view "$APP/v$TARGET" --repo "$GITHUB_REPOSITORY" --json body -q .body |
+            grep -oE '@sha256:[0-9a-f]{64}' | head -1 | cut -c2- || true)
+          [[ -n "$digest" ]] || { echo "::error::the $APP/v$TARGET release's notes give no digest"; exit 1; }
+          ROLLBACK=1 .github/scripts/deploy-pr.sh "$APP" "$ENV" "$digest" "$TARGET"
+          url=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "rollback/$APP-$ENV-v$TARGET" --state open --json url -q '.[0].url')
+          [[ -n "$url" ]] || exit 0 # none: the env already ran that digest
+          if [[ "$ENV" == prod ]]; then
+            .github/scripts/slack-notify.sh ":rewind: The *$APP prod* rollback from v$CURRENT to *v$TARGET* waits for your review: <$url|the PR>."
+          else
+            .github/scripts/slack-notify.sh ":rewind: *$APP staging* rolls back from v$CURRENT to *v$TARGET*: <$url|the PR> merges once \`ci\` is green."
+          fi

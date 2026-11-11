@@ -298,7 +298,7 @@ Ticket. No `generate-weekly` run has succeeded for 8 days: Monday's failed, or n
 1. Inspect the API's logs and events (`kubectl -n aipostit-<env> describe pod`, `logs`) and recent release or configuration changes.
 2. Verify required environment variables are present without printing their values.
 3. Confirm the pods are Ready (`kubectl -n aipostit-<env> get pods`) and the Application is Synced and Healthy (`kubectl -n argocd get app aipostit-<env>`).
-4. If the failure began with a release, roll back: put the previous digest back in `deploy/envs/<env>.yaml` and merge.
+4. If the failure began with a release, roll back: **Actions → Roll back → Run workflow** with the environment (or `gh workflow run rollback.yml -f env=prod`) opens the PR that gives it the release before the one it runs, by that release's digest (its notes), titled "deploy: aipostit <env> rolls back to vX.Y.Z" and posted to #aipostit-deploys. Staging's merges itself when `ci` is green; review and merge prod's yourself. Run it again to go back one more release. It refuses when no earlier `aipostit/v*` release exists or the digest line has no version (a hand edit): then put the previous digest back in `deploy/envs/<env>.yaml` by hand and merge. Rolling staging back also changes what **Promote to prod** gives prod next.
 5. After recovery, check `/readyz` and perform a safe authenticated read.
 
 Because `/healthz` is liveness-only, a successful response is not proof that dependencies are healthy. `/readyz` returns 503 `not ready: Redis` when Redis doesn't answer within 2 s: check Redis first. It doesn't cover Supabase or the providers.

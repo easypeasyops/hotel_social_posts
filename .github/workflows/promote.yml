@@ -9,6 +9,9 @@ on:
       app:
         description: The app to promote
         default: aipostit
+      requested_by:
+        description: Who asked for it, for the PR (the Slack bot fills it in)
+        default: ""
 
 permissions:
   contents: read
@@ -32,6 +35,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           APP: ${{ inputs.app }}
+          REQUESTED_BY: ${{ inputs.requested_by }} # deploy-pr.sh names them in the PR
           SLACK_DEPLOYS_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOYS_WEBHOOK_URL }}
         run: |
           [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::$APP is not an app name"; exit 1; }

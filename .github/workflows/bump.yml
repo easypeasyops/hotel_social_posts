@@ -1,0 +1,113 @@
+name: Bump version
+
+# Actions → Bump version → Run workflow (later also `/aipostit release` from Slack): opens the
+# PR that bumps `version` in apps/<app>/pyproject.toml and the same line in its uv.lock, with
+# auto-merge on. Once `ci` is green it merges; tag-release.yml tags the merge, release.yml
+# releases it, and staging gets its deploy PR. Apply a migration the new version needs first.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: The app to bump
+        default: aipostit
+      part:
+        description: Which part of the version
+        type: choice
+        options: [patch, minor]
+        default: patch
+      requested_by:
+        description: Who asked for it, for the PR (the Slack bot fills it in)
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bump-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: open the version bump PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      # Writes the new version into both files and old=/new= to the output; changes nothing
+      # when a file doesn't hold the version where it should.
+      - name: Bump the version
+        id: bump
+        env:
+          APP: ${{ inputs.app }}
+          PART: ${{ inputs.part }}
+        run: |
+          [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::$APP is not an app name"; exit 1; }
+          [[ "$PART" =~ ^(patch|minor)$ ]] || { echo "::error::$PART is not patch or minor"; exit 1; }
+          python3 - "$APP" "$PART" >>"$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, tomllib
+          from pathlib import Path
+
+          app, part = sys.argv[1:]
+          project, lock = Path(f"apps/{app}/pyproject.toml"), Path(f"apps/{app}/uv.lock")
+          old = tomllib.loads(project.read_text())["project"]["version"]
+          major, minor, patch = map(int, old.split("."))
+          new = f"{major}.{minor}.{patch + 1}" if part == "patch" else f"{major}.{minor + 1}.0"
+          edits = {
+              project: f'version = "{old}"\n',
+              lock: f'[[package]]\nname = "{app}"\nversion = "{old}"\n',
+          }
+          texts = {}
+          for path, line in edits.items():
+              text = path.read_text()
+              if text.count(line) != 1:
+                  sys.exit(f"::error::{path} doesn't hold {line!r} exactly once")
+              texts[path] = text.replace(line, line.replace(old, new))
+          for path, text in texts.items():
+              path.write_text(text)
+          print(f"old={old}\nnew={new}")
+          EOF
+
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: token
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # With the release app's token, as deploy-pr.sh: a PR opened with GITHUB_TOKEN would
+      # never get its `ci` check, and the commits are signed as the app.
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          SLACK_DEPLOYS_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOYS_WEBHOOK_URL }}
+          APP: ${{ inputs.app }}
+          OLD: ${{ steps.bump.outputs.old }}
+          NEW: ${{ steps.bump.outputs.new }}
+          REQUESTED_BY: ${{ inputs.requested_by }}
+        run: |
+          repo=$GITHUB_REPOSITORY
+          [[ "$REQUESTED_BY" =~ ^[A-Za-z0-9._\ -]{0,80}$ ]] || { echo "::error::requested_by is not a name"; exit 1; }
+          if gh api "repos/$repo/git/ref/tags/$APP/v$NEW" >/dev/null 2>&1; then
+            echo "::error::$APP/v$NEW is already tagged"
+            exit 1
+          fi
+          title="$APP $NEW"
+          branch="release/$APP-v$NEW"
+          gh api "repos/$repo/git/refs" -f ref="refs/heads/$branch" -f sha="$(git rev-parse HEAD)" >/dev/null
+          for file in "apps/$APP/pyproject.toml" "apps/$APP/uv.lock"; do
+            gh api -X PUT "repos/$repo/contents/$file" -f branch="$branch" -f message="$title" \
+              -f sha="$(git rev-parse "HEAD:$file")" -f content="$(base64 -w0 "$file")" >/dev/null
+          done
+          body="**Repo:** hotel_social_posts · **Stack:** the release of $APP **$NEW** · **Waits on:** nothing.
+
+          Bumps \`version\` in \`apps/$APP/pyproject.toml\` and \`apps/$APP/uv.lock\` from $OLD to $NEW. Merging tags \`$APP/v$NEW\`: the release workflow builds it and opens staging's deploy PR. Apply any migration $NEW needs before this merges.
+          ${REQUESTED_BY:+
+          Requested by $REQUESTED_BY.}
+
+          Opened by \`.github/workflows/bump.yml\`."
+          url=$(gh pr create --repo "$repo" --base main --head "$branch" --title "$title" --body "$body")
+          gh pr merge "$branch" --repo "$repo" --auto --squash
+          .github/scripts/slack-notify.sh ":package: *$APP $NEW* is on its way: <$url|the bump PR> merges once \`ci\` is green, then staging gets it."

@@ -20,6 +20,7 @@ dependencies = [
     "python-dotenv==1.2.4",
     "prometheus-client==0.26.0",
     "pillow==13.0.0",
+    "sentry-sdk==2.74.0",
 ]
 
 [dependency-groups]

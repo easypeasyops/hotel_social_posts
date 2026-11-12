@@ -255,6 +255,12 @@ kubectl -n aipostit-<env> logs deploy/aipostit-worker | grep -o '{.*' | jq -c 's
 
 The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its public port: `curl -s localhost:9100/metrics | grep ^http_`. Per route template and status: `http_requests_total` counts requests and `http_request_duration_seconds` buckets their latency. A rising `status="5.."` count on one route points at that route's dependency; `route="unmatched"` is requests for paths the app doesn't have.
 
+## Reading the errors
+
+Off until `SENTRY_DSN` is in the environment, and no environment has it yet: until then unhandled errors are only log lines (above). With a DSN (a Sentry or GlitchTip project's; a secret, so in `.env` locally and in the platform's store for the cluster), the API and the worker send each unhandled error and each line logged at ERROR to that project, grouped, with the stack trace. `SENTRY_ENVIRONMENT` and `SENTRY_RELEASE` name the environment and the version on each event.
+
+An event of a request has a `request_id` tag: the same ID as the response's `X-Request-ID` header and the request's log lines, so `grep '"request_id": "<id>"'` (Reading the logs) shows what else that request did. Events carry no request body, query string, cookies, `Authorization` header or local variables, so the logs and the database are where to look for what was sent.
+
 ## Alerts
 
 Prometheus evaluates aipostit's alert rules (`deploy/envs/prod.yaml`, `monitoring.rules`: prod's release ships them, for both environments) and Alertmanager posts them to Slack: `aipostit-prod`'s to #aipostit-alerts-prod, `aipostit-staging`'s to #aipostit-alerts-staging, with a message when each resolves. A **page** (red) is something to act on now, and in prod it notifies the channel (@channel); a **ticket** (yellow) is something to look at today. While a page fires, the tickets in the same environment are held back. Argo CD's alerts on `aipostit-<env>` come to the same channels (platform `docs/RUNBOOK.md`, Argo CD alerts). The routing, the webhooks and how to test or silence alerts are the platform's (`docs/RUNBOOK.md`, Slack alerts). Each alert's link opens its section below.

@@ -2,10 +2,10 @@ import logging
 from typing import Any
 
 from celery import Celery
-from celery.signals import setup_logging
+from celery.signals import celeryd_init, setup_logging
 
 from app.config import get_settings
-from app.observability import configure_logging
+from app.observability import configure_logging, init_error_tracking
 
 log = logging.getLogger(__name__)
 settings = get_settings()
@@ -18,6 +18,17 @@ celery_app.conf.update(
     timezone="Europe/Istanbul",
     enable_utc=True,
 )
+
+
+@celeryd_init.connect
+def _error_tracking(**_: Any) -> None:
+    """The worker reports its tasks' errors like the API. In the main process, before it
+    forks: each child inherits the setup and starts its own sending thread when first used."""
+    init_error_tracking(
+        settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        release=settings.sentry_release,
+    )
 
 
 @setup_logging.connect

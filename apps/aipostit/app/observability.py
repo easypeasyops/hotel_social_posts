@@ -7,6 +7,8 @@
   path: raw paths would make one time series per hotel or draft ID. Served on their own
   port (9100), so the public port carries none of it. The names are shortly's, so the
   platform's SLO rules and dashboards read aipostit the same way.
+* Errors: with SENTRY_DSN set, unhandled errors go to an error tracker that speaks Sentry's
+  protocol, grouped, with their stack traces, release and request ID; without it, nothing.
 """
 
 import json
@@ -20,6 +22,7 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any, Final
 
+import sentry_sdk
 from prometheus_client import CollectorRegistry, Counter, Histogram, start_http_server
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -80,6 +83,33 @@ def configure_logging(level: str = "INFO", *, json_output: bool = True) -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
+def _without_query_string(event: Any, hint: dict[str, Any]) -> Any:
+    # Query strings carry secrets (Google sign-in's ?code=), and the SDK sends them as they are.
+    event.get("request", {}).pop("query_string", None)
+    return event
+
+
+def init_error_tracking(dsn: str, *, environment: str = "", release: str = "") -> None:
+    """Send unhandled errors (the API's, the worker's tasks') and logged ERRORs to the error
+    tracker at `dsn`; without one, do nothing. The app handles staff emails, session cookies
+    and Supabase tokens, so events carry as little of a request as the SDK allows: no user,
+    cookies or credential headers, no body, no query string, no local variables. No
+    performance tracing either: errors only."""
+    if not dsn:
+        return
+    # send_default_pii stays at its default, off (tests/test_error_tracking.py holds it
+    # there): the SDK has deprecated the option and warns when it's passed at all.
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=environment or None,
+        release=release or None,
+        max_request_body_size="never",
+        include_local_variables=False,
+        traces_sample_rate=0.0,
+        before_send=_without_query_string,
+    )
+
+
 class Metrics:
     """The app's metrics, on a registry of their own (one per app keeps tests isolated)."""
 
@@ -137,6 +167,8 @@ class RequestContextMiddleware:
         incoming = dict(scope["headers"]).get(REQUEST_ID_HEADER.encode(), b"").decode("latin-1")
         request_id = incoming if _VALID_REQUEST_ID.match(incoming) else uuid.uuid4().hex
         token = request_id_var.set(request_id)
+        # On the request's error events too, so an event can be matched to its log lines.
+        sentry_sdk.set_tag("request_id", request_id)
         status = 500  # what the client sees if the app raises before responding
         start = time.perf_counter()
 

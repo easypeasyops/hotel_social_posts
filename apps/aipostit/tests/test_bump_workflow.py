@@ -99,3 +99,13 @@ def test_the_repo_files_agree_today() -> None:
     """What the step relies on: the real files hold one version line each, and agree."""
     project, lock = _versions(REPO)
     assert project == lock
+
+
+def test_file_contents_reach_github_on_stdin_not_as_an_argument() -> None:
+    """One argument can be 128 KiB at most on Linux, and aipostit's uv.lock in base64 is
+    over twice that: 0.5.3's bump failed with "Argument list too long"."""
+    lock = (REPO / "apps/aipostit/uv.lock").stat().st_size
+    assert lock * 4 / 3 > 128 * 1024  # the case this guards is real for today's lock
+    (step,) = [s for s in WORKFLOW["jobs"]["bump"]["steps"] if s.get("name") == "Open the PR"]
+    assert "content=" not in step["run"]
+    assert "--input -" in step["run"]

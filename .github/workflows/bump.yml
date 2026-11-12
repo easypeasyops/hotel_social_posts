@@ -97,9 +97,13 @@ jobs:
           title="$APP $NEW"
           branch="release/$APP-v$NEW"
           gh api "repos/$repo/git/refs" -f ref="refs/heads/$branch" -f sha="$(git rev-parse HEAD)" >/dev/null
+          # The request body goes in on stdin: a lock file's base64 is longer than one
+          # command-line argument may be (aipostit's failed with "Argument list too long").
           for file in "apps/$APP/pyproject.toml" "apps/$APP/uv.lock"; do
-            gh api -X PUT "repos/$repo/contents/$file" -f branch="$branch" -f message="$title" \
-              -f sha="$(git rev-parse "HEAD:$file")" -f content="$(base64 -w0 "$file")" >/dev/null
+            jq -n --arg branch "$branch" --arg message "$title" \
+              --arg sha "$(git rev-parse "HEAD:$file")" --rawfile content <(base64 -w0 "$file") \
+              '{branch: $branch, message: $message, sha: $sha, content: $content}' |
+              gh api -X PUT "repos/$repo/contents/$file" --input - >/dev/null
           done
           body="**Repo:** hotel_social_posts · **Stack:** the release of $APP **$NEW** · **Waits on:** nothing.
 

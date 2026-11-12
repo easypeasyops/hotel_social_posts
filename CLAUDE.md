@@ -38,5 +38,5 @@ same PR.
   when opening a PR, code, CI and docs alike; it merges once CI is green, and a release
   still reaches staging the usual way (bump → tag → staging). Production needs Emrah's
   approval, so never auto-merge a PR that changes an `apps/<app>/deploy/envs/prod.yaml`
-  (prod's image, settings or alert rules). PRs in easypeasyops/platform reach prod as soon
-  as they merge: Emrah merges those too.
+  (prod's image, settings or alert rules). PRs in easypeasyops/platform auto-merge once
+  their CI is green too (Emrah, 2026-11-12), though they reach prod as soon as they merge.

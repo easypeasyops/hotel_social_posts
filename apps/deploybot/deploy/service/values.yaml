@@ -1,0 +1,62 @@
+# deploybot's values for the platform's service chart (easypeasyops/platform charts/service,
+# 1.2.1), layered as aipostit's: this file, then deploy/envs/ops.yaml. Argo CD renders them
+# for the Application deploybot-ops (the platform's apps/deploybot/envs/ops.yaml); CI renders
+# and validates them (ci.yml, deploy).
+
+app:
+  name: deploybot
+
+image:
+  repository: ghcr.io/easypeasyops/hotel_social_posts/deploybot
+
+# One pod, one Socket Mode connection. Slack would spread commands over two, but there is
+# nothing to share the load of, and one log is easier to read.
+autoscaling:
+  enabled: false
+replicaCount: 1
+resources:
+  requests: { cpu: 10m, memory: 96Mi }
+  limits: { memory: 192Mi }
+
+# The keys, from deploybot's own store in the platform (platform deploy/secrets/
+# app-stores.yaml), loaded there from apps/deploybot/.env (platform scripts/load-app-env.sh);
+# the chart copies them into the Secret deploybot-env. Never in git.
+secretEnv:
+  store: deploybot
+
+# app/config.py. The IDs are not secret: each environment's (deploy/envs/).
+env:
+  - { name: SLACK_TEAM_ID, value: "{{ .Values.config.slackTeamId }}" }
+  - { name: SLACK_CHANNEL_ID, value: "{{ .Values.config.slackChannelId }}" }
+  - { name: ALLOWED_USERS, value: "{{ .Values.config.allowedUsers }}" }
+  - { name: GITHUB_APP_CLIENT_ID, value: "{{ .Values.config.githubAppClientId }}" }
+  - { name: GITHUB_APP_INSTALLATION_ID, value: "{{ .Values.config.githubAppInstallationId }}" }
+  - { name: SLACK_APP_TOKEN, secret: { name: '{{ include "service.fullname" . }}-env', key: SLACK_APP_TOKEN } }
+  - { name: SLACK_BOT_TOKEN, secret: { name: '{{ include "service.fullname" . }}-env', key: SLACK_BOT_TOKEN } }
+  - { name: GITHUB_APP_PRIVATE_KEY_BASE64, secret: { name: '{{ include "service.fullname" . }}-env', key: GITHUB_APP_PRIVATE_KEY_BASE64 } }
+
+config:
+  slackTeamId: ""
+  slackChannelId: ""
+  allowedUsers: "" # comma-separated Slack user IDs; empty: no one may release, promote or roll back
+  githubAppClientId: ""
+  githubAppInstallationId: ""
+
+networkPolicy:
+  # Slack (the Socket Mode WebSocket and its API) and GitHub's API, both HTTPS on the
+  # internet. A NetworkPolicy can't name a host, so: 443 anywhere outside the private ranges
+  # the cluster's pods, Services and API server live in. No database.
+  extraEgress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+      ports:
+        - { port: 443, protocol: TCP }
+
+# Nothing routes to it: the chart's Service exists, but only the kubelet's probes reach port
+# 8000 (app/health.py). No metrics either.
+gateway:
+  enabled: false
+monitoring:
+  enabled: false

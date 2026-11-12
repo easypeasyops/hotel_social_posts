@@ -177,12 +177,12 @@ Change a dependency with `uv add <package>==<version>` (or edit `pyproject.toml`
 
 A release is an image built, scanned and signed by `.github/workflows/release.yml` from a tag `aipostit/vX.Y.Z` that matches `version` in `apps/aipostit/pyproject.toml`. Only such images run in the cluster: the platform's admission policy and deploy gate require this workflow's provenance at this app's tag.
 
-1. Bump `version` in `pyproject.toml` (and the same line in `uv.lock`), in the feature's PR or one of its own, and merge it. For a bump on its own: **Actions → Bump version → Run workflow** (or `gh workflow run bump.yml -f part=patch`, `minor` for a minor), which opens the PR "aipostit X.Y.Z" with auto-merge on and posts it to #aipostit-deploys; it refuses a version already tagged. `.github/workflows/tag-release.yml` tags the merge commit `aipostit/vX.Y.Z`, which starts the release. (By hand, if that workflow can't: `git tag aipostit/vX.Y.Z <merge commit> && git push origin aipostit/vX.Y.Z`; release tags can't be moved.)
+1. Bump `version` in `pyproject.toml` (and the same line in `uv.lock`), in the feature's PR or one of its own, and merge it. For a bump on its own: `/aipostit release patch` (or `minor`) in #aipostit-deploys, **Actions → Bump version → Run workflow**, or `gh workflow run bump.yml -f part=patch`, which opens the PR "aipostit X.Y.Z" with auto-merge on and posts it to #aipostit-deploys; it refuses a version already tagged. `.github/workflows/tag-release.yml` tags the merge commit `aipostit/vX.Y.Z`, which starts the release. (By hand, if that workflow can't: `git tag aipostit/vX.Y.Z <merge commit> && git push origin aipostit/vX.Y.Z`; release tags can't be moved.)
 2. Merging a bump deploys to staging with no further step (below), so apply a migration the new version needs **before** merging it.
 3. The workflow builds `linux/amd64` and `linux/arm64`, scans for HIGH and CRITICAL vulnerabilities before anything is published, pushes `ghcr.io/easypeasyops/hotel_social_posts/aipostit`, attests its provenance and creates a GitHub Release whose notes give the digest. A tag that disagrees with `pyproject.toml` fails before publishing.
 4. The first release creates the GHCR package as private: make it public (package settings) so the cluster can pull it without credentials.
 5. Check the provenance: `gh attestation verify oci://ghcr.io/easypeasyops/hotel_social_posts/aipostit@<digest> --owner easypeasyops`.
-6. The workflow then opens the staging deploy PR (`.github/scripts/deploy-pr.sh`), which merges itself when `ci` is green; Argo CD deploys it. Check staging, then promote: **Actions → Promote to prod → Run workflow** (or `gh workflow run promote.yml`) opens the PR that gives prod staging's digest. Review and merge it yourself.
+6. The workflow then opens the staging deploy PR (`.github/scripts/deploy-pr.sh`), which merges itself when `ci` is green; Argo CD deploys it. Check staging, then promote: `/aipostit promote` in #aipostit-deploys, **Actions → Promote to prod → Run workflow**, or `gh workflow run promote.yml` opens the PR that gives prod staging's digest. Review and merge it yourself.
 7. #aipostit-deploys follows each step (below): the release built or failed, each environment's new version once its deploy PR merges (staging's message links **Promote to prod**), and the prod PR waiting for your review.
 
 The tag, the deploy PRs and their commits are made by the release GitHub App, because what the workflows' own `GITHUB_TOKEN` makes starts no other workflow (no release, no `ci` on a PR). Set it up once:
@@ -201,6 +201,10 @@ If a workflow fails at "create-github-app-token", one of those is missing or the
 2. Add its URL as the secret `SLACK_DEPLOYS_WEBHOOK_URL` in this repo's Settings → Secrets and variables → Actions.
 
 Slack never fails a workflow: without the secret, or when the post fails, the step only warns ("nothing posted to Slack", "the Slack post failed"). If messages stop, look for that warning in the run, then replace the webhook (a revoked one answers 403/404).
+
+### From Slack
+
+In #aipostit-deploys, `/aipostit status` says which release staging and prod run, and `/aipostit release patch|minor`, `promote` and `rollback staging|prod` start the same workflows as above, for the users deploybot allows. They only open PRs: prod's still wait for your review in GitHub. deploybot is its own app (`apps/deploybot/`, its RUNBOOK): if it doesn't answer, use Actions.
 
 ## Deployment and release checklist
 
@@ -298,7 +302,7 @@ Ticket. No `generate-weekly` run has succeeded for 8 days: Monday's failed, or n
 1. Inspect the API's logs and events (`kubectl -n aipostit-<env> describe pod`, `logs`) and recent release or configuration changes.
 2. Verify required environment variables are present without printing their values.
 3. Confirm the pods are Ready (`kubectl -n aipostit-<env> get pods`) and the Application is Synced and Healthy (`kubectl -n argocd get app aipostit-<env>`).
-4. If the failure began with a release, roll back: **Actions → Roll back → Run workflow** with the environment (or `gh workflow run rollback.yml -f env=prod`) opens the PR that gives it the release before the one it runs, by that release's digest (its notes), titled "deploy: aipostit <env> rolls back to vX.Y.Z" and posted to #aipostit-deploys. Staging's merges itself when `ci` is green; review and merge prod's yourself. Run it again to go back one more release. It refuses when no earlier `aipostit/v*` release exists or the digest line has no version (a hand edit): then put the previous digest back in `deploy/envs/<env>.yaml` by hand and merge. Rolling staging back also changes what **Promote to prod** gives prod next.
+4. If the failure began with a release, roll back: `/aipostit rollback <env>` in #aipostit-deploys, **Actions → Roll back → Run workflow** with the environment, or `gh workflow run rollback.yml -f env=prod` opens the PR that gives it the release before the one it runs, by that release's digest (its notes), titled "deploy: aipostit <env> rolls back to vX.Y.Z" and posted to #aipostit-deploys. Staging's merges itself when `ci` is green; review and merge prod's yourself. Run it again to go back one more release. It refuses when no earlier `aipostit/v*` release exists or the digest line has no version (a hand edit): then put the previous digest back in `deploy/envs/<env>.yaml` by hand and merge. Rolling staging back also changes what **Promote to prod** gives prod next.
 5. After recovery, check `/readyz` and perform a safe authenticated read.
 
 Because `/healthz` is liveness-only, a successful response is not proof that dependencies are healthy. `/readyz` returns 503 `not ready: Redis` when Redis doesn't answer within 2 s: check Redis first. It doesn't cover Supabase or the providers.

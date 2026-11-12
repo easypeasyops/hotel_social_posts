@@ -46,7 +46,7 @@ jobs:
 
   image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@07b1a9fea3f227dc8d1cf256ddb9b3b219c10e78 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@c17aae02c81cef808342d09eb3fdec38a1c97aba # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/aipostit
@@ -65,7 +65,7 @@ jobs:
 
   deploybot-image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@07b1a9fea3f227dc8d1cf256ddb9b3b219c10e78 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@c17aae02c81cef808342d09eb3fdec38a1c97aba # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/deploybot

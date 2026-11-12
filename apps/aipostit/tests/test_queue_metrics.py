@@ -11,7 +11,7 @@ from celery.signals import before_task_publish
 from prometheus_client import CollectorRegistry, generate_latest
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from app.jobs import queue_metrics, tasks  # noqa: F401  (tasks connects the publish signal)
+from app.jobs import queue_metrics, tasks
 from app.main import create_app
 
 
@@ -85,3 +85,9 @@ def test_the_app_serves_the_queue_metrics(monkeypatch: pytest.MonkeyPatch) -> No
 
     text = generate_latest(create_app().state.metrics.registry).decode()
     assert sample(text, "celery_queue_length") == 1
+
+
+def test_the_worker_reserves_one_task_per_process() -> None:
+    # Reserved tasks have left the queue, so its metrics can't see them: with Celery's
+    # default of four per process, eight tasks hide behind two hung processes.
+    assert tasks.celery_app.conf.worker_prefetch_multiplier == 1

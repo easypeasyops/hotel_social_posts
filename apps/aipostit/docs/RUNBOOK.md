@@ -197,8 +197,10 @@ If a workflow fails at "create-github-app-token", one of those is missing or the
 
 `release.yml`, `promote.yml` and `deploy-notice.yml` (a merge that changes an image digest in `deploy/envs/<env>.yaml`, a hand rollback too) post to #aipostit-deploys through `.github/scripts/slack-notify.sh`. Alerts stay in the #aipostit-alerts-* channels. A message reports that a deploy PR merged; whether Argo CD synced it shows in the alert channels. Set it up once:
 
-1. Create the channel #aipostit-deploys, then a Slack app (api.slack.com/apps → From scratch) with **Incoming Webhooks** on, and add a webhook for that channel.
-2. Add its URL as the secret `SLACK_DEPLOYS_WEBHOOK_URL` in this repo's Settings → Secrets and variables → Actions.
+1. Create the channel #aipostit-deploys, then the Slack app **aipostit-deploys** (api.slack.com/apps → From scratch). It is its own app, apart from the alerts' app (aipostitalerts, whose webhooks the platform holds) and from deploybot's: messages carry the app's name, and each can be reinstalled or removed without touching the others.
+2. Turn on **Incoming Webhooks** and **Add New Webhook to Workspace** for #aipostit-deploys. That asks for the one scope it needs, `incoming-webhook`; add no bot or user scopes.
+3. Copy the webhook URL (Incoming Webhooks → Copy) and store it as the Actions secret `SLACK_DEPLOYS_WEBHOOK_URL`, from the clipboard so it stays out of shell history: `pbpaste | gh secret set SLACK_DEPLOYS_WEBHOOK_URL --repo easypeasyops/hotel_social_posts` (or Settings → Secrets and variables → Actions → New repository secret). `gh secret set`'s own hidden prompt may not take a paste and then waits forever: stop it with Ctrl+C and pipe instead. Setting it again replaces it.
+4. Check: `gh secret list --repo easypeasyops/hotel_social_posts` shows it, and with the URL still on the clipboard `curl -fsS -H 'Content-Type: application/json' --data '{"text":"aipostit-deploys test"}' "$(pbpaste)"` answers `ok` and posts to the channel.
 
 Slack never fails a workflow: without the secret, or when the post fails, the step only warns ("nothing posted to Slack", "the Slack post failed"). If messages stop, look for that warning in the run, then replace the webhook (a revoked one answers 403/404).
 

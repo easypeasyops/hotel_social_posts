@@ -270,7 +270,7 @@ kubectl -n aipostit-<env> logs deploy/aipostit-worker | grep -o '{.*' | jq -c 's
 
 The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its public port: `curl -s localhost:9100/metrics | grep ^http_`. Per route template and status: `http_requests_total` counts requests and `http_request_duration_seconds` buckets their latency. A rising `status="5.."` count on one route points at that route's dependency; `route="unmatched"` is requests for paths the app doesn't have.
 
-The job queue is there too (`grep ^celery_`), read from Redis by the API at each scrape: `celery_queue_length` is the tasks waiting for a worker and `celery_queue_oldest_task_age_seconds` how long the oldest has waited (0 for an empty queue, or for a task queued by a release older than the metric). Both are normally 0 or small for a minute or two; an age that keeps growing while the worker pod is Running is a worker that hangs: "Jobs are not progressing" below. In Prometheus, `max by (namespace) (celery_queue_oldest_task_age_seconds)`: every API pod reports the same queue.
+The job queue is there too (`grep ^celery_`), read from Redis by the API at each scrape: `celery_queue_length` is the tasks waiting for a worker and `celery_queue_oldest_task_age_seconds` how long the oldest has waited (0 for an empty queue, or for a task queued by a release older than the metric). Both are normally 0 or small for a minute or two; an age that keeps growing while the worker pod is Running is a worker that hangs (`AipostitQueueStuck` fires past 15 minutes): "Jobs are not progressing" below. In Prometheus, `max by (namespace) (celery_queue_oldest_task_age_seconds)`: every API pod reports the same queue.
 
 ## Reading the errors
 
@@ -303,6 +303,15 @@ Ticket. Fewer API pods available than the environment asks for, for 15 minutes. 
 ### AipostitWorkerDown
 
 Page. No Celery worker pod available for 10 minutes: nothing is generated, translated, published or synced with Buffer, and queued tasks wait in Redis. `kubectl -n aipostit-<env> get pods -l app.kubernetes.io/name=aipostit-worker`, then `describe` and `logs deploy/aipostit-worker`. Then "Jobs are not progressing" below.
+
+### AipostitQueueStuck
+
+Ticket. The oldest task in the environment's queue has waited over 15 minutes, for 10 minutes (`celery_queue_oldest_task_age_seconds`, "Reading the metrics" above). Nothing queued after it runs either: uploads aren't processed, drafts aren't generated, translated or published. Two causes:
+
+- The worker hangs without exiting: its pod is Running, so `AipostitWorkerDown` is quiet. Ask it: `kubectl -n aipostit-<env> exec deploy/aipostit-worker -- celery -A app.jobs.tasks.celery_app inspect ping --timeout 5`. No `pong`: restart it (`kubectl -n aipostit-<env> rollout restart deployment/aipostit-worker`); the waiting tasks are taken by the new worker. Then "Jobs are not progressing" below for why it hung.
+- The worker is busy and behind: `inspect active` (same command, `active` for `ping`) shows the two tasks it runs, and `celery_queue_length` falls as it works. Monday's weekly generation queues a task per hotel, each up to a minute of Claude; if that alone fires this alert, the threshold (`deploy/envs/prod.yaml`) needs raising as the hotels grow, not the worker restarting.
+
+It can't see tasks the worker has already reserved, only those still in the queue, so after some hangs it fires a few tasks late: ARCHITECTURE, design limits.
 
 ### AipostitRedisDown
 
@@ -350,7 +359,7 @@ Because `/healthz` is liveness-only, a successful response is not proof that dep
 ### Jobs are not progressing
 
 1. Check that the worker service is running the Celery command above and is configured with the same Redis URL as the API.
-   In the cluster, ask the worker itself: the worker has no probe, so a hung Celery process looks Running and `AipostitWorkerDown` stays quiet. `kubectl -n aipostit-<env> exec deploy/aipostit-worker -- celery -A app.jobs.tasks.celery_app inspect ping --timeout 5` answers `pong` from a healthy worker; no reply means restart it (`rollout restart deployment/aipostit-worker`); its tasks wait in Redis and are redelivered.
+   In the cluster, ask the worker itself: the worker has no probe, so a hung Celery process looks Running and `AipostitWorkerDown` stays quiet (`AipostitQueueStuck` fires once a task has waited 15 minutes). `kubectl -n aipostit-<env> exec deploy/aipostit-worker -- celery -A app.jobs.tasks.celery_app inspect ping --timeout 5` answers `pong` from a healthy worker; no reply means restart it (`rollout restart deployment/aipostit-worker`); its tasks wait in Redis and are redelivered.
 2. Inspect worker logs for broker connection failures, task exceptions, and exhausted retries.
 3. Confirm Redis reachability and inspect the queue using the service's approved operational tooling.
 4. Check whether the task reached an external provider; do not blindly enqueue duplicates if a task may have completed an external action.

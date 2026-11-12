@@ -12,7 +12,7 @@ workers no Service), and Redis is where both meet.
 import json
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from functools import lru_cache
 from typing import Any, Final
 
@@ -68,22 +68,28 @@ def _age_seconds(raw_message: str | None) -> float:
     return max(0.0, time.time() - published_at)
 
 
+def counter_field(counter: str, **labels: str) -> str:
+    return "|".join([counter, *(labels[name] for name in COUNTERS[counter][1])])
+
+
 def count(counter: str, **labels: str) -> None:
     """Add one to a counter (worker side). Never fails its caller: a count that can't be
     written is logged and lost."""
-    field = "|".join([counter, *(labels[name] for name in COUNTERS[counter][1])])
+    field = counter_field(counter, **labels)
     try:
         queue_store().hincrby(COUNTERS_KEY, field, 1)
     except RedisError as exc:
         log.warning("could not count %s: %s", field, exc)
 
 
-def _counters(fields: dict[str, str]) -> Iterator[CounterMetricFamily]:
+def _counters(fields: dict[str, str], seeds: Iterable[str]) -> Iterator[CounterMetricFamily]:
     families = {
         name: CounterMetricFamily(name, text, labels=list(label_names))
         for name, (text, label_names) in COUNTERS.items()
     }
-    for field, value in fields.items():
+    # Seeds are exported at 0 until they are counted: a series that first appears at 1 has
+    # no earlier sample, so Prometheus's increase() would never see that first event.
+    for field, value in {**dict.fromkeys(seeds, "0"), **fields}.items():
         name, *label_values = field.split("|")
         # A field another release wrote (a rollout shares the Redis) may not fit: skip it.
         if name in families and len(label_values) == len(COUNTERS[name][1]) and value.isdigit():
@@ -92,8 +98,9 @@ def _counters(fields: dict[str, str]) -> Iterator[CounterMetricFamily]:
 
 
 class QueueCollector(Collector):
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Any, seeds: Iterable[str] = ()) -> None:
         self.store = store
+        self.seeds = tuple(seeds)
 
     def collect(self) -> Iterator[Metric]:
         try:
@@ -110,8 +117,9 @@ class QueueCollector(Collector):
             "How long the oldest waiting task has waited; 0 for an empty queue.",
             value=_age_seconds(oldest),
         )
-        yield from _counters(counters)
+        yield from _counters(counters, self.seeds)
 
 
-def register(registry: CollectorRegistry, store: Any) -> None:
-    registry.register(QueueCollector(store))
+def register(registry: CollectorRegistry, store: Any, seeds: Iterable[str] = ()) -> None:
+    """`seeds`: the fields of every counter series to export from 0 (`counter_field`)."""
+    registry.register(QueueCollector(store, seeds))

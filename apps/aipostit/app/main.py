@@ -18,7 +18,7 @@ from app.content.router import router as content_router
 from app.dashboard import router as dashboard_router
 from app.hotel_logo import router as hotel_logo_router
 from app.hotels.router import router as hotels_router
-from app.jobs import queue_metrics
+from app.jobs import queue_metrics, tasks
 from app.jobs.router import router as jobs_router
 from app.observability import (
     Metrics,
@@ -147,7 +147,9 @@ def create_app() -> FastAPI:
     # Outermost, so every request gets an ID, its metrics and an access log line, even one
     # the app fails.
     app.state.metrics = Metrics()
-    queue_metrics.register(app.state.metrics.registry, queue_metrics.queue_store())
+    queue_metrics.register(
+        app.state.metrics.registry, queue_metrics.queue_store(), tasks.counter_seeds()
+    )
     app.add_middleware(RequestContextMiddleware, metrics=app.state.metrics)
 
     return app

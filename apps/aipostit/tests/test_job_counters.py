@@ -11,6 +11,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.jobs import queue_metrics
 from app.jobs.tasks import celery_app
+from app.main import create_app
 
 
 @pytest.fixture
@@ -91,3 +92,17 @@ def test_counting_never_fails_the_task(
     monkeypatch.setattr(queue_metrics, "queue_store", DownRedis)
     queue_metrics.count("aipostit_posts_failed")  # no exception
     assert "could not count aipostit_posts_failed" in caplog.text
+
+
+def test_the_app_exports_every_counter_from_zero(store: fakeredis.FakeRedis) -> None:
+    # A series that first appears at 1 has no earlier sample: increase() would miss the very
+    # event an alert is for. So each one this release can write is there from the start.
+    queue_metrics.count("celery_tasks", task="tasks.publish_content", outcome="failure")
+
+    text = generate_latest(create_app().state.metrics.registry).decode()
+    assert 'celery_tasks_total{outcome="failure",task="tasks.publish_content"} 1.0' in text
+    assert 'celery_tasks_total{outcome="failure",task="tasks.generate_content"} 0.0' in text
+    assert 'celery_tasks_total{outcome="retry",task="tasks.translate_content"} 0.0' in text
+    assert 'aipostit_translations_failed_total{language="en"} 0.0' in text
+    assert "aipostit_posts_failed_total 0.0" in text
+    assert "tests." not in text  # only the app's own tasks

@@ -13,7 +13,7 @@ from celery.signals import (
 )
 
 from app.config import get_settings
-from app.jobs.queue_metrics import PUBLISHED_AT_HEADER, count
+from app.jobs.queue_metrics import PUBLISHED_AT_HEADER, count, counter_field
 from app.observability import configure_logging, init_error_tracking
 
 log = logging.getLogger(__name__)
@@ -72,6 +72,24 @@ def _count_retry(sender: Any, **_: Any) -> None:
 @task_failure.connect
 def _count_failure(sender: Any, **_: Any) -> None:
     count("celery_tasks", task=sender.name, outcome="failure")
+
+
+def counter_seeds() -> list[str]:
+    """Every counter series this release can write, for the API to export from 0
+    (app/jobs/queue_metrics.py): each task by each outcome, each language, and the posts."""
+    from app.translation.deepl import TIER_LANGUAGES
+
+    names = sorted(name for name in celery_app.tasks if name.startswith("tasks."))
+    languages = sorted({language for tier in TIER_LANGUAGES.values() for language in tier})
+    return [
+        *(
+            counter_field("celery_tasks", task=name, outcome=outcome)
+            for name in names
+            for outcome in ("success", "retry", "failure")
+        ),
+        *(counter_field("aipostit_translations_failed", language=lang) for lang in languages),
+        counter_field("aipostit_posts_failed"),
+    ]
 
 
 @celery_app.task(name="tasks.process_asset", bind=True, max_retries=3)

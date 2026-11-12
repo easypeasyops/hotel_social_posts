@@ -1,5 +1,5 @@
 """Sign-up from a recorded invite: the token points at a staff_invites row, which gives the
-email and role, must still be pending, and works once. Older invites never read the table."""
+email and role, must still be pending, and works once."""
 
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -10,13 +10,12 @@ from supabase_auth.errors import AuthApiError
 
 from app.auth import signup
 from app.auth.upload_tokens import (
-    STAFF_INVITE_PURPOSE,
     create_recorded_invite_token,
     create_token,
     read_recorded_invite,
 )
 from app.hotels.invites import claim_invite
-from tests.fakes import FakeDB, FakeQuery
+from tests.fakes import FakeDB
 from tests.test_staff_signup import (
     HOTEL,
     TOKENS,
@@ -131,25 +130,8 @@ def test_a_failed_sign_up_hands_the_invite_back(monkeypatch: pytest.MonkeyPatch)
     assert db.rows["staff_invites"][0]["accepted_at"] is None
 
 
-@pytest.mark.usefixtures("store")
-def test_an_older_invite_never_reads_staff_invites(monkeypatch: pytest.MonkeyPatch) -> None:
-    db, _ = supabase_with(monkeypatch)
-    tables: list[str] = []
-    table = db.table
-
-    def recording_table(name: str) -> FakeQuery:
-        tables.append(name)
-        return table(name)
-
-    monkeypatch.setattr(db, "table", recording_table)
-
-    assert sign_up(create_token("hotel-1", STAFF_INVITE_PURPOSE, 60)).status_code == 303
-    assert sign_up("not-a-token").status_code == 400
-    assert "staff_invites" not in tables
-
-
 def test_a_recorded_invite_token_names_its_hotel_and_row_only() -> None:
     assert read_recorded_invite(token()) == ("hotel-1", "invite-1")
-    assert read_recorded_invite(create_token("hotel-1", STAFF_INVITE_PURPOSE, 60)) is None
+    assert read_recorded_invite(create_token("hotel-1", "staff-invite", 60)) is None
     expired = create_recorded_invite_token("hotel-1", "invite-1", "a@x.test", datetime.now(UTC))
     assert read_recorded_invite(expired) is None

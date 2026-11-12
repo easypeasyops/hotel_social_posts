@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from app import mail
 from app.auth import signup
 from app.auth.dependencies import get_current_user, require_operator
-from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
+from app.auth.upload_tokens import read_recorded_invite
 from app.database import get_supabase
 from app.main import create_app
 from tests.fakes import NAMED, FakeDB
@@ -108,7 +108,6 @@ def test_an_invite_is_recorded_and_emailed(smtp: type[FakeSMTP]) -> None:
     assert "içerik üreticisi olarak davet edildiniz" in body and "(10 gün geçerli)" in body
     invite = unquote(body.split("/signup#invite=", 1)[1].split()[0])
     assert read_recorded_invite(invite) == ("hotel-1", row["id"])
-    assert read_staff_invite(invite) is None  # no older-purpose token
     assert page_link(response).endswith(f"/signup#invite={body.split('#invite=')[1].split()[0]}")
 
 

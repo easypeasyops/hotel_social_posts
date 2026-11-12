@@ -165,12 +165,9 @@ def claim_invite(db, invite_id: str) -> bool:
     return bool(claimed)
 
 
-def release_invite(db, invite_id: str | None) -> None:
-    """Makes a claimed invite pending again, when the sign-up that claimed it made no member
-    (None: the sign-up had no recorded invite). If that fails too, the invite stays accepted
-    and unused: a new one is needed."""
-    if invite_id is None:
-        return
+def release_invite(db, invite_id: str) -> None:
+    """Makes a claimed invite pending again, when the sign-up that claimed it made no member.
+    If that fails too, the invite stays accepted and unused: a new one is needed."""
     try:
         db.table("staff_invites").update({"accepted_at": None}).eq("id", invite_id).execute()
     except Exception:

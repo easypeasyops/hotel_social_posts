@@ -10,30 +10,11 @@ import time
 from datetime import UTC, datetime
 
 from app.config import get_settings
-from app.hotels.staff import ROLES
 
 UPLOAD_PURPOSE = "hotel-media-upload"
 UPLOAD_TOKEN_TTL_SECONDS = 24 * 60 * 60
-# A hotel's staff invite: anyone with it can make a staff account for that hotel (/signup).
-STAFF_INVITE_PURPOSE = "staff-invite"
-# A recorded staff invite: points at its staff_invites row, which says who may use it and how.
+# A staff invite: points at its staff_invites row, which says who may use it and how.
 STAFF_INVITE_RECORD_PURPOSE = "staff-invite-record"
-
-
-def staff_invite_purpose(role: str) -> str:
-    """Each role's invite is its own purpose. A hotel admin's is the purpose invites had before
-    roles, so links sent then still make hotel admins, as they did."""
-    return STAFF_INVITE_PURPOSE if role == "hotel_admin" else f"{STAFF_INVITE_PURPOSE}:{role}"
-
-
-def read_staff_invite(token: str) -> tuple[str, str, str | None] | None:
-    """The hotel, role and email (None: anyone with the link) a valid staff invite names, or
-    None."""
-    for role in ROLES:
-        payload = read_token_payload(token, staff_invite_purpose(role))
-        if payload is not None:
-            return payload["hotel_id"], role, payload.get("email")
-    return None
 
 
 def create_recorded_invite_token(

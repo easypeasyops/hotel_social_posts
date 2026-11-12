@@ -1,10 +1,11 @@
-"""Hotel staff sign up from an operator's invite link: a signed 7-day capability for one
-hotel. /signup makes the account with the service role, ties it to that hotel and signs it in;
-without a valid invite nothing is made."""
+"""Hotel staff sign up from an invite link, whose token points at a pending staff_invites row.
+/signup makes the account with the service role, ties it to that hotel and signs it in; without
+a valid invite nothing is made."""
 
 import base64
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -14,17 +15,29 @@ from fastapi.testclient import TestClient
 from supabase_auth.errors import AuthApiError
 
 from app.auth import sessions, signup
-from app.auth.upload_tokens import (
-    STAFF_INVITE_PURPOSE,
-    create_token,
-    read_staff_invite,
-    staff_invite_purpose,
-)
+from app.auth.upload_tokens import create_recorded_invite_token, create_token, read_recorded_invite
 from app.main import create_app
 from tests.fakes import FakeDB
 
 HOTEL = {"id": "hotel-1", "name": "Lagoon Bay", "slug": "lagoon-bay"}
 TOKENS = {"access_token": "access", "refresh_token": "refresh", "expires_at": 1_900_000_000}
+LATER = datetime.now(UTC) + timedelta(days=7)
+INVITES = [
+    {
+        "id": invite_id,
+        "hotel_id": hotel_id,
+        "role": "hotel_admin",
+        "email": "staff@example.com",
+        "expires_at": LATER.isoformat(),
+        "accepted_at": None,
+        "revoked_at": None,
+    }
+    for invite_id, hotel_id in [("invite-1", "hotel-1"), ("invite-2", "deleted-hotel")]
+]
+
+
+def invite_token(hotel_id: str = "hotel-1", invite_id: str = "invite-1", at=LATER) -> str:
+    return create_recorded_invite_token(hotel_id, invite_id, "staff@example.com", at)
 
 
 class FakeAdmin:
@@ -49,7 +62,8 @@ def store(monkeypatch: pytest.MonkeyPatch) -> Iterator[fakeredis.FakeRedis]:
 def supabase_with(
     monkeypatch: pytest.MonkeyPatch, error: Exception | None = None
 ) -> tuple[FakeDB, FakeAdmin]:
-    db, admin = FakeDB(hotels=[HOTEL]), FakeAdmin(error)
+    db = FakeDB(hotels=[HOTEL], staff_invites=[dict(row) for row in INVITES])
+    admin = FakeAdmin(error)
     db.auth = SimpleNamespace(admin=admin)  # type: ignore[attr-defined]
     monkeypatch.setattr(signup, "get_supabase", lambda: db)
     sign_in = SimpleNamespace(
@@ -61,7 +75,7 @@ def supabase_with(
 
 def sign_up(invite: str | None = None, **overrides: str) -> Any:
     form = {
-        "invite": create_token("hotel-1", STAFF_INVITE_PURPOSE, 60) if invite is None else invite,
+        "invite": invite_token() if invite is None else invite,
         "full_name": "Ayşe Kaya",
         "email": "staff@example.com",
         "password": "lagoon-bay-2026",
@@ -86,17 +100,13 @@ def test_an_invite_makes_a_staff_account_for_its_hotel_and_signs_it_in(
             "user_metadata": {"full_name": "Ayşe Kaya"},
         }
     ]
-    assert db.writes == [
-        (
-            "hotel_members",
-            "insert",
-            {
-                "user_id": "new-user",
-                "hotel_id": "hotel-1",
-                "email": "staff@example.com",
-                "role": "hotel_admin",
-            },  # an invite from before roles: as it did then
-        )
+    assert db.written("hotel_members") == [
+        {
+            "user_id": "new-user",
+            "hotel_id": "hotel-1",
+            "email": "staff@example.com",
+            "role": "hotel_admin",
+        }
     ]
     session_id = response.cookies[sessions.SESSION_COOKIE]
     assert store.get(f"web-session:{session_id}") is not None
@@ -108,8 +118,10 @@ def test_an_invite_makes_a_staff_account_for_its_hotel_and_signs_it_in(
         "",
         "not-a-token",
         create_token("hotel-1", "hotel-media-upload", 60),  # an upload link isn't an invite
-        create_token("hotel-1", STAFF_INVITE_PURPOSE, -1),  # expired
-        create_token("deleted-hotel", STAFF_INVITE_PURPOSE, 60),
+        create_token("hotel-1", "staff-invite", 60),  # an invite from before invites were recorded
+        create_token("hotel-1", "staff-invite:content_creator", 60),
+        invite_token(at=datetime.now(UTC)),  # expired
+        invite_token("deleted-hotel", "invite-2"),
     ],
 )
 def test_without_a_valid_invite_nothing_is_made(
@@ -151,7 +163,7 @@ def test_an_existing_email_is_told_so(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert response.status_code == 409
     assert "already exists" in response.text
-    assert db.writes == []
+    assert db.written("hotel_members") == []
 
 
 def test_the_page_asks_for_an_invite() -> None:
@@ -161,33 +173,8 @@ def test_the_page_asks_for_an_invite() -> None:
     assert page.headers["cache-control"] == "no-store"
 
 
-def test_an_invite_for_a_role_makes_staff_in_that_role(
-    monkeypatch: pytest.MonkeyPatch, store: fakeredis.FakeRedis
-) -> None:
-    db, _ = supabase_with(monkeypatch)
-    sign_up(create_token("hotel-1", staff_invite_purpose("content_creator"), 60))
-    assert db.written("hotel_members")[0]["role"] == "content_creator"
-
-
-def test_an_invite_for_one_email_signs_up_that_email_only(
-    monkeypatch: pytest.MonkeyPatch, store: fakeredis.FakeRedis
-) -> None:
-    invite = create_token("hotel-1", STAFF_INVITE_PURPOSE, 60, email=" Staff@Example.com ")
-    db, admin = supabase_with(monkeypatch)
-
-    refused = sign_up(invite, email="someone-else@example.com")
-    assert refused.status_code == 403
-    assert "This invite is for staff@example.com." in refused.text
-    assert (admin.created, db.writes) == ([], [])
-
-    assert sign_up(invite, email="STAFF@example.com").status_code == 303  # same address
-    assert db.written("hotel_members")[0]["hotel_id"] == "hotel-1"
-
-
 def test_the_email_an_invite_names_cant_be_changed() -> None:
-    encoded, signature = create_token("hotel-1", STAFF_INVITE_PURPOSE, 60, email="a@x.test").split(
-        "."
-    )
+    encoded, signature = invite_token().split(".")
     payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
     forged = base64.urlsafe_b64encode(json.dumps({**payload, "email": "b@x.test"}).encode())
-    assert read_staff_invite(f"{forged.rstrip(b'=').decode()}.{signature}") is None
+    assert read_recorded_invite(f"{forged.rstrip(b'=').decode()}.{signature}") is None

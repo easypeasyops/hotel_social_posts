@@ -5,10 +5,12 @@ import json
 import logging
 from typing import Any
 
+import fakeredis
 import httpx
 import pytest
 import respx
 
+from app.jobs import queue_metrics
 from app.publishing.buffer import BUFFER_API_URL, sync_scheduled_posts
 from tests.fakes import FakeDB
 
@@ -62,10 +64,20 @@ def test_a_sent_post_marks_its_draft_published() -> None:
 
 @respx.mock
 def test_a_post_buffer_could_not_send_marks_its_draft_failed(
-    caplog: pytest.LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _buffer_answers({"post-1": _post("error", error={"message": "Channel disconnected"})})
-    db = _db({"draft_id": "d1", "buffer_update_id": "post-1"})
+    _buffer_answers(
+        {
+            "post-1": _post("error", error={"message": "Channel disconnected"}),
+            "post-2": _post("sent", sentAt="2026-11-10T09:00:00Z"),
+        }
+    )
+    db = _db(
+        {"draft_id": "d1", "buffer_update_id": "post-1"},
+        {"draft_id": "d2", "buffer_update_id": "post-2"},
+    )
+    counters = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(queue_metrics, "queue_store", lambda: counters)
 
     with caplog.at_level(logging.WARNING):
         sync_scheduled_posts(db)  # type: ignore[arg-type]
@@ -73,6 +85,8 @@ def test_a_post_buffer_could_not_send_marks_its_draft_failed(
     assert _status(db, "publish_log", "log-d1")["status"] == "failed"
     assert _status(db, "content_drafts", "d1")["status"] == "failed"
     assert "Channel disconnected" in caplog.text
+    # Counted once: the failed post, not the sent one.
+    assert counters.hgetall(queue_metrics.COUNTERS_KEY) == {"aipostit_posts_failed": "1"}
 
 
 @pytest.mark.parametrize("status", ["scheduled", "sending", "needs_approval", "draft"])

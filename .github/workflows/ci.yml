@@ -52,6 +52,26 @@ jobs:
       context: apps/aipostit
       smoke-command: AIPOSTIT_IMAGE="$IMAGE" apps/aipostit/scripts/smoke.sh
 
+  # deploybot (apps/deploybot/): the /aipostit Slack command. Its own checks and image, with
+  # the platform's coverage minimum from the start.
+  deploybot-check:
+    needs: scope
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@07b1a9fea3f227dc8d1cf256ddb9b3b219c10e78 # platform.lock
+    with:
+      run: ${{ needs.scope.outputs.full == 'true' }}
+      working-directory: apps/deploybot
+      typecheck-paths: app tests
+      coverage-min: 90
+
+  deploybot-image:
+    needs: scope
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@07b1a9fea3f227dc8d1cf256ddb9b3b219c10e78 # platform.lock
+    with:
+      run: ${{ needs.scope.outputs.full == 'true' }}
+      context: apps/deploybot
+      # It needs Slack to start; the smoke test is that the image imports its code.
+      smoke-command: docker run --rm "$IMAGE" python -c "import app.main"
+
   # aipostit's deploy values (apps/aipostit/deploy/), rendered for each environment
   # with the platform's service chart as Argo CD will, and schema-checked. The chart is the
   # release the platform's apps/aipostit/envs/ pin: move CHART with them.
@@ -101,7 +121,7 @@ jobs:
   gate:
     name: ci
     if: always()
-    needs: [scope, check, image, deploy]
+    needs: [scope, check, image, deploy, deploybot-check, deploybot-image]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

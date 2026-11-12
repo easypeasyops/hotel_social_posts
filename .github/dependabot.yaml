@@ -20,7 +20,10 @@ updates:
       interval: weekly
     ignore:
       # The platform's reusable workflows move with platform.lock, in a PR of their own.
+      # Dependabot names each by its path (easypeasyops/platform/.github/workflows/<file>),
+      # so the exact name alone matched none of them (#189, #191).
       - dependency-name: easypeasyops/platform
+      - dependency-name: easypeasyops/platform/*
 
   - package-ecosystem: docker # bumps the base image digests in the Dockerfiles
     directories: [/apps/aipostit, /apps/deploybot]

@@ -67,7 +67,27 @@ It logs `⚡️ Bolt app is running!` once connected. Each command logs who ran 
 The same pipeline as aipostit's: bump `version` in `pyproject.toml` (and `uv.lock`) and merge;
 `tag-release.yml` tags `deploybot/vX.Y.Z` and `release.yml` builds, scans, signs and publishes
 `ghcr.io/easypeasyops/hotel_social_posts/deploybot`. deploybot has no staging, so no deploy PR
-follows. The first release creates its GHCR package as private: make it public, as aipostit's.
+follows: set `image.digest` in `deploy/envs/ops.yaml` to the digest the release's notes give
+(with the comment `# deploybot vX.Y.Z`) in a PR, which merges itself once `ci` is green; Argo
+CD deploys it into `deploybot-ops`. The first release created its GHCR package as private: it
+must be public, as aipostit's, or the pod can't pull it.
+
+## In the cluster
+
+The Application `deploybot-ops` (the platform's `apps/deploybot/envs/ops.yaml`) renders the
+platform's service chart with `deploy/service/values.yaml` and `deploy/envs/ops.yaml`: one
+pod, no route in, egress 443 only. The IDs are in `ops.yaml`; the three secrets come from the
+platform's `deploybot` store. Load or change them from `.env`, then restart:
+
+```sh
+platform/scripts/load-app-env.sh deploybot apps/deploybot/.env
+kubectl -n deploybot-ops annotate externalsecret deploybot-env force-sync=$(date +%s) --overwrite
+kubectl -n deploybot-ops rollout restart deployment/deploybot
+kubectl -n deploybot-ops logs deploy/deploybot   # ⚡️ Bolt app is running!
+```
+
+To add someone to the allowed users, add their Slack member ID to `allowedUsers` in
+`deploy/envs/ops.yaml` (comma-separated) and merge: the pod restarts with it.
 
 ## When it doesn't answer
 
@@ -78,4 +98,4 @@ follows. The first release creates its GHCR package as private: make it public, 
   key, client ID or installation ID is wrong, the App lost its installation, or (for a start)
   it lacks Actions: write. The log has GitHub's answer.
 - "You can't run …": the person's Slack user ID isn't in `ALLOWED_USERS` (their profile →
-  ⋮ → Copy member ID). Add it in the deploy values and merge.
+  ⋮ → Copy member ID). Add it to `allowedUsers` in `deploy/envs/ops.yaml` and merge.

@@ -34,7 +34,7 @@ jobs:
   # The platform's reusable workflows, pinned to platform.lock's commit (keep them equal).
   check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@07b1a9fea3f227dc8d1cf256ddb9b3b219c10e78 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@c17aae02c81cef808342d09eb3fdec38a1c97aba # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/aipostit
@@ -56,7 +56,7 @@ jobs:
   # the platform's coverage minimum from the start.
   deploybot-check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@07b1a9fea3f227dc8d1cf256ddb9b3b219c10e78 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@c17aae02c81cef808342d09eb3fdec38a1c97aba # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/deploybot

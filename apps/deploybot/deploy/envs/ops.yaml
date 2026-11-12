@@ -4,7 +4,7 @@
 # for staging only): set the digest from the release's notes in a PR (RUNBOOK, Release it).
 environment: ops
 image:
-  digest: "sha256:7508331941ec7009b58cc1db297cd502a8798e805181bfe2fe8481f363b8b2d0" # deploybot v0.2.0
+  digest: "sha256:0e2c2bf838e10f3329195ac9decc42d9e038bd5d7761e6f946639e9b0d2a11bd" # deploybot v0.2.1
 config:
   slackTeamId: "T0CFP51C0KF"
   slackChannelId: "C0CG98UC3T9" # #aipostit-deploys

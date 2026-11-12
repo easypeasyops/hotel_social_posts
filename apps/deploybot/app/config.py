@@ -5,6 +5,8 @@ import base64
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -20,7 +22,7 @@ class Settings:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> Settings:
-        """Every setting is required but the repository; a missing one fails at start."""
+        """Every setting is required but the repository; a missing or bad one fails at start."""
         return cls(
             slack_app_token=env["SLACK_APP_TOKEN"],
             slack_bot_token=env["SLACK_BOT_TOKEN"],
@@ -28,13 +30,22 @@ class Settings:
             slack_channel_id=env["SLACK_CHANNEL_ID"],
             github_app_client_id=env["GITHUB_APP_CLIENT_ID"],
             github_app_installation_id=env["GITHUB_APP_INSTALLATION_ID"],
-            # Base64 on one line: the platform's store loads a dotenv file, one line a key.
-            github_app_private_key=base64.b64decode(
-                env["GITHUB_APP_PRIVATE_KEY_BASE64"], validate=True
-            ).decode(),
+            github_app_private_key=_private_key(env["GITHUB_APP_PRIVATE_KEY_BASE64"]),
             # Comma-separated; empty means no one may.
             allowed_users=frozenset(
                 u.strip() for u in env["ALLOWED_USERS"].split(",") if u.strip()
             ),
             github_repository=env.get("GITHUB_REPOSITORY", cls.github_repository),
         )
+
+
+def _private_key(encoded: str) -> str:
+    """The PEM key from its base64 (one line: the platform's store loads a dotenv file, one
+    line a key), checked now: a key cut short in the paste fails at start, not at the first
+    command."""
+    pem = base64.b64decode(encoded, validate=True)
+    try:
+        load_pem_private_key(pem, password=None)
+    except ValueError as error:
+        raise ValueError("GITHUB_APP_PRIVATE_KEY_BASE64 is not a whole PEM private key") from error
+    return pem.decode()

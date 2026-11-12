@@ -1,3 +1,4 @@
+import base64
 import threading
 from typing import Any
 
@@ -8,6 +9,7 @@ from slack_sdk.web import SlackResponse
 
 import app.main
 from app.config import Settings
+from tests.test_config import PEM
 
 COMMAND = {
     "command": "/aipostit",
@@ -37,6 +39,24 @@ def test_run_replies_in_the_channel(settings: Settings) -> None:
             "response_type": "in_channel",
         }
     ]
+
+
+def test_a_command_that_breaks_still_gets_a_private_answer(
+    settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    class BrokenRepo(FakeRepo):
+        def read_file(self, path: str, ref: str = "main") -> str:
+            raise ValueError("Could not parse the provided public key.")
+
+    said: list[dict[str, Any]] = []
+    app.main.run(COMMAND, lambda **kw: said.append(kw), settings, BrokenRepo())
+    assert said == [
+        {
+            "text": "`/aipostit status` failed: deploybot's log has the error.",
+            "response_type": "ephemeral",
+        }
+    ]
+    assert "Could not parse" in caplog.text
 
 
 def test_the_slash_command_is_acknowledged_and_run(
@@ -94,7 +114,7 @@ def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> No
         "SLACK_CHANNEL_ID": "C1",
         "GITHUB_APP_CLIENT_ID": "Iv1.x",
         "GITHUB_APP_INSTALLATION_ID": "42",
-        "GITHUB_APP_PRIVATE_KEY_BASE64": "cGVt",
+        "GITHUB_APP_PRIVATE_KEY_BASE64": base64.b64encode(PEM).decode(),
         "ALLOWED_USERS": "U1",
     }.items():
         monkeypatch.setenv(key, value)

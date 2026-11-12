@@ -94,6 +94,12 @@ To add someone to the allowed users, add their Slack member ID to `allowedUsers`
 - Slack says "dispatch_failed" or the command times out: the bot isn't connected. Its pod is
   then not Ready (`/readyz` answers 503). Check its logs for the Socket Mode connection; a
   revoked app token fails there. A revoked bot token stops it at start, before the probes.
+- The pod crash-loops with "GITHUB_APP_PRIVATE_KEY_BASE64 is not a whole PEM private key": the
+  base64 in `.env` was cut short or mangled (it happened on the first deploy: a paste lost the
+  end of the line). Rewrite the line from the key file, reload the store and restart:
+  `grep -v '^GITHUB_APP_PRIVATE_KEY_BASE64=' .env > .env.new && printf 'GITHUB_APP_PRIVATE_KEY_BASE64=%s\n' "$(base64 -i ~/.secrets/deploybot.pem | tr -d '\n')" >> .env.new && mv .env.new .env`.
+- "`/aipostit …` failed: deploybot's log has the error": something unexpected broke; the log
+  has the traceback (`kubectl -n deploybot-ops logs deploy/deploybot`).
 - "I couldn't read the deploy files from GitHub" or "GitHub didn't start …": the GitHub App's
   key, client ID or installation ID is wrong, the App lost its installation, or (for a start)
   it lacks Actions: write. The log has GitHub's answer.

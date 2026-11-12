@@ -21,15 +21,24 @@ def run(
     command: dict[str, Any], respond: Callable[..., Any], settings: Settings, repo: Repository
 ) -> None:
     text = command.get("text", "").strip()
-    reply = handle(
-        text,
-        user_id=command["user_id"],
-        user_name=command.get("user_name", ""),
-        channel_id=command["channel_id"],
-        team_id=command["team_id"],
-        settings=settings,
-        repo=repo,
-    )
+    try:
+        reply = handle(
+            text,
+            user_id=command["user_id"],
+            user_name=command.get("user_name", ""),
+            channel_id=command["channel_id"],
+            team_id=command["team_id"],
+            settings=settings,
+            repo=repo,
+        )
+    except Exception:
+        # Whatever broke, the person hears so; Slack would otherwise say the app didn't respond.
+        log.exception("%s ran /aipostit %r: failed", command["user_id"], text)
+        respond(
+            text=f"`/aipostit {text}` failed: deploybot's log has the error.",
+            response_type="ephemeral",
+        )
+        return
     log.info("%s ran /aipostit %r", command["user_id"], text)
     respond(text=reply.text, response_type="in_channel" if reply.public else "ephemeral")
 

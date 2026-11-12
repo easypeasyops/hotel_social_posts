@@ -1,0 +1,96 @@
+# promtool scenarios for aipostit's SLO rules (deploy/service/slo-rules.values.yaml,
+# generated from slos.yaml): synthetic series in, expected alerts out.
+# tests/test_alert_rules.py writes the rules to slo.yaml beside a copy of this file and runs
+# promtool on it. A page and a ticket for one SLO share an alert name, so a fast burn
+# expects both.
+rule_files: [slo.yaml]
+
+evaluation_interval: 1m
+
+tests:
+  # 10% of prod's requests fail: 20x the 0.5% budget. Staging, at 0.2%, is within budget.
+  - name: server errors burning prod's budget fast page; staging within budget stays quiet
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", method="GET", route="/dashboard", status="200"}'
+        values: '0+90x120'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", method="GET", route="/dashboard", status="500"}'
+        values: '0+10x120'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-staging", method="GET", route="/dashboard", status="200"}'
+        values: '0+998x120'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-staging", method="GET", route="/dashboard", status="500"}'
+        values: '0+2x120'
+    alert_rule_test:
+      - eval_time: 1m # the 2-minute `for` has not elapsed yet
+        alertname: AipostitAvailabilityBudgetBurn
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: AipostitAvailabilityBudgetBurn
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: page, slo: aipostit-availability }
+            exp_annotations:
+              summary: 'aipostit-availability: error budget burning fast (14.4x over 1h or 6x over 6h)'
+              description: 'The app answers without a server error: objective 0.995 over 30 days. At this pace the whole budget lasts only 2 to 5 days.'
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#slo-burn-rate-alerts
+          - exp_labels: { namespace: aipostit-prod, severity: ticket, slo: aipostit-availability }
+            exp_annotations:
+              summary: 'aipostit-availability: error budget burning steadily (3x over 1d or 1x over 3d)'
+              description: 'The app answers without a server error: objective 0.995 over 30 days. At this pace the whole budget lasts only 10 to 30 days.'
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#slo-burn-rate-alerts
+
+  # Low traffic: 2 failures out of 6 requests in an hour is 33%, but under 5 bad events.
+  - name: a couple of failed requests in a quiet hour stay quiet
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", method="GET", route="/dashboard", status="200"}'
+        values: '0 1 2 3 4x120'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", method="GET", route="/dashboard", status="500"}'
+        values: '0 1 2x122'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: AipostitAvailabilityBudgetBurn
+        exp_alerts: []
+
+  # Probes and paths the app doesn't have are not valid events, whatever they answer.
+  - name: failing probes and unmatched paths don't spend the budget
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", method="GET", route="/dashboard", status="200"}'
+        values: '0+100x120'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", method="GET", route="/readyz", status="503"}'
+        values: '0+50x120'
+      - series: 'http_requests_total{job="aipostit", namespace="aipostit-prod", method="GET", route="unmatched", status="500"}'
+        values: '0+50x120'
+    promql_expr_test:
+      - expr: slo:sli_error:ratio_rate1h{slo="aipostit-availability"}
+        eval_time: 70m
+        exp_samples:
+          - labels: 'slo:sli_error:ratio_rate1h{namespace="aipostit-prod", slo="aipostit-availability"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: AipostitAvailabilityBudgetBurn
+        exp_alerts: []
+
+  # 20% of prod's requests take over 2.5 s: 20x the 1% budget.
+  - name: slow answers burning prod's budget fast page
+    interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_bucket{job="aipostit", namespace="aipostit-prod", method="GET", route="/dashboard", le="2.5"}'
+        values: '0+80x120'
+      - series: 'http_request_duration_seconds_count{job="aipostit", namespace="aipostit-prod", method="GET", route="/dashboard"}'
+        values: '0+100x120'
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: AipostitLatencyBudgetBurn
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: page, slo: aipostit-latency }
+            exp_annotations:
+              summary: 'aipostit-latency: error budget burning fast (14.4x over 1h or 6x over 6h)'
+              description: 'The app answers in under 2.5 s: objective 0.99 over 30 days. At this pace the whole budget lasts only 2 to 5 days.'
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#slo-burn-rate-alerts
+          - exp_labels: { namespace: aipostit-prod, severity: ticket, slo: aipostit-latency }
+            exp_annotations:
+              summary: 'aipostit-latency: error budget burning steadily (3x over 1d or 1x over 3d)'
+              description: 'The app answers in under 2.5 s: objective 0.99 over 30 days. At this pace the whole budget lasts only 10 to 30 days.'
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#slo-burn-rate-alerts

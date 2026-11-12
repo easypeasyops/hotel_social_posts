@@ -5,6 +5,8 @@
 #   deploy/service/values.yaml   this file
 #   deploy/envs/<env>.yaml       the environment's settings and image digest
 # CI renders both environments with the chart and validates the result (ci.yml, deploy).
+# Not layered yet: deploy/service/slo-rules.values.yaml, the SLO rules generated from
+# deploy/prometheus/slos.yaml. They ship once the platform lists that file for prod.
 
 app:
   name: aipostit
@@ -144,3 +146,6 @@ gateway:
 
 monitoring:
   enabled: true # Prometheus scrapes /metrics on 9100 (http_requests_total and friends)
+  # The platform's SLO dashboard comes with the SLO rules; its Runbook link.
+  sloDashboard:
+    runbookUrl: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#slo-burn-rate-alerts

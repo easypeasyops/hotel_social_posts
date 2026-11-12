@@ -1,10 +1,12 @@
 import logging
+import time
 from typing import Any
 
 from celery import Celery
-from celery.signals import celeryd_init, setup_logging
+from celery.signals import before_task_publish, celeryd_init, setup_logging
 
 from app.config import get_settings
+from app.jobs.queue_metrics import PUBLISHED_AT_HEADER
 from app.observability import configure_logging, init_error_tracking
 
 log = logging.getLogger(__name__)
@@ -35,6 +37,12 @@ def _error_tracking(**_: Any) -> None:
 def _json_logs(**_: Any) -> None:
     """The worker logs JSON on stdout like the API (Celery otherwise installs its own)."""
     configure_logging(settings.log_level, json_output=settings.log_json)
+
+
+@before_task_publish.connect
+def _stamp_publish_time(headers: dict[str, Any], **_: Any) -> None:
+    """Every queued task says when it was queued, for the queue's age metric."""
+    headers[PUBLISHED_AT_HEADER] = time.time()
 
 
 @celery_app.task(name="tasks.process_asset", bind=True, max_retries=3)

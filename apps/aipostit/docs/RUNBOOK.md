@@ -255,6 +255,8 @@ kubectl -n aipostit-<env> logs deploy/aipostit-worker | grep -o '{.*' | jq -c 's
 
 The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its public port: `curl -s localhost:9100/metrics | grep ^http_`. Per route template and status: `http_requests_total` counts requests and `http_request_duration_seconds` buckets their latency. A rising `status="5.."` count on one route points at that route's dependency; `route="unmatched"` is requests for paths the app doesn't have.
 
+The job queue is there too (`grep ^celery_`), read from Redis by the API at each scrape: `celery_queue_length` is the tasks waiting for a worker and `celery_queue_oldest_task_age_seconds` how long the oldest has waited (0 for an empty queue, or for a task queued by a release older than the metric). Both are normally 0 or small for a minute or two; an age that keeps growing while the worker pod is Running is a worker that hangs: "Jobs are not progressing" below. In Prometheus, `max by (namespace) (celery_queue_oldest_task_age_seconds)`: every API pod reports the same queue.
+
 ## Reading the errors
 
 Off until `SENTRY_DSN` is in the environment, and no environment has it yet: until then unhandled errors are only log lines (above). With a DSN (a Sentry or GlitchTip project's; a secret, so in `.env` locally and in the platform's store for the cluster), the API and the worker send each unhandled error and each line logged at ERROR to that project, grouped, with the stack trace. `SENTRY_ENVIRONMENT` and `SENTRY_RELEASE` name the environment and the version on each event.
@@ -302,6 +304,21 @@ Ticket. A Job failed in the last 6 hours: a CronJob's run (`aipostit-sync-buffer
 ### AipostitWeeklyGenerationMissed
 
 Ticket. No `generate-weekly` run has succeeded for 8 days: Monday's failed, or never started (the laptop was asleep past the CronJob's 50-minute starting deadline). Check `kubectl -n aipostit-prod get cronjob aipostit-generate-weekly` and its Jobs, then run it by hand (`kubectl -n aipostit-prod create job generate-now --from=cronjob/aipostit-generate-weekly`) and follow "Cron did not enqueue generation" below. It can't fire before the first success: the metric doesn't exist until then.
+
+### SLO burn-rate alerts
+
+`AipostitAvailabilityBudgetBurn` and `AipostitLatencyBudgetBurn`, each as a page and as a ticket. **Not live yet**: the rules are in this repo (`deploy/service/slo-rules.values.yaml`) and ship once the platform lists that file for prod; until then `AipostitHighErrorRate` and `AipostitSlowResponses` cover the same ground.
+
+aipostit promises two things over 30 days (`deploy/prometheus/slos.yaml`), counted on requests to its own routes (probes and unknown paths left out), per environment: 99.5% answer without a 5xx, and 99% answer in under 2.5 s. What is left over is the error budget (0.5% and 1% of requests). An alert fires on how fast the budget is being spent, and only with at least 5 bad requests in its window, so one failure in a quiet hour stays quiet:
+
+| Severity | Fires when the budget burns at | At that pace it is gone in |
+| --- | --- | --- |
+| Page | 14.4 times the allowed rate over 1 hour, or 6 times over 6 hours | 2 to 5 days |
+| Ticket | 3 times over 1 day, or the allowed rate itself over 3 days | 10 to 30 days |
+
+What to do is what the SLO measures. Availability: find the failing route and its cause as in AipostitHighErrorRate above. Latency: find the slow routes as in AipostitSlowResponses above. A burn that started with a release: roll back as in "API health check fails". The platform's SLO dashboard in Grafana (http://grafana.localhost:8090, "SLO") shows each budget, its burn rates and the traffic behind them; Prometheus keeps 10 days, so "budget remaining" covers at most the last 10 of the 30.
+
+To change an objective, edit `deploy/prometheus/slos.yaml`, regenerate the rules with the platform's generator (the command is at the top of that file) and adjust the scenarios in `deploy/prometheus/slo_test.yaml`; CI fails on a rules file that doesn't match its spec.
 
 ## Incident procedures
 

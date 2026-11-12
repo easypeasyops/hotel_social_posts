@@ -93,6 +93,27 @@ jobs:
         if: needs.scope.outputs.full == 'true'
         with:
           version: v4.3.1
+      # aipostit's SLO rules are generated (apps/aipostit/deploy/prometheus/slos.yaml): the
+      # committed file must be what the platform's generator, at platform.lock's commit,
+      # writes from the spec.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.scope.outputs.full == 'true'
+        with:
+          repository: easypeasyops/platform
+          ref: 0cbb2542e02f1fb9a820cabb30d17fc6639b8362 # platform.lock
+          path: platform
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        if: needs.scope.outputs.full == 'true'
+        with:
+          enable-cache: false
+      - name: aipostit's SLO rules match their spec
+        if: needs.scope.outputs.full == 'true'
+        working-directory: apps/aipostit
+        run: |
+          uv run --script ../../platform/scripts/gen_slo_rules.py --check \
+            --spec deploy/prometheus/slos.yaml \
+            --values --out deploy/service/slo-rules.values.yaml
       - name: Render each environment and validate it
         if: needs.scope.outputs.full == 'true'
         working-directory: apps

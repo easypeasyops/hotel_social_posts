@@ -19,6 +19,11 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="Europe/Istanbul",
     enable_utc=True,
+    # The worker reserves one task per process beyond the ones running, not Celery's four:
+    # what it has reserved is out of the queue, where the queue's metrics can't see it, so
+    # a worker whose processes hang shows as waiting tasks sooner (ARCHITECTURE, design
+    # limits). The tasks are slow provider calls: fetching them in bulk gains nothing.
+    worker_prefetch_multiplier=1,
 )
 
 

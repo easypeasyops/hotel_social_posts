@@ -6,6 +6,7 @@ import httpx
 
 from app.assets.service import STORAGE_BUCKET
 from app.config import get_settings
+from app.jobs.queue_metrics import count
 from supabase import Client
 
 # Buffer's GraphQL API. The legacy REST API (api.bufferapp.com/1) has brownouts from
@@ -227,6 +228,7 @@ def sync_scheduled_posts(db: Client) -> None:
             outcome = {"status": "failed"}
             message = (post.get("error") or {}).get("message")
             log.warning("Buffer couldn't send post %s: %s", entry["buffer_update_id"], message)
+            count("aipostit_posts_failed")
         else:
             continue
         db.table("publish_log").update(outcome).eq("id", entry["id"]).execute()

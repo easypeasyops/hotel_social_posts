@@ -3,10 +3,17 @@ import time
 from typing import Any
 
 from celery import Celery
-from celery.signals import before_task_publish, celeryd_init, setup_logging
+from celery.signals import (
+    before_task_publish,
+    celeryd_init,
+    setup_logging,
+    task_failure,
+    task_retry,
+    task_success,
+)
 
 from app.config import get_settings
-from app.jobs.queue_metrics import PUBLISHED_AT_HEADER
+from app.jobs.queue_metrics import PUBLISHED_AT_HEADER, count
 from app.observability import configure_logging, init_error_tracking
 
 log = logging.getLogger(__name__)
@@ -48,6 +55,23 @@ def _json_logs(**_: Any) -> None:
 def _stamp_publish_time(headers: dict[str, Any], **_: Any) -> None:
     """Every queued task says when it was queued, for the queue's age metric."""
     headers[PUBLISHED_AT_HEADER] = time.time()
+
+
+# Every task is counted by how it ended (celery_tasks_total): a retry will run again; a
+# failure is final, an exception with no retries left.
+@task_success.connect
+def _count_success(sender: Any, **_: Any) -> None:
+    count("celery_tasks", task=sender.name, outcome="success")
+
+
+@task_retry.connect
+def _count_retry(sender: Any, **_: Any) -> None:
+    count("celery_tasks", task=sender.name, outcome="retry")
+
+
+@task_failure.connect
+def _count_failure(sender: Any, **_: Any) -> None:
+    count("celery_tasks", task=sender.name, outcome="failure")
 
 
 @celery_app.task(name="tasks.process_asset", bind=True, max_retries=3)

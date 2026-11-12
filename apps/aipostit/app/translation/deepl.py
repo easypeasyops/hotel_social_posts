@@ -4,6 +4,7 @@ import logging
 import httpx
 
 from app.config import get_settings
+from app.jobs.queue_metrics import count
 from supabase import Client
 
 # Languages enabled per subscription tier
@@ -75,6 +76,7 @@ async def translate_draft(db: Client, draft_id: str) -> None:
                 "translation failed",
                 extra={"draft_id": draft_id, "language": lang, "error": repr(result)},
             )
+            count("aipostit_translations_failed", language=lang)
             continue
 
         db.table("content_translations").upsert(

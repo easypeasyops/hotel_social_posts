@@ -1,6 +1,7 @@
 """deploybot's settings, from its environment: in the cluster the keys come from the
 platform's `deploybot` store and the rest from deploy/envs/ (RUNBOOK)."""
 
+import base64
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -27,7 +28,10 @@ class Settings:
             slack_channel_id=env["SLACK_CHANNEL_ID"],
             github_app_client_id=env["GITHUB_APP_CLIENT_ID"],
             github_app_installation_id=env["GITHUB_APP_INSTALLATION_ID"],
-            github_app_private_key=env["GITHUB_APP_PRIVATE_KEY"],
+            # Base64 on one line: the platform's store loads a dotenv file, one line a key.
+            github_app_private_key=base64.b64decode(
+                env["GITHUB_APP_PRIVATE_KEY_BASE64"], validate=True
+            ).decode(),
             # Comma-separated; empty means no one may.
             allowed_users=frozenset(
                 u.strip() for u in env["ALLOWED_USERS"].split(",") if u.strip()

@@ -17,7 +17,9 @@ PRs as they do from Actions:
 
 - **Socket Mode.** The cluster runs on a laptop, so Slack can't reach it. The bot opens an
   outbound WebSocket to Slack instead (`slack_bolt`'s `SocketModeHandler`, the app-level token
-  `SLACK_APP_TOKEN`) and serves nothing: no port, no Gateway route.
+  `SLACK_APP_TOKEN`). Nothing connects to it but the kubelet's probes on port 8000
+  (`app/health.py`): `/healthz` while the process runs, `/readyz` while the Slack connection
+  is up. The platform's service chart probes every app there; no Gateway route.
 - **A separate app, not part of aipostit's release.** A tool that rolls aipostit back must not
   be rolled back with it, and it has no use for aipostit's keys (Supabase, Anthropic, Buffer).
   It has its own image (`release.yml` from tags `deploybot/vX.Y.Z`), namespace and store.

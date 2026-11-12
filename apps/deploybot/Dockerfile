@@ -56,7 +56,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1
 
 USER app
+# Only the probes (/healthz, /readyz: app/health.py): the bot opens its own connection to
+# Slack (Socket Mode), so nothing else connects to it.
+EXPOSE 8000
 
-# No port: the bot opens its own connection to Slack (Socket Mode) and serves nothing.
 # Exec form, so SIGTERM reaches Python and the connection closes cleanly.
 CMD ["python", "-m", "app.main"]

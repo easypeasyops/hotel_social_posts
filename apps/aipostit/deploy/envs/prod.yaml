@@ -83,6 +83,17 @@ monitoring:
               annotations:
                 summary: "No worker in {{ $labels.namespace }} for 10 minutes: jobs are not running"
                 runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitworkerdown
+            - alert: AipostitQueueStuck
+              # The oldest queued task has waited over 15 minutes: a worker that hangs without
+              # exiting (its pod stays Running, AipostitWorkerDown quiet), or one that can't
+              # keep up. Every API pod reports the same queue, hence max.
+              expr: |
+                max by (namespace) (celery_queue_oldest_task_age_seconds{job="aipostit", namespace=~"aipostit-.+"}) > 900
+              for: 10m
+              labels: { severity: ticket }
+              annotations:
+                summary: "Jobs in {{ $labels.namespace }} have waited over 15 minutes for the worker"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitqueuestuck
             - alert: AipostitRedisDown
               # Redis is the broker and the session store: no logins, no jobs.
               expr: |

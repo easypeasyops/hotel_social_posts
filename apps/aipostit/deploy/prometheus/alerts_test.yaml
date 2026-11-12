@@ -135,6 +135,29 @@ tests:
               summary: "No worker in aipostit-prod for 10 minutes: jobs are not running"
               runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitworkerdown
 
+  # Prod's oldest task keeps waiting (its age grows a minute a minute); staging's queue
+  # backs up for ten minutes, then drains.
+  - name: tasks waiting on a worker that takes none open a ticket; a backlog that drains doesn't
+    interval: 1m
+    input_series:
+      - series: 'celery_queue_oldest_task_age_seconds{job="aipostit", namespace="aipostit-prod", pod="a"}'
+        values: '0+60x40'
+      - series: 'celery_queue_oldest_task_age_seconds{job="aipostit", namespace="aipostit-prod", pod="b"}'
+        values: '0+60x40'
+      - series: 'celery_queue_oldest_task_age_seconds{job="aipostit", namespace="aipostit-staging", pod="c"}'
+        values: '0+60x10 0x30'
+    alert_rule_test:
+      - eval_time: 20m # over 15 minutes old since minute 16, but not yet for 10 minutes
+        alertname: AipostitQueueStuck
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: AipostitQueueStuck
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: ticket }
+            exp_annotations:
+              summary: "Jobs in aipostit-prod have waited over 15 minutes for the worker"
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitqueuestuck
+
   - name: Redis not ready pages; a short blip doesn't
     interval: 1m
     input_series:

@@ -1,4 +1,4 @@
 # The platform commit this repo is built, tested and deployed against: CI's reusable
 # workflows are pinned to it (.github/workflows/ci.yml names the same SHA). Move both in a
 # PR of their own.
-easypeasyops/platform@0cbb2542e02f1fb9a820cabb30d17fc6639b8362
+easypeasyops/platform@2b3ef1042dda952559ed0bbad97196f68908871e

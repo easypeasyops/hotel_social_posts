@@ -257,6 +257,12 @@ The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its publ
 
 The job queue is there too (`grep ^celery_`), read from Redis by the API at each scrape: `celery_queue_length` is the tasks waiting for a worker and `celery_queue_oldest_task_age_seconds` how long the oldest has waited (0 for an empty queue, or for a task queued by a release older than the metric). Both are normally 0 or small for a minute or two; an age that keeps growing while the worker pod is Running is a worker that hangs: "Jobs are not progressing" below. In Prometheus, `max by (namespace) (celery_queue_oldest_task_age_seconds)`: every API pod reports the same queue.
 
+## Reading the errors
+
+Off until `SENTRY_DSN` is in the environment, and no environment has it yet: until then unhandled errors are only log lines (above). With a DSN (a Sentry or GlitchTip project's; a secret, so in `.env` locally and in the platform's store for the cluster), the API and the worker send each unhandled error and each line logged at ERROR to that project, grouped, with the stack trace. `SENTRY_ENVIRONMENT` and `SENTRY_RELEASE` name the environment and the version on each event.
+
+An event of a request has a `request_id` tag: the same ID as the response's `X-Request-ID` header and the request's log lines, so `grep '"request_id": "<id>"'` (Reading the logs) shows what else that request did. Events carry no request body, query string, cookies, `Authorization` header or local variables, so the logs and the database are where to look for what was sent.
+
 ## Alerts
 
 Prometheus evaluates aipostit's alert rules (`deploy/envs/prod.yaml`, `monitoring.rules`: prod's release ships them, for both environments) and Alertmanager posts them to Slack: `aipostit-prod`'s to #aipostit-alerts-prod, `aipostit-staging`'s to #aipostit-alerts-staging, with a message when each resolves. A **page** (red) is something to act on now, and in prod it notifies the channel (@channel); a **ticket** (yellow) is something to look at today. While a page fires, the tickets in the same environment are held back. Argo CD's alerts on `aipostit-<env>` come to the same channels (platform `docs/RUNBOOK.md`, Argo CD alerts). The routing, the webhooks and how to test or silence alerts are the platform's (`docs/RUNBOOK.md`, Slack alerts). Each alert's link opens its section below.

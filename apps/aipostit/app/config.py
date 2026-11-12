@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = True  # LOG_JSON=false: plain lines for local reading
     metrics_port: int = 9100  # /metrics on its own port; 0: not served (tests)
+    # Error tracking (app/observability.py): off without a DSN. The environment's name and
+    # the release are the deploy's to give; nothing else in the app knows them.
+    sentry_dsn: str = ""
+    sentry_environment: str = ""
+    sentry_release: str = ""
     secret_key: str  # used for signing internal tokens (upload links etc.)
     public_base_url: str = "http://localhost:8000"
 

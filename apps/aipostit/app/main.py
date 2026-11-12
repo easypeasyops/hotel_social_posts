@@ -20,7 +20,13 @@ from app.hotel_logo import router as hotel_logo_router
 from app.hotels.router import router as hotels_router
 from app.jobs import queue_metrics
 from app.jobs.router import router as jobs_router
-from app.observability import Metrics, RequestContextMiddleware, configure_logging, serve_metrics
+from app.observability import (
+    Metrics,
+    RequestContextMiddleware,
+    configure_logging,
+    init_error_tracking,
+    serve_metrics,
+)
 from app.profile_photo import router as profile_photo_router
 from app.staff import router as staff_router
 
@@ -45,6 +51,11 @@ READY_TIMEOUT_SECONDS = 2.0  # under the kubelet's readiness probe timeout
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level, json_output=settings.log_json)
+    init_error_tracking(
+        settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        release=settings.sentry_release,
+    )
 
     app = FastAPI(
         title="aipostit",

@@ -5,6 +5,7 @@ without a .env; and no network: a test that reaches beyond this machine fails at
 import os
 from collections.abc import Iterator
 
+import fakeredis
 import pytest
 
 from tests import network_guard
@@ -34,3 +35,13 @@ def fresh_settings() -> Iterator[None]:
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def fake_job_queue(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The queue the API reads for its metrics is an empty fake: a scrape reaches no Redis."""
+    from app.jobs import queue_metrics
+
+    monkeypatch.setattr(
+        queue_metrics, "queue_store", lambda: fakeredis.FakeRedis(decode_responses=True)
+    )

@@ -12,6 +12,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from app.commands import Repository, handle
 from app.config import Settings
 from app.github import GitHub
+from app.health import serve
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ def main() -> None:
         settings.github_repository,
     )
     handler = SocketModeHandler(build(settings, repo), settings.slack_app_token)
+    serve(handler.client.is_connected)
     handler.start()  # type: ignore[no-untyped-call]  # slack_bolt leaves it unannotated
 
 

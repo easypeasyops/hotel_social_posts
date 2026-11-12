@@ -75,9 +75,14 @@ def test_the_slash_command_is_acknowledged_and_run(
 def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> None:
     started: list[str] = []
 
+    class Client:
+        def is_connected(self) -> bool:
+            return True
+
     class Handler:
         def __init__(self, bolt: object, token: str) -> None:
             self.token = token
+            self.client = Client()
 
         def start(self) -> None:
             started.append(self.token)
@@ -89,11 +94,14 @@ def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> No
         "SLACK_CHANNEL_ID": "C1",
         "GITHUB_APP_CLIENT_ID": "Iv1.x",
         "GITHUB_APP_INSTALLATION_ID": "42",
-        "GITHUB_APP_PRIVATE_KEY": "pem",
+        "GITHUB_APP_PRIVATE_KEY_BASE64": "cGVt",
         "ALLOWED_USERS": "U1",
     }.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setattr(app.main, "build", lambda settings, repo: object())
     monkeypatch.setattr(app.main, "SocketModeHandler", Handler)
+    probes: list[bool] = []
+    monkeypatch.setattr(app.main, "serve", lambda connected: probes.append(connected()))
     app.main.main()
+    assert probes == [True]  # the probes answer before the bot blocks on Slack
     assert started == ["xapp-1"]

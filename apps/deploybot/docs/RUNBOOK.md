@@ -23,7 +23,7 @@ or anything it doesn't know, shows the help privately.
 |---|---|---|
 | `SLACK_APP_TOKEN` | app-level token `xapp-…` with `connections:write` (Socket Mode) | yes |
 | `SLACK_BOT_TOKEN` | the bot token `xoxb-…` | yes |
-| `GITHUB_APP_PRIVATE_KEY` | the deploybot GitHub App's private key (PEM) | yes |
+| `GITHUB_APP_PRIVATE_KEY_BASE64` | the deploybot GitHub App's private key, base64 on one line (below) | yes |
 | `GITHUB_APP_CLIENT_ID` | that App's client ID | no |
 | `GITHUB_APP_INSTALLATION_ID` | its installation on `hotel_social_posts` | no |
 | `SLACK_TEAM_ID` | our workspace's ID (`T…`) | no |
@@ -40,7 +40,10 @@ never go into git: locally a `.env` (ignored), in the cluster the platform's `de
    Apps), create **deploybot**: no webhook, repository permissions **Contents: read** and
    **Actions: read and write**, nothing else, installable only on this account. Install it on
    `hotel_social_posts` only. Note its client ID and the installation ID (the number at the
-   end of the installation's settings URL), and generate a private key.
+   end of the installation's settings URL), and generate a private key. Keep it outside the
+   repo, readable only by you, and put it in `.env` base64-encoded on one line (the store's
+   loader reads one line a key):
+   `base64 -i ~/.secrets/deploybot.pem | tr -d '\n'`.
 2. **Slack app.** At api.slack.com/apps, create the app in our workspace with **Socket Mode**
    on, an app-level token with `connections:write`, the slash command `/aipostit`, and the
    bot scope `commands`. Install it, then copy the bot token. Replies go through each
@@ -57,6 +60,7 @@ uv run python -m app.main
 ```
 
 It logs `⚡️ Bolt app is running!` once connected. Each command logs who ran it.
+`curl localhost:8000/readyz` answers `ok` while the Slack connection is up (503 when not).
 
 ## Release it
 
@@ -67,8 +71,9 @@ follows. The first release creates its GHCR package as private: make it public, 
 
 ## When it doesn't answer
 
-- Slack says "dispatch_failed" or the command times out: the bot isn't connected. Check its
-  logs for the Socket Mode connection; a revoked app token fails there.
+- Slack says "dispatch_failed" or the command times out: the bot isn't connected. Its pod is
+  then not Ready (`/readyz` answers 503). Check its logs for the Socket Mode connection; a
+  revoked app token fails there. A revoked bot token stops it at start, before the probes.
 - "I couldn't read the deploy files from GitHub" or "GitHub didn't start …": the GitHub App's
   key, client ID or installation ID is wrong, the App lost its installation, or (for a start)
   it lacks Actions: write. The log has GitHub's answer.

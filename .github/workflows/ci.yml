@@ -34,7 +34,7 @@ jobs:
   # The platform's reusable workflows, pinned to platform.lock's commit (keep them equal).
   check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@0cbb2542e02f1fb9a820cabb30d17fc6639b8362 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@2b3ef1042dda952559ed0bbad97196f68908871e # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/aipostit
@@ -46,7 +46,7 @@ jobs:
 
   image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@0cbb2542e02f1fb9a820cabb30d17fc6639b8362 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@2b3ef1042dda952559ed0bbad97196f68908871e # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/aipostit
@@ -56,7 +56,7 @@ jobs:
   # the platform's coverage minimum from the start.
   deploybot-check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@0cbb2542e02f1fb9a820cabb30d17fc6639b8362 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@2b3ef1042dda952559ed0bbad97196f68908871e # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/deploybot
@@ -65,7 +65,7 @@ jobs:
 
   deploybot-image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@0cbb2542e02f1fb9a820cabb30d17fc6639b8362 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@2b3ef1042dda952559ed0bbad97196f68908871e # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/deploybot
@@ -100,7 +100,7 @@ jobs:
         if: needs.scope.outputs.full == 'true'
         with:
           repository: easypeasyops/platform
-          ref: 0cbb2542e02f1fb9a820cabb30d17fc6639b8362 # platform.lock
+          ref: 2b3ef1042dda952559ed0bbad97196f68908871e # platform.lock
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3

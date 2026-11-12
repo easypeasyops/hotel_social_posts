@@ -4,8 +4,8 @@ What deploybot is and why it is shaped this way: `docs/ARCHITECTURE.md`.
 
 ## Use it
 
-In #aipostit-deploys: `/aipostit` answers with its help, privately. Its commands come in the
-next versions.
+In #aipostit-deploys: `/aipostit status` says which release staging and prod run (the
+digests on main). `/aipostit` alone, or anything it doesn't know, shows the help privately.
 
 ## Settings
 
@@ -13,19 +13,28 @@ next versions.
 |---|---|---|
 | `SLACK_APP_TOKEN` | app-level token `xapp-…` with `connections:write` (Socket Mode) | yes |
 | `SLACK_BOT_TOKEN` | the bot token `xoxb-…` | yes |
+| `GITHUB_APP_PRIVATE_KEY` | the deploybot GitHub App's private key (PEM) | yes |
+| `GITHUB_APP_CLIENT_ID` | that App's client ID | no |
+| `GITHUB_APP_INSTALLATION_ID` | its installation on `hotel_social_posts` | no |
 | `SLACK_TEAM_ID` | our workspace's ID (`T…`) | no |
 | `SLACK_CHANNEL_ID` | #aipostit-deploys' ID (`C…`) | no |
+| `GITHUB_REPOSITORY` | optional, `easypeasyops/hotel_social_posts` by default | no |
 
-Every one is required: the bot stops at start, naming the missing one. Secrets
+Every one but the last is required: the bot stops at start, naming the missing one. Secrets
 never go into git: locally a `.env` (ignored), in the cluster the platform's `deploybot` store.
 
 ## Set up once
 
-1. **Slack app.** At api.slack.com/apps, create the app in our workspace with **Socket Mode**
+1. **GitHub App.** In the easypeasyops organization (Settings → Developer settings → GitHub
+   Apps), create **deploybot**: no webhook, repository permissions **Contents: read** and
+   **Actions: read and write**, nothing else, installable only on this account. Install it on
+   `hotel_social_posts` only. Note its client ID and the installation ID (the number at the
+   end of the installation's settings URL), and generate a private key.
+2. **Slack app.** At api.slack.com/apps, create the app in our workspace with **Socket Mode**
    on, an app-level token with `connections:write`, the slash command `/aipostit`, and the
    bot scope `commands`. Install it, then copy the bot token. Replies go through each
    command's response URL, so the bot needs no `chat:write`.
-2. Put the two tokens in the platform's `deploybot` store, and the IDs in its deploy values.
+3. Put the three secrets in the platform's `deploybot` store, and the IDs in its deploy values.
 
 ## Run it locally
 
@@ -49,3 +58,5 @@ follows. The first release creates its GHCR package as private: make it public, 
 
 - Slack says "dispatch_failed" or the command times out: the bot isn't connected. Check its
   logs for the Socket Mode connection; a revoked app token fails there.
+- "I couldn't read the deploy files from GitHub": the GitHub App's key, client ID or
+  installation ID is wrong, or the App lost its installation. The log has GitHub's answer.

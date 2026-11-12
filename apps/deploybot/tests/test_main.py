@@ -7,12 +7,11 @@ from slack_sdk import WebClient
 from slack_sdk.web import SlackResponse
 
 import app.main
-from app.commands import HELP
 from app.config import Settings
 
 COMMAND = {
     "command": "/aipostit",
-    "text": " help ",
+    "text": " status ",
     "user_id": "U1",
     "channel_id": "C1",
     "team_id": "T1",
@@ -20,10 +19,21 @@ COMMAND = {
 }
 
 
-def test_run_replies_to_the_person(settings: Settings) -> None:
+class FakeRepo:
+    def read_file(self, path: str, ref: str = "main") -> str:
+        return '  digest: "sha256:{}" # aipostit v0.5.2\n'.format("a" * 64)
+
+
+def test_run_replies_in_the_channel(settings: Settings) -> None:
     said: list[dict[str, Any]] = []
-    app.main.run(COMMAND, lambda **kw: said.append(kw), settings)
-    assert said == [{"text": HELP, "response_type": "ephemeral"}]
+    app.main.run(COMMAND, lambda **kw: said.append(kw), settings, FakeRepo())
+    assert said == [
+        {
+            "text": "*aipostit*: staging runs *v0.5.2*, prod runs *v0.5.2* "
+            "(the digests on main, which Argo CD deploys).",
+            "response_type": "in_channel",
+        }
+    ]
 
 
 def test_the_slash_command_is_acknowledged_and_run(
@@ -52,11 +62,11 @@ def test_the_slash_command_is_acknowledged_and_run(
             status_code=200,
         ),
     )
-    bolt = app.main.build(settings, verify_token=False)
+    bolt = app.main.build(settings, FakeRepo(), verify_token=False)
     response = bolt.dispatch(BoltRequest(body=COMMAND, mode="socket_mode"))
     assert response.status == 200  # acknowledged; the listener goes on in Bolt's thread
     assert done.wait(5)
-    assert [c["text"] for c in ran] == [" help "]
+    assert [c["text"] for c in ran] == [" status "]
 
 
 def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -74,9 +84,12 @@ def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> No
         "SLACK_BOT_TOKEN": "xoxb-1",
         "SLACK_TEAM_ID": "T1",
         "SLACK_CHANNEL_ID": "C1",
+        "GITHUB_APP_CLIENT_ID": "Iv1.x",
+        "GITHUB_APP_INSTALLATION_ID": "42",
+        "GITHUB_APP_PRIVATE_KEY": "pem",
     }.items():
         monkeypatch.setenv(key, value)
-    monkeypatch.setattr(app.main, "build", lambda settings: object())
+    monkeypatch.setattr(app.main, "build", lambda settings, repo: object())
     monkeypatch.setattr(app.main, "SocketModeHandler", Handler)
     app.main.main()
     assert started == ["xapp-1"]

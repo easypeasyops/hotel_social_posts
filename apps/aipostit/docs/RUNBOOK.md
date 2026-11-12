@@ -315,6 +315,18 @@ Ticket. The oldest task in the environment's queue has waited over 15 minutes, f
 
 It can't see tasks the worker has already reserved, only those still in the queue, so after some hangs it fires a few tasks late: ARCHITECTURE, design limits.
 
+### AipostitTaskFailed
+
+Ticket. A task ended in an exception with no retries left in the last hour (`celery_tasks_total{outcome="failure"}`, "Reading the metrics" above); the alert names the task and resolves an hour after the last failure. That piece of work was not done: an upload not processed, a hotel's drafts not generated, a draft not translated or not sent to Buffer. Find it in the worker's log, where the failure has its traceback: "Reading the logs", `{kubernetes.pod_namespace="aipostit-<env>", kubernetes.container_name="worker"} level:="error"`. Fix the cause (usually a provider or Supabase being away longer than the retries last, or a key), then redo that piece only, after checking what it already did: "Jobs are not progressing" below, steps 4 and 5.
+
+### AipostitTranslationFailed
+
+Ticket. DeepL didn't return one language of a draft in the last hour (`aipostit_translations_failed_total`); the alert names the language. The task still succeeds, so the draft exists without that translation and nothing retries it. The log line says which draft and why: `{kubernetes.pod_namespace="aipostit-<env>"} "translation failed" | fields _time, draft_id, language, error`. A quota or key error (DeepL's 456 or 403) needs the account or the key fixed first; then queue the draft's translation again: `kubectl -n aipostit-<env> exec deploy/aipostit-worker -- celery -A app.jobs.tasks.celery_app call tasks.translate_content --args='["<draft_id>"]'` (it stores each language again, over what is there).
+
+### AipostitPostFailed
+
+Ticket. Buffer couldn't send a post it had queued, found by the hourly sync (`aipostit_posts_failed_total`); the post never went out and its draft is now `failed`. The reason is in the worker's log: `{kubernetes.pod_namespace="aipostit-<env>"} "Buffer couldn't send post"`. The usual causes are on the hotel's side of Buffer: a channel that was disconnected or needs signing in again, or an image the network refused. The dashboard has no way to send a failed draft again (only a draft waiting for review can be approved). Once the cause is fixed and the hotel still wants the post, queue it by hand: `kubectl -n aipostit-<env> exec deploy/aipostit-worker -- celery -A app.jobs.tasks.celery_app call tasks.publish_content --args='["<draft_id>"]'`, with the draft ID from the log line's post in `publish_log`.
+
 ### AipostitRedisDown
 
 Page. The environment's Redis (`aipostit-redis-0`) has not been ready for 5 minutes. Without it nobody can log in and no job runs; the API pods also fail `/readyz`, so their tickets are held back. `kubectl -n aipostit-<env> describe pod aipostit-redis-0` and `logs aipostit-redis-0`; its volume (`get pvc`) if it can't start.

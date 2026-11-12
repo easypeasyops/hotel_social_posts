@@ -158,6 +158,68 @@ tests:
               summary: "Jobs in aipostit-prod have waited over 15 minutes for the worker"
               runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitqueuestuck
 
+  # The counters start at 0 (the API exports every series before its first count). Both of
+  # prod's API pods report the same counts. Staging's tasks only succeed or retry.
+  - name: a task out of retries opens a ticket naming it; retries and successes don't
+    interval: 1m
+    input_series:
+      - series: 'celery_tasks_total{job="aipostit", namespace="aipostit-prod", pod="a", task="tasks.publish_content", outcome="failure"}'
+        values: '0x10 1x120'
+      - series: 'celery_tasks_total{job="aipostit", namespace="aipostit-prod", pod="b", task="tasks.publish_content", outcome="failure"}'
+        values: '0x10 1x120'
+      - series: 'celery_tasks_total{job="aipostit", namespace="aipostit-prod", pod="a", task="tasks.generate_content", outcome="failure"}'
+        values: '0x130'
+      - series: 'celery_tasks_total{job="aipostit", namespace="aipostit-staging", pod="c", task="tasks.publish_content", outcome="retry"}'
+        values: '0x10 2x120'
+      - series: 'celery_tasks_total{job="aipostit", namespace="aipostit-staging", pod="c", task="tasks.publish_content", outcome="success"}'
+        values: '0+1x130'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AipostitTaskFailed
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: AipostitTaskFailed
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, task: tasks.publish_content, severity: ticket }
+            exp_annotations:
+              summary: "tasks.publish_content failed in aipostit-prod with no retries left"
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostittaskfailed
+      - eval_time: 80m # an hour after the failure, with no other
+        alertname: AipostitTaskFailed
+        exp_alerts: []
+
+  - name: a translation DeepL didn't return opens a ticket naming the language
+    interval: 1m
+    input_series:
+      - series: 'aipostit_translations_failed_total{job="aipostit", namespace="aipostit-prod", pod="a", language="de"}'
+        values: '0x10 1x30'
+      - series: 'aipostit_translations_failed_total{job="aipostit", namespace="aipostit-prod", pod="a", language="en"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: AipostitTranslationFailed
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, language: de, severity: ticket }
+            exp_annotations:
+              summary: "A translation to de failed in aipostit-prod: a draft is missing that language"
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostittranslationfailed
+
+  - name: a post Buffer couldn't send opens a ticket
+    interval: 1m
+    input_series:
+      - series: 'aipostit_posts_failed_total{job="aipostit", namespace="aipostit-prod", pod="a"}'
+        values: '0x10 1x30'
+      - series: 'aipostit_posts_failed_total{job="aipostit", namespace="aipostit-staging", pod="c"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: AipostitPostFailed
+        exp_alerts:
+          - exp_labels: { namespace: aipostit-prod, severity: ticket }
+            exp_annotations:
+              summary: "Buffer couldn't send a post from aipostit-prod"
+              runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitpostfailed
+
   - name: Redis not ready pages; a short blip doesn't
     interval: 1m
     input_series:

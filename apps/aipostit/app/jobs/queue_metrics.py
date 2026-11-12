@@ -92,7 +92,8 @@ def _counters(fields: dict[str, str], seeds: Iterable[str]) -> Iterator[CounterM
     for field, value in {**dict.fromkeys(seeds, "0"), **fields}.items():
         name, *label_values = field.split("|")
         # A field another release wrote (a rollout shares the Redis) may not fit: skip it.
-        if name in families and len(label_values) == len(COUNTERS[name][1]) and value.isdigit():
+        fits = name in families and len(label_values) == len(COUNTERS[name][1])
+        if fits and value.isascii() and value.isdigit():
             families[name].add_metric(label_values, int(value))
     yield from families.values()
 

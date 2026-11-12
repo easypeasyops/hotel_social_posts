@@ -4,10 +4,12 @@ that fails is skipped, the others are stored."""
 import asyncio
 from urllib.parse import parse_qs
 
+import fakeredis
 import httpx
 import pytest
 import respx
 
+from app.jobs import queue_metrics
 from app.translation.deepl import DEEPL_API_URL, translate_draft
 from tests.fakes import FakeDB
 
@@ -43,11 +45,18 @@ def test_each_language_of_the_tier_is_requested_and_stored() -> None:
 
 
 @respx.mock
-def test_a_failed_language_does_not_block_the_others(caplog: pytest.LogCaptureFixture) -> None:
+def test_a_failed_language_does_not_block_the_others(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     respx.post(DEEPL_API_URL).mock(side_effect=deepl)
     db = FakeDB(content_drafts=[draft("growth")])
+    counters = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(queue_metrics, "queue_store", lambda: counters)
 
     asyncio.run(translate_draft(db, "draft-1"))  # type: ignore[arg-type]
+
+    # Counted, by language: the task succeeds, so the count is what an alert can see.
+    assert counters.hgetall(queue_metrics.COUNTERS_KEY) == {"aipostit_translations_failed|ru": "1"}
 
     (failure,) = [r for r in caplog.records if r.msg == "translation failed"]
     assert failure.levelname == "WARNING"

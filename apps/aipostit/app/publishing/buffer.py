@@ -228,10 +228,12 @@ def sync_scheduled_posts(db: Client) -> None:
             outcome = {"status": "failed"}
             message = (post.get("error") or {}).get("message")
             log.warning("Buffer couldn't send post %s: %s", entry["buffer_update_id"], message)
-            count("aipostit_posts_failed")
         else:
             continue
         db.table("publish_log").update(outcome).eq("id", entry["id"]).execute()
         db.table("content_drafts").update({"status": outcome["status"]}).eq(
             "id", entry["draft_id"]
         ).execute()
+        if outcome["status"] == "failed":
+            # Once the outcome is saved: a post whose save failed is found again next run.
+            count("aipostit_posts_failed")

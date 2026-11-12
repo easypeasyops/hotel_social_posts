@@ -133,7 +133,7 @@ None touches `deploy/envs/prod.yaml`, so all can auto-merge.
    (~120)
 8. **`purge-invites` CronJob** in `deploy/service/values.yaml`, off in `staging.yaml`;
    RUNBOOK's CronJob list. (~40)
-9. **Drop the pre-tracking invite purposes** after the cutover date. (~60)
+9. **Drop the pre-tracking invite purposes** after the cutover date (2026-11-16). (~60)
 10. **Resend and change role** of an invite. Waits until someone needs it. (~200)
 
 ## Decisions (Emrah, 2026-11-09)

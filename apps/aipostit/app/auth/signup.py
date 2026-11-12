@@ -1,7 +1,6 @@
-"""Hotel staff sign-up, only from an invite link (/signup#invite=…): a signed, 7-day
-capability for one hotel and role (staff_invite_purpose), and for one email when it was sent
-to one person; or a recorded invite (STAFF_INVITE_RECORD_PURPOSE), whose staff_invites row
-gives the email and role and works once. The account is made with the service role
+"""Hotel staff sign-up, only from an invite link (/signup#invite=…): a recorded invite
+(STAFF_INVITE_RECORD_PURPOSE), whose staff_invites row gives the email and role and works
+once. The account is made with the service role
 (Supabase's own sign-up stays off), tied to that hotel in hotel_members, and signed in."""
 
 import logging
@@ -14,7 +13,7 @@ from supabase_auth.errors import AuthApiError
 from app.account import clean_full_name
 from app.auth.router import _set_session_cookie, templates
 from app.auth.sessions import create_session
-from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
+from app.auth.upload_tokens import read_recorded_invite
 from app.database import get_supabase, get_supabase_anon
 from app.hotels.invites import claim_invite, pending_invite, release_invite
 
@@ -49,18 +48,14 @@ def sign_up(
     password: str = Form(...),
     password_confirmation: str = Form(...),
 ):
-    invited = read_staff_invite(invite)
-    # Only a recorded invite's token reads staff_invites, so the older ones work without it.
-    recorded = read_recorded_invite(invite) if invited is None else None
-    if recorded is not None:
-        row = pending_invite(get_supabase(), recorded[1], recorded[0])
-        if row is not None:
-            invited = recorded[0], row["role"], row["email"]
-    if invited is None:
+    recorded = read_recorded_invite(invite)
+    row = pending_invite(get_supabase(), recorded[1], recorded[0]) if recorded else None
+    if recorded is None or row is None:
         return _page(request, 400, invite_error=INVALID_INVITE)
-    hotel_id, role, invited_email = invited
+    hotel_id, invite_id = recorded
+    role, invited_email = row["role"], row["email"]
     form = {"invite": invite, "email": email, "full_name": full_name}
-    if invited_email is not None and email.strip().lower() != invited_email:
+    if email.strip().lower() != invited_email:
         # An invite sent to one person: only the address it was sent to signs up with it.
         return _page(request, 403, error=f"This invite is for {invited_email}.", **form)
     name = clean_full_name(full_name)
@@ -74,10 +69,9 @@ def sign_up(
     db = get_supabase()
     if not db.table("hotels").select("id").eq("id", hotel_id).execute().data:
         return _page(request, 400, invite_error=INVALID_INVITE)
-    # A recorded invite is taken before the account is made, so a racing sign-up gets nothing;
-    # every failure below hands it back.
-    invite_id = recorded[1] if recorded is not None else None
-    if invite_id is not None and not claim_invite(db, invite_id):
+    # The invite is taken before the account is made, so a racing sign-up gets nothing; every
+    # failure below hands it back.
+    if not claim_invite(db, invite_id):
         return _page(request, 400, invite_error=INVALID_INVITE)
 
     try:

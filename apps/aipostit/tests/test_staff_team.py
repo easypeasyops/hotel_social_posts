@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app import mail
 from app.auth.dependencies import get_current_user
-from app.auth.upload_tokens import read_recorded_invite, read_staff_invite
+from app.auth.upload_tokens import read_recorded_invite
 from app.database import get_supabase
 from app.main import create_app
 from tests.fakes import NAMED, FakeDB
@@ -75,7 +75,6 @@ def test_without_smtp_the_admin_records_an_invite_and_gets_its_link() -> None:
         "invited_by_email": "me@example.com",
     }
     assert read_recorded_invite(_link(page)) == ("hotel-1", row["id"])
-    assert read_staff_invite(_link(page)) is None  # no older-purpose token
     assert page.headers["cache-control"] == "no-store"
 
 

@@ -94,6 +94,34 @@ monitoring:
               annotations:
                 summary: "Jobs in {{ $labels.namespace }} have waited over 15 minutes for the worker"
                 runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitqueuestuck
+            # What the worker did, from the counters it keeps in Redis and the API exports.
+            # Every API pod reports the same counts, hence max. An alert resolves by itself
+            # an hour after the last such event.
+            - alert: AipostitTaskFailed
+              # A task ended in an exception with no retries left: that work was not done.
+              expr: |
+                max by (namespace, task) (increase(celery_tasks_total{job="aipostit", namespace=~"aipostit-.+", outcome="failure"}[1h])) > 0
+              labels: { severity: ticket }
+              annotations:
+                summary: "{{ $labels.task }} failed in {{ $labels.namespace }} with no retries left"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostittaskfailed
+            - alert: AipostitTranslationFailed
+              # DeepL didn't return a language: the draft has no translation for it, and the
+              # task still succeeds, so nothing else shows it.
+              expr: |
+                max by (namespace, language) (increase(aipostit_translations_failed_total{job="aipostit", namespace=~"aipostit-.+"}[1h])) > 0
+              labels: { severity: ticket }
+              annotations:
+                summary: "A translation to {{ $labels.language }} failed in {{ $labels.namespace }}: a draft is missing that language"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostittranslationfailed
+            - alert: AipostitPostFailed
+              # Buffer couldn't send a post it had queued: it never went out.
+              expr: |
+                max by (namespace) (increase(aipostit_posts_failed_total{job="aipostit", namespace=~"aipostit-.+"}[1h])) > 0
+              labels: { severity: ticket }
+              annotations:
+                summary: "Buffer couldn't send a post from {{ $labels.namespace }}"
+                runbook_url: https://github.com/easypeasyops/hotel_social_posts/blob/main/apps/aipostit/docs/RUNBOOK.md#aipostitpostfailed
             - alert: AipostitRedisDown
               # Redis is the broker and the session store: no logins, no jobs.
               expr: |

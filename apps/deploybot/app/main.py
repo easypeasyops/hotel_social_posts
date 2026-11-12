@@ -23,6 +23,7 @@ def run(
     reply = handle(
         text,
         user_id=command["user_id"],
+        user_name=command.get("user_name", ""),
         channel_id=command["channel_id"],
         team_id=command["team_id"],
         settings=settings,

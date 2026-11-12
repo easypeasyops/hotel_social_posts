@@ -13,4 +13,5 @@ def settings() -> Settings:
         github_app_client_id="Iv1.test",
         github_app_installation_id="42",
         github_app_private_key="unused",
+        allowed_users=frozenset({"U1"}),
     )

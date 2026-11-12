@@ -55,3 +55,33 @@ def test_a_token_github_refuses_reads_nothing(respx_mock: respx.MockRouter, gith
     with pytest.raises(httpx.HTTPStatusError):
         github.read_file(FILE)
     assert not contents.called
+
+
+@respx.mock(base_url=API)
+def test_a_workflow_is_started_on_main_with_an_actions_write_token(
+    respx_mock: respx.MockRouter, github: GitHub
+) -> None:
+    token = respx_mock.post("/app/installations/42/access_tokens").respond(
+        201, json={"token": "ghs_y"}
+    )
+    started = respx_mock.post(
+        "/repos/easypeasyops/hotel_social_posts/actions/workflows/rollback.yml/dispatches"
+    ).respond(204)
+
+    github.dispatch("rollback.yml", {"app": "aipostit", "env": "prod"})
+
+    assert json.loads(token.calls.last.request.content)["permissions"] == {"actions": "write"}
+    request = started.calls.last.request
+    assert request.headers["Authorization"] == "Bearer ghs_y"
+    assert json.loads(request.content) == {
+        "ref": "main",
+        "inputs": {"app": "aipostit", "env": "prod"},
+    }
+
+
+@respx.mock(base_url=API, assert_all_called=False)
+def test_no_other_workflow_is_started(respx_mock: respx.MockRouter, github: GitHub) -> None:
+    token = respx_mock.post("/app/installations/42/access_tokens")
+    with pytest.raises(ValueError, match="deploy.yml is not a workflow deploybot starts"):
+        github.dispatch("deploy.yml", {})
+    assert not token.called  # not even a token

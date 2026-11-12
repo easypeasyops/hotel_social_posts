@@ -23,6 +23,9 @@ class FakeRepo:
     def read_file(self, path: str, ref: str = "main") -> str:
         return '  digest: "sha256:{}" # aipostit v0.5.2\n'.format("a" * 64)
 
+    def dispatch(self, workflow: str, inputs: dict[str, str]) -> None:
+        raise AssertionError("status starts nothing")
+
 
 def test_run_replies_in_the_channel(settings: Settings) -> None:
     said: list[dict[str, Any]] = []
@@ -87,6 +90,7 @@ def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> No
         "GITHUB_APP_CLIENT_ID": "Iv1.x",
         "GITHUB_APP_INSTALLATION_ID": "42",
         "GITHUB_APP_PRIVATE_KEY": "pem",
+        "ALLOWED_USERS": "U1",
     }.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setattr(app.main, "build", lambda settings, repo: object())

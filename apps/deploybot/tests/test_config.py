@@ -10,12 +10,15 @@ ENV = {
     "GITHUB_APP_CLIENT_ID": "Iv1.x",
     "GITHUB_APP_INSTALLATION_ID": "42",
     "GITHUB_APP_PRIVATE_KEY": "pem",
+    "ALLOWED_USERS": " U1, U2 ,",
 }
 
 
 def test_settings_come_from_the_environment() -> None:
     settings = Settings.from_env(ENV)
     assert settings.slack_channel_id == "C1"
+    assert settings.allowed_users == {"U1", "U2"}
+    assert Settings.from_env({**ENV, "ALLOWED_USERS": ""}).allowed_users == frozenset()
     assert settings.github_repository == "easypeasyops/hotel_social_posts"
     assert Settings.from_env({**ENV, "GITHUB_REPOSITORY": "o/r"}).github_repository == "o/r"
 

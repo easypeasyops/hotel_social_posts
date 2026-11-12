@@ -14,6 +14,7 @@ class Settings:
     github_app_client_id: str  # the deploybot GitHub App (not the release app)
     github_app_installation_id: str  # its installation on the repository
     github_app_private_key: str  # PEM
+    allowed_users: frozenset[str]  # Slack user IDs that may release, promote and roll back
     github_repository: str = "easypeasyops/hotel_social_posts"
 
     @classmethod
@@ -27,5 +28,9 @@ class Settings:
             github_app_client_id=env["GITHUB_APP_CLIENT_ID"],
             github_app_installation_id=env["GITHUB_APP_INSTALLATION_ID"],
             github_app_private_key=env["GITHUB_APP_PRIVATE_KEY"],
+            # Comma-separated; empty means no one may.
+            allowed_users=frozenset(
+                u.strip() for u in env["ALLOWED_USERS"].split(",") if u.strip()
+            ),
             github_repository=env.get("GITHUB_REPOSITORY", cls.github_repository),
         )

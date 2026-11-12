@@ -4,8 +4,18 @@ What deploybot is and why it is shaped this way: `docs/ARCHITECTURE.md`.
 
 ## Use it
 
-In #aipostit-deploys: `/aipostit status` says which release staging and prod run (the
-digests on main). `/aipostit` alone, or anything it doesn't know, shows the help privately.
+In #aipostit-deploys:
+
+- `/aipostit status`: which release staging and prod run (the digests on main). Anyone.
+- `/aipostit release patch` (or `minor`): starts **Bump version**. Its PR merges once `ci` is
+  green and the release goes to staging on its own, so apply a migration it needs first.
+- `/aipostit promote`: starts **Promote to prod**. Review and merge its PR in GitHub.
+- `/aipostit rollback staging` (or `prod`): starts **Roll back**. Staging's PR merges itself;
+  review and merge prod's in GitHub. Again goes back one more release.
+
+The last three are for the users in `ALLOWED_USERS` only. Each reply links to the workflow's
+runs; the PR and the deploy are then posted to the channel as from Actions. `/aipostit` alone,
+or anything it doesn't know, shows the help privately.
 
 ## Settings
 
@@ -18,6 +28,7 @@ digests on main). `/aipostit` alone, or anything it doesn't know, shows the help
 | `GITHUB_APP_INSTALLATION_ID` | its installation on `hotel_social_posts` | no |
 | `SLACK_TEAM_ID` | our workspace's ID (`T…`) | no |
 | `SLACK_CHANNEL_ID` | #aipostit-deploys' ID (`C…`) | no |
+| `ALLOWED_USERS` | comma-separated Slack user IDs (`U…`) that may release, promote and roll back; empty: no one | no |
 | `GITHUB_REPOSITORY` | optional, `easypeasyops/hotel_social_posts` by default | no |
 
 Every one but the last is required: the bot stops at start, naming the missing one. Secrets
@@ -58,5 +69,8 @@ follows. The first release creates its GHCR package as private: make it public, 
 
 - Slack says "dispatch_failed" or the command times out: the bot isn't connected. Check its
   logs for the Socket Mode connection; a revoked app token fails there.
-- "I couldn't read the deploy files from GitHub": the GitHub App's key, client ID or
-  installation ID is wrong, or the App lost its installation. The log has GitHub's answer.
+- "I couldn't read the deploy files from GitHub" or "GitHub didn't start …": the GitHub App's
+  key, client ID or installation ID is wrong, the App lost its installation, or (for a start)
+  it lacks Actions: write. The log has GitHub's answer.
+- "You can't run …": the person's Slack user ID isn't in `ALLOWED_USERS` (their profile →
+  ⋮ → Copy member ID). Add it in the deploy values and merge.

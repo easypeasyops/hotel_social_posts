@@ -9,6 +9,9 @@ import httpx
 import jwt
 
 API = "https://api.github.com"
+# The only workflows the bot starts. None of them merges anything into prod: each opens a PR
+# with the release app's token, and prod's PRs wait for a person.
+WORKFLOWS = frozenset({"bump.yml", "promote.yml", "rollback.yml"})
 Permissions = dict[str, Literal["read", "write"]]
 
 
@@ -58,3 +61,14 @@ class GitHub:
         )
         response.raise_for_status()
         return response.text
+
+    def dispatch(self, workflow: str, inputs: dict[str, str]) -> None:
+        """Starts `workflow` on main with `inputs`, with an Actions: write token."""
+        if workflow not in WORKFLOWS:
+            raise ValueError(f"{workflow} is not a workflow deploybot starts")
+        response = self._http.post(
+            f"/repos/{self._repository}/actions/workflows/{workflow}/dispatches",
+            headers={"Authorization": f"Bearer {self._token({'actions': 'write'})}"},
+            json={"ref": "main", "inputs": inputs},
+        )
+        response.raise_for_status()

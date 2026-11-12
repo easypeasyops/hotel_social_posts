@@ -251,6 +251,21 @@ kubectl -n aipostit-<env> logs -l app.kubernetes.io/name=aipostit --tail=-1 | gr
 kubectl -n aipostit-<env> logs deploy/aipostit-worker | grep -o '{.*' | jq -c 'select(.msg == "translation failed") | {draft_id, language, error}'
 ```
 
+`kubectl logs` shows only what the running pods (and each one's previous container) wrote. The platform keeps every pod's lines for 30 days in VictoriaLogs (platform `docs/RUNBOOK.md`, Logs), so a pod that was replaced by a release or a crash can still be read: in Grafana (http://grafana.localhost:8090), Explore, data source **VictoriaLogs**. Each JSON field of a line is a field there (`msg` is `_msg`, `ts` is `_time`); the queries are LogsQL, and the time range comes from Grafana's picker:
+
+```
+# Everything one request logged
+{kubernetes.pod_namespace="aipostit-prod"} request_id:="<id>"
+# Server errors with their routes
+{kubernetes.pod_namespace="aipostit-prod"} logger:="aipostit.access" status:>=500 | fields _time, route, status, request_id
+# Translations that failed, by language
+{kubernetes.pod_namespace="aipostit-prod"} "translation failed" | fields _time, draft_id, language, error
+# What the worker did
+{kubernetes.pod_namespace="aipostit-prod", kubernetes.container_name="worker"} | fields _time, level, logger, _msg
+```
+
+`aipostit-staging` for staging; `{kubernetes.pod_namespace=~"aipostit-.+"}` for both. If Grafana is away, the store answers the same queries itself (platform RUNBOOK, Logs), and `kubectl logs` still works for the pods that run.
+
 ## Reading the metrics
 
 The API serves Prometheus metrics on port 9100 (`METRICS_PORT`), not on its public port: `curl -s localhost:9100/metrics | grep ^http_`. Per route template and status: `http_requests_total` counts requests and `http_request_duration_seconds` buckets their latency. A rising `status="5.."` count on one route points at that route's dependency; `route="unmatched"` is requests for paths the app doesn't have.

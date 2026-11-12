@@ -1,7 +1,8 @@
 # Working on hotel_social_posts
 
 This repo holds the hotel social posts domain's apps under `apps/<app>/` (platform plan 3.5);
-aipostit is `apps/aipostit/`. Run an app's commands from its folder. `.github/`,
+aipostit is `apps/aipostit/`, and deploybot, its `/aipostit` Slack command, is `apps/deploybot/`.
+Run an app's commands from its folder. `.github/`,
 `platform.lock` and this file are at the repo root.
 
 ## Docs are part of the change

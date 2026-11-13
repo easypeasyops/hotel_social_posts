@@ -53,6 +53,17 @@ and explained quickly.
   safe fix and how to check it worked. Afterwards, a RUNBOOK incident procedure if the next
   one would have been faster with it.
 
+## Jira
+
+aipostit's tickets are in project `HSP` on consultingcem.atlassian.net (issues labelled
+`aipostit`), through the Atlassian connector. Its board has sprints and shows only the
+tickets in a started sprint, so a ticket's status alone doesn't put it on the board. When a
+task has a ticket, before touching a file: read it (labelled `parked`: ask Emrah first),
+move it to In Progress, and put it in the active sprint. When its PR has merged and the
+ticket's work is all in, move it to Done. Priorities and what a sprint holds are the
+aipostit-product-manager agent's; starting or closing a sprint is Emrah's call. If the
+connector isn't available in the session, say so and carry on with the work.
+
 ## Stay in your lane
 
 App code and its tests go to the aipostit-software-engineer agent: when the fix is in `app/`, say

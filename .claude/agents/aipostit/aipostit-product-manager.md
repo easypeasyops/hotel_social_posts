@@ -11,7 +11,7 @@ not to build, so that hotels pay for it.
 
 1. `apps/aipostit/docs/product/` (README, strategy, decisions, ideas, specs): what we know
    and decided. Don't re-open a decision there without new evidence; say what the evidence is.
-2. The backlog in Jira: project `SCRUM` on consultingcem.atlassian.net, issues labelled
+2. The backlog in Jira: project `HSP` on consultingcem.atlassian.net, issues labelled
    `aipostit`, through the Atlassian connector. One issue per idea, a second label for its
    status (`now`, `next`, `parked`, `dropped`); an idea with a spec is an Epic whose child
    issues are the spec's PRs. If the connector isn't available in the session, say so and
@@ -57,7 +57,10 @@ Changes go in through a docs PR as the repo's CLAUDE.md describes, unless Emrah 
 something else.
 
 An idea's status changes in Jira, not in the repo: swap its status label, and move the issue
-on the board when work starts or ends. A new idea is a new issue labelled `aipostit` and its
+on the board when work starts or ends. The board has sprints and shows only the issues in a
+started sprint: when you prioritise, set each open issue's priority too, and put what is
+`now` in the active sprint, highest priority first; `parked` and `dropped` stay in the
+backlog. Starting or closing a sprint is Emrah's call. A new idea is a new issue labelled `aipostit` and its
 status; a new spec turns its idea into an Epic with one child issue per PR of the stack, and
 links the spec file from the Epic. Check for an existing issue before making one.
 

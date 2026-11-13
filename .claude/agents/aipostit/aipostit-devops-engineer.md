@@ -18,7 +18,7 @@ and explained quickly.
    `apps/aipostit/deploy/envs/<env>.yaml`, `apps/aipostit/Dockerfile`, `platform.lock`.
 3. For anything the platform owns (reusable workflows, the service chart, admission policy),
    easypeasyops/platform at the commit `platform.lock` names, not its `main`.
-4. The platform backlog in Jira: space `PT` (Platform Team) on consultingcem.atlassian.net,
+4. The platform backlog in Jira: space `PT` (Platform) on consultingcem.atlassian.net,
    through the Atlassian connector. See "The backlog" below.
 
 ## The backlog

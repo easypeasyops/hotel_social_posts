@@ -1,26 +1,20 @@
 # Ideas
 
-Status: **now** (being tested or built), **next**, **parked** (good, not now), **dropped**.
-Value and effort are judgement until a customer confirms them.
+The ideas live in Jira since 2026-11-13: project
+[SCRUM](https://consultingcem.atlassian.net/jira/software/projects/SCRUM/boards) on
+consultingcem.atlassian.net, the issues labelled `aipostit`
+([all of them](https://consultingcem.atlassian.net/issues/?jql=project%20%3D%20SCRUM%20AND%20labels%20%3D%20aipostit%20ORDER%20BY%20created%20ASC)).
+Jira is the source of truth for what the ideas are and where each stands; this file no
+longer lists them.
 
-| Idea | Status | Why / what it needs |
-|---|---|---|
-| Posts driven by empty dates | now (manual pilot) | Content that fills empty rooms; bookings, not likes. Pilot by hand first (decisions.md) |
-| Staff invite tracking | next (spec) | One email per invite, status, revoke, expiry and retention per hotel; Emrah's own need, no hotel asked yet ([spec](spec-staff-invite-tracking.md)) |
-| Reject feedback into generation | next (after invite tracking) | Small PR; better drafts every week |
-| Brand voice that learns | next | Grows from reject feedback and edits: a per-hotel style memory the hotel can see and correct; a fact check of drafts against the profile |
-| Target guest markets per hotel | parked | Replaces fixed tier languages; GBP posts per language; needs guest-mix answers |
-| AI art director | parked | Claude tags and scores photos, finds gaps, sends staff weekly shot lists; fits the asset pipeline |
-| Guest photos with consent | parked | QR in the room → upload page; consent recorded; Claude picks and credits |
-| Reviews into content | parked | Praise becomes posts, complaints become "don't feature"; review APIs' terms limit access |
-| Replies in the guest's language | parked | Review and comment reply drafts with the hotel's knowledge |
-| Posts linked to bookings | parked | UTM on every post + booking-engine referrals; the strongest sales story, needs booking-engine access |
-| Timing per guest market | parked | Booking windows and holidays per market (DE early, RU late; Bayram) |
-| Cross-network campaign planning | parked | A monthly story arc instead of single posts |
-| Channel-manager link for empty dates | parked | Only after the manual pilot shows hotels use it (HotelRunner, Elektraweb…) |
-| Videos to Buffer | parked | Reels and TikTok matter; publishing skips videos today |
-| Duplicate drafts and posts on retry | parked | Fix when it bites a customer (ARCHITECTURE, design limits) |
-| Several posts per language on one account | dropped | Floods the hotel's own followers |
+- **One issue per idea**, its "why / what it needs" as the description. A second label is
+  its status: `now` (being tested or built), `next`, `parked` (good, not now), `dropped`.
+  Value and effort are judgement until a customer confirms them.
+- **An idea with a spec is an Epic**, and the spec's PR stack its child issues, one per PR,
+  moved to Done as each PR merges. The spec itself stays here as `spec-*.md`, linked from the
+  Epic.
+- Decisions, strategy and the open questions below stay in this folder: they are prose, not
+  work items.
 
 ## Open questions
 

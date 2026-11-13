@@ -15,7 +15,7 @@ run out on their own. Spec: [spec-staff-invite-tracking.md](spec-staff-invite-tr
 
 ## 2026-11-06: One bet at a time: the empty-dates pilot, by hand
 
-Of the ideas in ideas.md, "posts driven by empty dates" is the one to test first: it ties
+Of the ideas in the backlog (Jira, see ideas.md), "posts driven by empty dates" is the one to test first: it ties
 posting to bookings, which a platform can't do. Test it with no code: the hotel description
 already goes into the generation prompt (`app/generation/prompts.py`), so an operator adds
 the dates, the perk and a booking link with UTM to it, generates, reviews, and asks the hotel

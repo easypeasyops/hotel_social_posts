@@ -2,11 +2,11 @@
 # charts/service, 1.2.1 or later), shared by every environment. Argo CD renders aipostit
 # from that chart, pinned by digest in the platform's apps/aipostit/envs/<env>.yaml, with
 # these values from this repo, layered as
-#   deploy/service/values.yaml   this file
-#   deploy/envs/<env>.yaml       the environment's settings and image digest
+#   deploy/service/values.yaml             this file
+#   deploy/service/slo-rules.values.yaml   prod only: the SLO rules generated from
+#                                          deploy/prometheus/slos.yaml
+#   deploy/envs/<env>.yaml                 the environment's settings and image digest
 # CI renders both environments with the chart and validates the result (ci.yml, deploy).
-# Not layered yet: deploy/service/slo-rules.values.yaml, the SLO rules generated from
-# deploy/prometheus/slos.yaml. They ship once the platform lists that file for prod.
 
 app:
   name: aipostit

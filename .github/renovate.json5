@@ -1,0 +1,37 @@
+// Renovate moves the service chart CI renders the deploy values with (CHART: in ci.yml),
+// which Dependabot can't (dependabot.yaml has the rest). It follows the chart's releases on
+// GHCR, version and digest together, checked whenever Renovate runs. A minor or patch
+// auto-merges once CI is green; a major waits for a person, since the apps' values may have
+// to change with it.
+//
+// Only this regex manager runs: the pinned GitHub Actions keep one bumper (Dependabot).
+// Needs the Renovate GitHub App installed on the repo.
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+  enabledManagers: ["custom.regex"],
+  customManagers: [
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/ci\\.yml$/"],
+      matchStrings: [
+        "CHART: oci://(?<depName>ghcr\\.io/easypeasyops/charts/service)@(?<currentDigest>sha256:[a-f0-9]{64}) # (?<currentValue>\\S+)",
+      ],
+      datasourceTemplate: "docker",
+      versioningTemplate: "semver", // skips the sha256-… attestation tags
+    },
+  ],
+  packageRules: [
+    {
+      matchDepNames: ["ghcr.io/easypeasyops/charts/service"],
+      commitMessageTopic: "service chart",
+      automerge: true,
+      automergeStrategy: "squash",
+    },
+    {
+      matchDepNames: ["ghcr.io/easypeasyops/charts/service"],
+      matchUpdateTypes: ["major"],
+      automerge: false,
+    },
+  ],
+}

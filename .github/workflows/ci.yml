@@ -73,15 +73,15 @@ jobs:
       smoke-command: docker run --rm "$IMAGE" python -c "import app.main"
 
   # Each app's deploy values (apps/<app>/deploy/), rendered for each environment with the
-  # platform's service chart as Argo CD will, and schema-checked. The chart is the release
-  # the platform's apps/<app>/envs/ pin: move CHART with them.
+  # platform's service chart as Argo CD will, and schema-checked. CHART is the latest service
+  # chart release: Renovate moves it (.github/renovate.json5), keep version and digest together.
   deploy:
     name: deploy values
     needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      CHART: oci://ghcr.io/easypeasyops/charts/service@sha256:ca3d68b758d57577660a870180415210590c9ed299d80756102debb502d012f4 # 1.2.1
+      CHART: oci://ghcr.io/easypeasyops/charts/service@sha256:df51161143266cc5d10dc92148e1baae931d5c65adfa7a46ecba8e5ef866f8ff # 1.6.0
       CRDS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/501527ab9c40c827144c8f45945b25a023e344ce
       KUBECONFORM: ghcr.io/yannh/kubeconform:v0.8.0
     steps:

@@ -1,16 +1,33 @@
-// Renovate moves the service chart CI renders the deploy values with (CHART: in ci.yml),
-// which Dependabot can't (dependabot.yaml has the rest). It follows the chart's releases on
-// GHCR, version and digest together, checked whenever Renovate runs. A minor or patch
-// auto-merges once CI is green; a major waits for a person, since the apps' values may have
-// to change with it.
+// Renovate moves the pins Dependabot can't (dependabot.yaml has the rest):
 //
-// Only this regex manager runs: the pinned GitHub Actions keep one bumper (Dependabot).
+// - The platform commit: platform.lock, the reusable workflows' SHAs in ci.yml and the
+//   platform checkout in its deploy job are one dependency, so they move in one PR, weekly,
+//   to the platform's main. CI on that PR is the proof both apps work on the new commit; it
+//   auto-merges once green.
+// - The service chart CI renders the deploy values with (CHART: in ci.yml). It follows the
+//   chart's releases on GHCR, version and digest together, checked whenever Renovate runs.
+//   A minor or patch auto-merges once CI is green; a major waits for a person, since the
+//   apps' values may have to change with it.
+//
+// Only these regex managers run: the pinned GitHub Actions keep one bumper (Dependabot).
 // Needs the Renovate GitHub App installed on the repo.
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["config:recommended"],
   enabledManagers: ["custom.regex"],
   customManagers: [
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^platform\\.lock$/", "/^\\.github/workflows/ci\\.yml$/"],
+      matchStrings: [
+        "easypeasyops/platform(?:/\\.github/workflows/[\\w.-]+)?@(?<currentDigest>[a-f0-9]{40})",
+        "ref: (?<currentDigest>[a-f0-9]{40}) # platform\\.lock",
+      ],
+      depNameTemplate: "easypeasyops/platform",
+      packageNameTemplate: "https://github.com/easypeasyops/platform",
+      datasourceTemplate: "git-refs",
+      currentValueTemplate: "main",
+    },
     {
       customType: "regex",
       managerFilePatterns: ["/^\\.github/workflows/ci\\.yml$/"],
@@ -22,6 +39,13 @@
     },
   ],
   packageRules: [
+    {
+      matchDepNames: ["easypeasyops/platform"],
+      schedule: ["* 0-3 * * 1"], // weekly: early Monday, as app-template's schedule:weekly
+      commitMessageTopic: "platform.lock",
+      automerge: true,
+      automergeStrategy: "squash",
+    },
     {
       matchDepNames: ["ghcr.io/easypeasyops/charts/service"],
       commitMessageTopic: "service chart",

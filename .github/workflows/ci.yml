@@ -149,7 +149,9 @@ jobs:
   # the front door on each hostname, metrics targets up, PrometheusRules loaded (the
   # platform's reusable-kind-e2e.yml). About 15 minutes, so only where the platform or the
   # chart moves: Renovate's lock and chart PRs (renovate/ branches), pushes to main and a
-  # manual run. Other PRs skip it, which still reports success.
+  # manual run. Other PRs skip it, which still reports success. deploybot has none yet: it
+  # exits without a real GitHub App key and Slack token, and is Ready only on a live Slack
+  # Socket Mode connection, which CI mustn't open (Slack would route real commands to it).
   e2e:
     needs: scope
     uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
@@ -160,22 +162,12 @@ jobs:
       context: apps/aipostit
       chart: ${{ needs.scope.outputs.chart }}
 
-  deploybot-e2e:
-    needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
-    with:
-      run: ${{ needs.scope.outputs.full == 'true' && (github.event_name != 'pull_request' || startsWith(github.head_ref, 'renovate/')) }}
-      app: deploybot
-      env: ops
-      context: apps/deploybot
-      chart: ${{ needs.scope.outputs.chart }}
-
   # The one required check: green only when every job above passed (or was skipped as
   # docs-only by its own input, which still reports success).
   gate:
     name: ci
     if: always()
-    needs: [scope, check, image, deploy, deploybot-check, deploybot-image, e2e, deploybot-e2e]
+    needs: [scope, check, image, deploy, deploybot-check, deploybot-image, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

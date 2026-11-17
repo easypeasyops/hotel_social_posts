@@ -6,8 +6,8 @@
 //   auto-merges once green.
 // - The service chart CI renders the deploy values with (CHART: in ci.yml). It follows the
 //   chart's releases on GHCR, version and digest together, checked whenever Renovate runs.
-//   A minor or patch auto-merges once CI is green; a major waits for a person, since the
-//   apps' values may have to change with it.
+//   A minor or patch auto-merges once CI is green; a major opens no PR until a person ticks
+//   it on the Dependency Dashboard, since the apps' values may have to change with it.
 //
 // Only these regex managers run: the pinned GitHub Actions keep one bumper (Dependabot).
 // Needs the Renovate GitHub App installed on the repo.
@@ -56,6 +56,11 @@
       matchDepNames: ["ghcr.io/easypeasyops/charts/service"],
       matchUpdateTypes: ["major"],
       automerge: false,
+    },
+    {
+      // A major opens no PR until a person ticks it on the Dependency Dashboard.
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
     },
   ],
 }

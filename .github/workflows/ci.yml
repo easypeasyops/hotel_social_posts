@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch: # e.g. the kind e2e on a branch (e2e below)
 
 # Least privilege: the default GITHUB_TOKEN can write to the repo; CI only needs to read.
 permissions:
@@ -20,8 +21,14 @@ jobs:
     name: change scope
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    # CHART is the latest service chart release, which the deploy and e2e jobs render with:
+    # Renovate moves it (.github/renovate.json5), keep version and digest together. Here, to
+    # be one line: a reusable workflow's inputs can't read another job's env, only outputs.
+    env:
+      CHART: oci://ghcr.io/easypeasyops/charts/service@sha256:11a7ca25f34cd7a16bf2fbd4a5ad86e3bbc556f19f9ab236e1c2b05f50fb6a7f # 1.7.1
     outputs:
       full: ${{ steps.scope.outputs.full }}
+      chart: ${{ env.CHART }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,7 +41,7 @@ jobs:
   # The platform's reusable workflows, pinned to platform.lock's commit (keep them equal).
   check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@aa15f6827fd704b3392ff60e0d8c92b879e2031c # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@588b5c1632fc93cbc0683196a4f39614e4c6a4c5 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/aipostit
@@ -46,7 +53,7 @@ jobs:
 
   image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@aa15f6827fd704b3392ff60e0d8c92b879e2031c # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@588b5c1632fc93cbc0683196a4f39614e4c6a4c5 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/aipostit
@@ -56,7 +63,7 @@ jobs:
   # the platform's coverage minimum from the start.
   deploybot-check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@aa15f6827fd704b3392ff60e0d8c92b879e2031c # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@588b5c1632fc93cbc0683196a4f39614e4c6a4c5 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/deploybot
@@ -65,7 +72,7 @@ jobs:
 
   deploybot-image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@aa15f6827fd704b3392ff60e0d8c92b879e2031c # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@588b5c1632fc93cbc0683196a4f39614e4c6a4c5 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/deploybot
@@ -73,15 +80,14 @@ jobs:
       smoke-command: docker run --rm "$IMAGE" python -c "import app.main"
 
   # Each app's deploy values (apps/<app>/deploy/), rendered for each environment with the
-  # platform's service chart as Argo CD will, and schema-checked. CHART is the latest service
-  # chart release: Renovate moves it (.github/renovate.json5), keep version and digest together.
+  # platform's service chart (CHART, in the scope job) as Argo CD will, and schema-checked.
   deploy:
     name: deploy values
     needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      CHART: oci://ghcr.io/easypeasyops/charts/service@sha256:11a7ca25f34cd7a16bf2fbd4a5ad86e3bbc556f19f9ab236e1c2b05f50fb6a7f # 1.7.1
+      CHART: ${{ needs.scope.outputs.chart }}
       CRDS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/501527ab9c40c827144c8f45945b25a023e344ce
       KUBECONFORM: ghcr.io/yannh/kubeconform:v0.8.0
     steps:
@@ -100,7 +106,7 @@ jobs:
         if: needs.scope.outputs.full == 'true'
         with:
           repository: easypeasyops/platform
-          ref: aa15f6827fd704b3392ff60e0d8c92b879e2031c # platform.lock
+          ref: 588b5c1632fc93cbc0683196a4f39614e4c6a4c5 # platform.lock
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -138,12 +144,38 @@ jobs:
             -schema-location "$CRDS/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
             .
 
+  # Each app deployed on a kind cluster with the platform at platform.lock's commit and the
+  # chart CHART pins, with its values for one environment, then checked: workloads Ready,
+  # the front door on each hostname, metrics targets up, PrometheusRules loaded (the
+  # platform's reusable-kind-e2e.yml). About 15 minutes, so only where the platform or the
+  # chart moves: Renovate's lock and chart PRs (renovate/ branches), pushes to main and a
+  # manual run. Other PRs skip it, which still reports success.
+  e2e:
+    needs: scope
+    uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@588b5c1632fc93cbc0683196a4f39614e4c6a4c5 # platform.lock
+    with:
+      run: ${{ needs.scope.outputs.full == 'true' && (github.event_name != 'pull_request' || startsWith(github.head_ref, 'renovate/')) }}
+      app: aipostit
+      env: staging
+      context: apps/aipostit
+      chart: ${{ needs.scope.outputs.chart }}
+
+  deploybot-e2e:
+    needs: scope
+    uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@588b5c1632fc93cbc0683196a4f39614e4c6a4c5 # platform.lock
+    with:
+      run: ${{ needs.scope.outputs.full == 'true' && (github.event_name != 'pull_request' || startsWith(github.head_ref, 'renovate/')) }}
+      app: deploybot
+      env: ops
+      context: apps/deploybot
+      chart: ${{ needs.scope.outputs.chart }}
+
   # The one required check: green only when every job above passed (or was skipped as
   # docs-only by its own input, which still reports success).
   gate:
     name: ci
     if: always()
-    needs: [scope, check, image, deploy, deploybot-check, deploybot-image]
+    needs: [scope, check, image, deploy, deploybot-check, deploybot-image, e2e, deploybot-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

@@ -23,3 +23,7 @@ cronJobs:
   sync-buffer: null
   purge-invites: null
   purge-photos: null # prod's run deletes from the same shared Storage
+# PT-81 deliberate break, never merged: a memory limit the app cannot start in.
+resources:
+  requests: { cpu: 50m, memory: 32Mi }
+  limits: { memory: 32Mi }

@@ -41,7 +41,7 @@ jobs:
   # The platform's reusable workflows, pinned to platform.lock's commit (keep them equal).
   check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@817a9d13b6fc1dc4105376b0daa4ce2759b5d328 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/aipostit
@@ -53,7 +53,7 @@ jobs:
 
   image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@817a9d13b6fc1dc4105376b0daa4ce2759b5d328 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/aipostit
@@ -63,7 +63,7 @@ jobs:
   # the platform's coverage minimum from the start.
   deploybot-check:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-python-check.yml@817a9d13b6fc1dc4105376b0daa4ce2759b5d328 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       working-directory: apps/deploybot
@@ -72,7 +72,7 @@ jobs:
 
   deploybot-image:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-image.yml@817a9d13b6fc1dc4105376b0daa4ce2759b5d328 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' }}
       context: apps/deploybot
@@ -106,7 +106,7 @@ jobs:
         if: needs.scope.outputs.full == 'true'
         with:
           repository: easypeasyops/platform
-          ref: f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
+          ref: 817a9d13b6fc1dc4105376b0daa4ce2759b5d328 # platform.lock
           path: platform
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -152,7 +152,7 @@ jobs:
   # manual run. Other PRs skip it, which still reports success.
   e2e:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@817a9d13b6fc1dc4105376b0daa4ce2759b5d328 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' && (github.event_name != 'pull_request' || startsWith(github.head_ref, 'renovate/')) }}
       app: aipostit
@@ -165,7 +165,7 @@ jobs:
   # real commands to it. Not monitored, so the metrics and rules checks skip.
   deploybot-e2e:
     needs: scope
-    uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@f6fcc06ba7a33edd983585f804b09fc6b97bec09 # platform.lock
+    uses: easypeasyops/platform/.github/workflows/reusable-kind-e2e.yml@817a9d13b6fc1dc4105376b0daa4ce2759b5d328 # platform.lock
     with:
       run: ${{ needs.scope.outputs.full == 'true' && (github.event_name != 'pull_request' || startsWith(github.head_ref, 'renovate/')) }}
       app: deploybot

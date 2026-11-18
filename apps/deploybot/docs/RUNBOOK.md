@@ -30,8 +30,9 @@ or anything it doesn't know, shows the help privately.
 | `SLACK_CHANNEL_ID` | #aipostit-deploys' ID (`C…`) | no |
 | `ALLOWED_USERS` | comma-separated Slack user IDs (`U…`) that may release, promote and roll back; empty: no one | no |
 | `GITHUB_REPOSITORY` | optional, `easypeasyops/hotel_social_posts` by default | no |
+| `DEPLOYBOT_OFFLINE` | `1` only in CI's kind e2e: no Slack, no GitHub, Ready at once ([ARCHITECTURE](ARCHITECTURE.md)); never in the cluster | no |
 
-Every one but the last is required: the bot stops at start, naming the missing one. Secrets
+All but the last two are required: the bot stops at start, naming the missing one. Secrets
 never go into git: locally a `.env` (ignored), in the cluster the platform's `deploybot` store.
 
 ## Set up once
@@ -94,6 +95,8 @@ To add someone to the allowed users, add their Slack member ID to `allowedUsers`
 - Slack says "dispatch_failed" or the command times out: the bot isn't connected. Its pod is
   then not Ready (`/readyz` answers 503). Check its logs for the Socket Mode connection; a
   revoked app token fails there. A revoked bot token stops it at start, before the probes.
+- The log says "OFFLINE (DEPLOYBOT_OFFLINE=1)": the pod answers no command. Only CI's kind
+  e2e sets it; remove it from the values that set it and merge.
 - The pod crash-loops with "GITHUB_APP_PRIVATE_KEY_BASE64 is not a whole PEM private key": the
   base64 in `.env` was cut short or mangled (it happened on the first deploy: a paste lost the
   end of the line). Rewrite the line from the key file, reload the store and restart:

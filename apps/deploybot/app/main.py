@@ -3,6 +3,7 @@ so Slack needs no way in to the laptop cluster. `python -m app.main`."""
 
 import logging
 import os
+import signal
 from collections.abc import Callable
 from typing import Any
 
@@ -57,6 +58,14 @@ def build(settings: Settings, repo: Repository, *, verify_token: bool = True) ->
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = Settings.from_env(os.environ)
+    if settings.offline:
+        log.warning(
+            "OFFLINE (DEPLOYBOT_OFFLINE=1): no Slack connection, no GitHub, no commands; "
+            "/readyz answers ok. For CI's kind e2e only: the cluster's deploybot never sets it."
+        )
+        serve(lambda: True)
+        signal.pause()  # until the kubelet stops the pod
+        return
     repo = GitHub(
         settings.github_app_client_id,
         settings.github_app_installation_id,

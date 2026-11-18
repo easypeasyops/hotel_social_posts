@@ -1,4 +1,5 @@
 import base64
+import signal
 import threading
 from typing import Any
 
@@ -9,7 +10,7 @@ from slack_sdk.web import SlackResponse
 
 import app.main
 from app.config import Settings
-from tests.test_config import PEM
+from tests.test_config import ENV, PEM, PLACEHOLDER
 
 COMMAND = {
     "command": "/aipostit",
@@ -92,12 +93,15 @@ def test_the_slash_command_is_acknowledged_and_run(
     assert [c["text"] for c in ran] == [" status "]
 
 
-def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("connected", [True, False])
+def test_main_connects_with_the_app_token_and_is_ready_only_while_connected(
+    connected: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
     started: list[str] = []
 
     class Client:
         def is_connected(self) -> bool:
-            return True
+            return connected
 
     class Handler:
         def __init__(self, bolt: object, token: str) -> None:
@@ -123,5 +127,27 @@ def test_main_connects_with_the_app_token(monkeypatch: pytest.MonkeyPatch) -> No
     probes: list[bool] = []
     monkeypatch.setattr(app.main, "serve", lambda connected: probes.append(connected()))
     app.main.main()
-    assert probes == [True]  # the probes answer before the bot blocks on Slack
+    assert probes == [connected]  # the probes answer before the bot blocks on Slack
     assert started == ["xapp-1"]
+
+
+def test_main_offline_opens_no_connection_and_is_ready(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    for key in ENV:
+        monkeypatch.setenv(key, PLACEHOLDER)
+    monkeypatch.setenv("DEPLOYBOT_OFFLINE", "1")
+
+    def no(*_: object, **__: object) -> None:
+        raise AssertionError("offline: no Slack, no GitHub")
+
+    for name in ("build", "SocketModeHandler", "GitHub"):
+        monkeypatch.setattr(app.main, name, no)
+    probes: list[bool] = []
+    monkeypatch.setattr(app.main, "serve", lambda connected: probes.append(connected()))
+    paused: list[bool] = []
+    monkeypatch.setattr(signal, "pause", lambda: paused.append(True))
+    app.main.main()
+    assert probes == [True]
+    assert paused == [True]
+    assert "OFFLINE (DEPLOYBOT_OFFLINE=1)" in caplog.text

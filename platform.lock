@@ -1,4 +1,4 @@
 # The platform commit this repo is built, tested and deployed against: CI's reusable
 # workflows are pinned to it (.github/workflows/ci.yml names the same SHA). Renovate moves
 # them together, weekly (.github/renovate.json5).
-easypeasyops/platform@f6fcc06ba7a33edd983585f804b09fc6b97bec09
+easypeasyops/platform@817a9d13b6fc1dc4105376b0daa4ce2759b5d328

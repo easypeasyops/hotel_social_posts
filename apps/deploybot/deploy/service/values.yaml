@@ -34,6 +34,11 @@ env:
   - { name: SLACK_APP_TOKEN, secret: { name: '{{ include "service.fullname" . }}-env', key: SLACK_APP_TOKEN } }
   - { name: SLACK_BOT_TOKEN, secret: { name: '{{ include "service.fullname" . }}-env', key: SLACK_BOT_TOKEN } }
   - { name: GITHUB_APP_PRIVATE_KEY_BASE64, secret: { name: '{{ include "service.fullname" . }}-env', key: GITHUB_APP_PRIVATE_KEY_BASE64 } }
+  # Offline (no Slack, no GitHub, Ready at once: docs/ARCHITECTURE.md) only in CI's kind e2e,
+  # which loads placeholder keys. This depends on the platform's e2e (scripts/kind-e2e.sh)
+  # deploying the image by the tag `e2e` with no digest; Argo CD deploys by digest, no tag, so
+  # the cluster's deploybot never gets it. If the platform renames that tag, the e2e goes red.
+  - { name: DEPLOYBOT_OFFLINE, value: "1", when: '{{ eq .Values.image.tag "e2e" }}' }
 
 config:
   slackTeamId: ""

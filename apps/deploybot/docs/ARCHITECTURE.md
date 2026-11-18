@@ -20,6 +20,13 @@ PRs as they do from Actions:
   `SLACK_APP_TOKEN`). Nothing connects to it but the kubelet's probes on port 8000
   (`app/health.py`): `/healthz` while the process runs, `/readyz` while the Slack connection
   is up. The platform's service chart probes every app there; no Gateway route.
+- **Offline mode, for CI only.** `DEPLOYBOT_OFFLINE=1` starts the bot without Slack or GitHub:
+  no Socket Mode connection, no token verification, no check of the GitHub App key, and
+  `/readyz` answers `ok` once the settings load (every key must still be set). It logs that
+  it is offline. It lets the platform's kind e2e, which loads placeholder keys, deploy and
+  check deploybot without real keys: a CI copy on the real Slack app would receive some of
+  the real `/aipostit` commands (Slack spreads them over every open connection). The
+  cluster's deploybot never sets it; without it, behaviour is unchanged.
 - **A separate app, not part of aipostit's release.** A tool that rolls aipostit back must not
   be rolled back with it, and it has no use for aipostit's keys (Supabase, Anthropic, Buffer).
   It has its own image (`release.yml` from tags `deploybot/vX.Y.Z`), namespace and store.

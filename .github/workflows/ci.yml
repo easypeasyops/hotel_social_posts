@@ -25,7 +25,7 @@ jobs:
     # Renovate moves it (.github/renovate.json5), keep version and digest together. Here, to
     # be one line: a reusable workflow's inputs can't read another job's env, only outputs.
     env:
-      CHART: oci://ghcr.io/easypeasyops/charts/service@sha256:11a7ca25f34cd7a16bf2fbd4a5ad86e3bbc556f19f9ab236e1c2b05f50fb6a7f # 1.7.1
+      CHART: oci://ghcr.io/easypeasyops/charts/service@sha256:3a91f5bd9b456db0e5ff92fe3dbae990e72aa0106272f66326243baa9dcf391f # 1.8.0
     outputs:
       full: ${{ steps.scope.outputs.full }}
       chart: ${{ env.CHART }}

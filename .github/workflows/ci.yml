@@ -109,7 +109,7 @@ jobs:
           ref: 3e2c0cd1db4d3aba7fdbe65fd3f96226a0b2e6d4 # platform.lock
           path: platform
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         if: needs.scope.outputs.full == 'true'
         with:
           enable-cache: false
